@@ -1,10 +1,23 @@
 import { notFound } from "next/navigation";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
 import { ProductDetail } from "@/components/product-detail";
 import { LiveProductDetail } from "@/components/live-product-detail";
-import { getProductBySlug, getRelated, products } from "@/lib/products";
-import { apiToCard, fetchProducts } from "@/lib/api";
+import { ShopLayout } from "@/components/shop-layout";
+import {
+  getProductBySlug,
+  getRelated,
+  products,
+  categories as staticCategories,
+} from "@/lib/products";
+import {
+  apiToCard,
+  fetchProducts,
+  fetchProductBySlug,
+  fetchCategories,
+  fetchWalletBalance,
+  topCategories,
+  categorySlugMap,
+  type CategoryItem,
+} from "@/lib/api";
 
 // Prerender the sample products; live API slugs render on demand.
 export function generateStaticParams() {
@@ -18,28 +31,46 @@ export default async function ProductPage({
 }) {
   const { slug } = await params;
 
+  let categoryItems: CategoryItem[] = [];
+  let walletBalance = 1000;
+  let cats: any[] = [];
+  try {
+    cats = await fetchCategories();
+    walletBalance = await fetchWalletBalance().catch(() => 1000);
+    categoryItems = topCategories(cats);
+  } catch {
+    categoryItems = staticCategories.map((c) => ({
+      label: c.label,
+      slug: c.slug,
+      color: c.color,
+      active: false,
+    }));
+  }
+  const slugs = categorySlugMap(cats);
+
   const sample = getProductBySlug(slug);
   if (sample) {
     return (
-      <>
-        <SiteHeader />
+      <ShopLayout
+        categories={categoryItems}
+        walletBalance={walletBalance}
+        hideSidebar={true}
+      >
         <ProductDetail product={sample} related={getRelated(slug)} />
-        <SiteFooter />
-      </>
+      </ShopLayout>
     );
   }
 
-  let item: Awaited<ReturnType<typeof fetchProducts>>[number] | undefined;
+  let item: Awaited<ReturnType<typeof fetchProductBySlug>> = null;
   let related: ReturnType<typeof apiToCard>[] = [];
   try {
-    const prods = await fetchProducts();
-    item = prods.find((p) => p.slug === slug);
+    item = await fetchProductBySlug(slug);
     if (item) {
-      const current = item;
-      related = prods
-        .filter((p) => p.categoryName === current.categoryName && p.slug !== current.slug)
+      const relatedProds = await fetchProducts(item.categoryId).catch(() => []);
+      related = relatedProds
+        .filter((p) => p.slug !== item!.slug)
         .slice(0, 4)
-        .map(apiToCard);
+        .map((p) => apiToCard(p, slugs));
     }
   } catch {
     // API unreachable — fall through to 404
@@ -48,10 +79,12 @@ export default async function ProductPage({
   if (!item) notFound();
 
   return (
-    <>
-      <SiteHeader />
+    <ShopLayout
+      categories={categoryItems}
+      walletBalance={walletBalance}
+      hideSidebar={true}
+    >
       <LiveProductDetail product={item} related={related} />
-      <SiteFooter />
-    </>
+    </ShopLayout>
   );
 }

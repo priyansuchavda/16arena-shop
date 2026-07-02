@@ -1,3 +1,5 @@
+import { categorySlugFromSub } from "./shop-catalog";
+
 export type Tone = "hot" | "low" | "new";
 export type Tag = { tone: Tone; label: string };
 
@@ -10,6 +12,7 @@ export type CardModel = {
   id: string;
   slug: string;
   brand: string;
+  name?: string;
   sub: string;
   accent: string;
   accent2: string;
@@ -19,10 +22,12 @@ export type CardModel = {
   saveStr?: string;
   savePct?: number;
   cashbackPct?: number;
+  coinAmount?: number;
   wishlist?: number;
   rating?: number;
   badge?: CardBadge;
   tagline?: string;
+  categorySlug?: string;
 };
 
 export type Product = {
@@ -168,15 +173,19 @@ export function productToCard(p: Product): CardModel {
     id: p.id,
     slug: p.slug,
     brand: p.brand,
+    name: p.brand,
     sub: p.sub,
     accent: p.accent,
     accent2: p.accent2,
     priceStr: d.cashStr,
+    originalStr: d.faceStr,
+    coinAmount: d.coins,
     saveStr: p.save,
     cashbackPct: 2,
     rating: p.rating,
     badge: p.tag,
     tagline: p.tagline,
+    categorySlug: categorySlugFromSub(p.sub),
   };
 }
 
@@ -192,14 +201,14 @@ export const tickerItems: string[] = [
   "z3nith claimed BigBasket ₹1,000",
 ];
 
-export type Category = { label: string; color: string; active?: boolean };
+export type Category = { label: string; slug: string; color: string; active?: boolean };
 
 export const categories: Category[] = [
-  { label: "Hot Deals", color: "#FF7A1A", active: true },
-  { label: "Gaming", color: "#a78bfa" },
-  { label: "Movies", color: "#fb7185" },
-  { label: "Music", color: "#f472d0" },
-  { label: "Shopping", color: "#34d399" },
-  { label: "Food", color: "#fbbf24" },
-  { label: "Travel", color: "#38bdf8" },
+  { label: "Hot Deals", slug: "hot-deals", color: "#FF7A1A", active: true },
+  { label: "Gaming", slug: "gaming", color: "#a78bfa" },
+  { label: "Movies", slug: "movies", color: "#fb7185" },
+  { label: "Music", slug: "music", color: "#f472d0" },
+  { label: "Shopping", slug: "shopping", color: "#34d399" },
+  { label: "Food", slug: "food", color: "#fbbf24" },
+  { label: "Travel", slug: "travel", color: "#38bdf8" },
 ];

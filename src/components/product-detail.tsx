@@ -2,53 +2,53 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArenaCoin } from "./arena-coin";
-import { ProductCard } from "./product-card";
-import { HudPanel, CornerTicks } from "./hud";
-import { CoinIcon, StarIcon, ZapIcon } from "./icons";
+import Image from "next/image";
+import coinImg from "@/assets/png/coin.png";
+import { HudPanel } from "./hud";
+import { ZapIcon } from "./icons";
 import {
   CARD_DENOM_INDEX,
   denominations,
-  inr,
-  productToCard,
-  rgba,
   type Product,
 } from "@/lib/products";
 
-const REDEEM_STEPS = [
-  "Complete checkout — the voucher lands in your 16Arena wallet instantly.",
-  "Open Wallet → Vouchers and copy your unique code.",
-  "Apply the code at the brand and enjoy your bonus value.",
-];
-
-const TERMS = [
-  "Vouchers are non-refundable once delivered to your wallet.",
-  "Arena Coins applied at checkout are deducted immediately.",
-  "Validity and usage follow the issuing brand's policy.",
-  "Coin rewards credit within 24 hours of a successful order.",
+const FAQS = [
+  {
+    q: "How does the top-up work?",
+    a: "Select your desired denomination, enter your account details (such as game UID for gaming items), and complete the payment. The vouchers or points are credited to your account instantly.",
+  },
+  {
+    q: "How long does delivery take?",
+    a: "Delivery is instant! Once the transaction completes successfully, you will receive confirmation and the vouchers will be delivered directly to your wallet.",
+  },
+  {
+    q: "What should I do if I entered the wrong details?",
+    a: "Please double check your details before buying. Digital vouchers and top-ups are non-refundable once processed due to the instant nature of fulfillment.",
+  },
 ];
 
 export function ProductDetail({
   product,
-  related,
 }: {
   product: Product;
-  related: Product[];
+  related: Product[]; // Kept in signature for compatibility
 }) {
   const denoms = denominations();
   const [denomIdx, setDenomIdx] = useState(CARD_DENOM_INDEX);
   const [qty, setQty] = useState(1);
+  const [isReadMore, setIsReadMore] = useState(false);
 
-  const d = denoms[denomIdx];
+  const d = denoms[denomIdx] || denoms[0];
   const payCash = d.cash * qty;
   const payCoins = d.coins * qty;
-  const reward = d.reward * qty;
+
+  const isGaming = /gaming|battle royale|fps|moba/i.test(product.sub);
 
   return (
-    <main className="mx-auto w-full max-w-[1240px] flex-1 px-6 pb-20 pt-6">
+    <main className="relative mx-auto w-full max-w-[1240px] flex-1 px-6 pb-20 pt-6">
       {/* Breadcrumb */}
-      <div className="font-data mb-6 flex items-center gap-2 text-[12px] uppercase tracking-[0.06em] text-[var(--muted)]">
-        <Link href="/" className="text-[var(--muted)] transition-colors hover:text-[var(--flame)]">
+      <div className="font-data mb-8 flex items-center gap-2 text-[12px] uppercase tracking-[0.06em] text-[var(--muted)] relative z-10">
+        <Link href="/" className="transition-colors hover:text-[var(--flame)]">
           ‹ Shop
         </Link>
         <span className="text-[var(--faint)]">/</span>
@@ -57,203 +57,263 @@ export function ProductDetail({
         <span className="text-[var(--ink)]">{product.brand}</span>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-2">
-        {/* Gallery */}
-        <div>
-          <HudPanel
-            cut={18}
-            border="var(--line-2)"
-            fill="var(--carbon)"
-            className="relative"
-            innerClassName="relative flex h-[380px] items-center justify-center overflow-hidden"
-          >
+      <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-12 relative z-10">
+        {/* Left Column: Product Info & Descriptions */}
+        <div className="lg:col-span-7">
+          {/* Product Banner/Card Graphic */}
+          <div className="mb-6 relative inline-block">
             <div
-              className="absolute inset-0"
+              className="relative flex h-[220px] w-[440px] max-w-full flex-col items-center justify-center rounded-[16px] border border-white/[0.15] p-6 shadow-[0_26px_56px_-18px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.24)]"
               style={{
-                background: `radial-gradient(120% 110% at 50% 120%, ${rgba(product.accent, 0.5)} 0%, transparent 62%)`,
+                background: `linear-gradient(150deg, ${product.accent}, ${product.accent2})`,
               }}
-            />
-            <CornerTicks color={rgba(product.accent, 0.7)} size={13} />
-            <span className="font-data absolute left-5 top-5 rounded-[6px] border border-[var(--flame)]/30 bg-[var(--flame)]/[0.14] px-[11px] py-[5px] text-[11px] font-bold uppercase tracking-[0.06em] text-[var(--flame)]">
-              −50% Off
-            </span>
-            <div
-              className="relative flex h-[168px] w-[268px] flex-col items-center justify-center gap-2 rounded-[16px] border border-white/[0.15] shadow-[0_26px_56px_-18px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.24)]"
-              style={{ background: `linear-gradient(150deg, ${product.accent}, ${product.accent2})` }}
             >
-              <span className="text-[26px] font-extrabold text-white [text-shadow:0_2px_8px_rgba(0,0,0,0.4)]">
-                {product.brand}
-              </span>
-              <span className="font-data text-[11px] font-medium uppercase tracking-[0.18em] text-white/75">
-                Gift Card
-              </span>
+              {/* Translucent center box */}
+              <div className="flex flex-col items-center justify-center rounded-[12px] bg-white/[0.08] backdrop-blur-md px-6 py-4 border border-white/10 text-center">
+                <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-white/70">
+                  Voucher worth
+                </span>
+                <span className="text-[30px] font-extrabold leading-none text-white mt-1 tabular-nums">
+                  {d.faceStr}
+                </span>
+              </div>
+
+              {/* Logo / Brand Name at bottom-left */}
+              <div className="absolute bottom-4 left-5 flex items-center gap-2">
+                <span className="text-[12px] font-extrabold uppercase tracking-[0.06em] text-white">
+                  {product.brand}
+                </span>
+              </div>
             </div>
-          </HudPanel>
-
-          <div className="mt-[14px] grid grid-cols-4 gap-3">
-            <div
-              className="h-16 rounded-[10px] border border-[var(--flame)]/50"
-              style={{ background: `linear-gradient(150deg, ${product.accent}, ${product.accent2})` }}
-            />
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="h-16 rounded-[10px] border border-[var(--line)] bg-[var(--carbon-2)]" />
-            ))}
           </div>
-        </div>
 
-        {/* Buy panel */}
-        <div>
-          <div className="eyebrow">{product.sub}</div>
-          <h1 className="mt-2 text-[34px] font-extrabold tracking-[-0.02em] text-white">
+          {/* Title & Description */}
+          <h1 className="text-[34px] font-extrabold tracking-[-0.02em] text-white">
             {product.brand}
           </h1>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <span className="font-data inline-flex items-center gap-[5px] text-[13px] font-bold text-[var(--ink)]">
-              <StarIcon size={15} /> {product.rating}
-            </span>
-            <span className="text-[var(--faint)]">·</span>
-            <span className="font-data text-[13px] text-[var(--muted)]">2,340 ratings</span>
-            <span className="font-data rounded-[6px] bg-[var(--win)]/[0.12] px-[9px] py-1 text-[11px] font-bold uppercase tracking-[0.04em] text-[var(--win)]">
-              In stock
-            </span>
-          </div>
-          <p className="mt-4 max-w-[440px] text-sm leading-[1.6] text-[var(--muted)]">
-            Instant digital voucher delivered to your 16Arena wallet. Redeem in-app
-            — pay part cash, part Arena Coins, and earn coins back on every order.
-          </p>
 
-          <div className="eyebrow mt-7">Choose denomination</div>
-          <div className="mt-3 grid grid-cols-4 gap-[11px]">
-            {denoms.map((it, i) => {
-              const active = i === denomIdx;
-              return (
-                <button
-                  key={it.face}
-                  onClick={() => setDenomIdx(i)}
-                  className={`flex flex-col items-center gap-[3px] rounded-[11px] border px-2 py-[13px] transition ${
-                    active
-                      ? "border-[var(--flame)] bg-[var(--flame)]/[0.14] text-white"
-                      : "border-[var(--line)] bg-[var(--carbon)] text-[var(--muted)] hover:border-[var(--line-2)]"
-                  }`}
-                >
-                  <span className="text-base font-bold tabular-nums">{it.faceStr}</span>
-                  <span className="font-data text-[10px] uppercase tracking-[0.08em] opacity-65">
-                    voucher
+          <div className="mt-4 max-w-[560px]">
+            <p className="text-sm leading-[1.6] text-[var(--muted)]">
+              Instant digital delivery to your 16Arena wallet. Pay part cash, part Arena Coins, and
+              earn coins back on every order. Swag offers instant top-ups and standard packages so you
+              can grab skins, points, and items with maximum savings. All transactions are secure and
+              processed in real-time.
+            </p>
+          </div>
+
+          {/* Info row: Redeem / Expiry / Usage — separated by vertical dividers */}
+          <div className="mt-8 flex items-center max-w-[480px] rounded-[16px] border border-white/[0.08] bg-white/[0.03] px-2 py-4">
+            {[
+              {
+                icon: (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="5" y="2" width="14" height="20" rx="2" /><line x1="12" y1="18" x2="12" y2="18.01" />
+                  </svg>
+                ),
+                label: "REDEEM",
+                value: "Online",
+              },
+              {
+                icon: (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                ),
+                label: "EXPIRY",
+                value: "12 months",
+              },
+              {
+                icon: (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="9" /><polyline points="12 6 12 12 16 14" />
+                  </svg>
+                ),
+                label: "USAGE",
+                value: "Single Item",
+              },
+            ].map(({ icon, label, value }, i, arr) => (
+              <div key={label} className="flex flex-1 items-center">
+                <div className="flex flex-1 flex-col items-center gap-1.5 text-center">
+                  <span className="text-white/50">{icon}</span>
+                  <span className="font-data text-[9px] font-bold uppercase tracking-[0.12em] text-white/35">{label}</span>
+                  <span className="text-[12px] font-semibold text-white">{value}</span>
+                </div>
+                {i < arr.length - 1 && (
+                  <div className="h-10 w-px shrink-0 bg-white/10" />
+                )}
+              </div>
+            ))}
+          </div>
+
+          <hr className="my-8 border-white/10 max-w-[560px]" />
+
+          {/* How to Redeem — flat, no dropdown */}
+          <div className="max-w-[560px] rounded-[14px] border border-white/10 bg-black/20 p-5 mb-4">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-[16px]">❓</span>
+              <h2 className="font-heading text-[14px] font-bold text-white">How to redeem</h2>
+            </div>
+            <hr className="border-white/8 mb-4" />
+            <div className="flex flex-col gap-3 text-sm text-[var(--muted)]">
+              {[
+                "Complete checkout — the voucher code is generated instantly.",
+                "Open your 16Arena Wallet and copy the unique code.",
+                "Redeem the code at the merchant website to claim your credits.",
+              ].map((step, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-white">
+                    {i + 1}
                   </span>
-                </button>
-              );
-            })}
+                  <span className="leading-[1.5]">{step}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* You pay */}
-          <HudPanel cut={13} border="var(--line)" fill="var(--carbon)" className="mt-6">
-            <div className="p-[18px]">
-              <div className="flex items-center gap-[10px]">
-                <span className="text-[13px] text-[var(--muted)]">
-                  Card value{" "}
-                  <b className="font-bold tabular-nums text-[var(--ink)]">{d.faceStr}</b>
-                </span>
-                <span className="font-data rounded-[5px] bg-[var(--win)]/[0.12] px-2 py-[3px] text-[11px] font-bold uppercase tracking-[0.04em] text-[var(--win)]">
-                  −50%
-                </span>
+          {/* Terms & Conditions — flat, no dropdown */}
+          <div className="max-w-[560px] rounded-[14px] border border-white/10 bg-black/20 p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-[16px]">📄</span>
+              <h2 className="font-heading text-[14px] font-bold text-white">Terms & Conditions</h2>
+            </div>
+            <hr className="border-white/8 mb-4" />
+            <div className="flex flex-col gap-4 text-sm text-[var(--muted)]">
+              {[
+                "Vouchers are non-refundable once delivered to your wallet.",
+                "Arena Coins applied at checkout are deducted immediately.",
+                "Validity and usage follow the issuing brand's policy.",
+                "Coin rewards credit within 24 hours of a successful order.",
+              ].map((term, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-white">
+                    {i + 1}
+                  </span>
+                  <span className="leading-[1.5]">{term}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Buy & Denomination Panel */}
+        <div className="lg:col-span-5 lg:sticky lg:top-[90px]">
+          <HudPanel cut={14} border="var(--line)" fill="var(--carbon)" className="w-full">
+            <div className="p-6">
+              {/* Conditional UID input for Gaming */}
+              {isGaming && (
+                <div className="mb-4">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] block mb-2">
+                    Add User ID (UID)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Enter your Player ID / UID"
+                    className="w-full h-11 bg-black/40 border border-white/10 rounded-[10px] px-4 text-sm text-white placeholder:text-white/30 outline-none focus:border-[var(--flame)]/60 transition-colors"
+                  />
+                </div>
+              )}
+
+              {/* Coupon Code Input */}
+              <div className="mb-6">
+                <label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] block mb-2">
+                  Coupon Code
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Have a voucher code?"
+                    className="flex-1 h-11 bg-black/40 border border-white/10 rounded-[10px] px-4 text-sm text-white placeholder:text-white/30 outline-none focus:border-[var(--flame)]/60 transition-colors"
+                  />
+                  <button className="h-11 px-4 bg-white/5 border border-white/10 rounded-[10px] text-sm text-white hover:bg-white/10 transition">
+                    Apply
+                  </button>
+                </div>
               </div>
-              <div className="eyebrow mt-[13px]">You pay</div>
-              <div className="mt-[7px] flex items-center gap-[11px]">
-                <span className="text-[32px] font-extrabold tabular-nums text-white">{inr(payCash)}</span>
-                <span className="text-xl text-[var(--faint)]">+</span>
-                <ArenaCoin value={payCoins} size={26} />
+
+              {/* Denomination Grid */}
+              <div className="mb-6">
+                <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] mb-3">
+                  Select Amount
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {denoms.map((denom, i) => {
+                    const active = i === denomIdx;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => setDenomIdx(i)}
+                        className={`flex flex-col items-center gap-[4px] rounded-[11px] border px-3 py-3 transition text-center ${
+                          active
+                            ? "border-[var(--flame)] bg-[var(--flame)]/[0.08] text-white"
+                            : "border-white/10 bg-black/20 text-[var(--muted)] hover:border-white/20"
+                        }`}
+                      >
+                        <span className="text-base font-bold tabular-nums text-white">
+                          {denom.faceStr}
+                        </span>
+                        <span className="text-[10px] text-[var(--muted)]">Pay {denom.cashStr}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="mt-[9px] text-[13px] font-bold text-[var(--win)]">
-                You save {inr(payCash)}
+
+              {/* You Pay details box */}
+              <div className="p-4 bg-black/20 border border-white/5 rounded-xl mb-6">
+                <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
+                  You Pay
+                </div>
+                <div className="mt-2.5 flex items-center gap-2">
+                  <span className="text-[28px] font-extrabold text-white tabular-nums leading-none">
+                    ₹{payCash.toLocaleString("en-IN")}
+                  </span>
+                  <span className="text-xl text-white/40 leading-none">+</span>
+                  <div className="flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                    <Image src={coinImg} alt="Coins" width={15} height={15} />
+                    <span className="text-[14px] font-bold text-[#FBCD00] tabular-nums leading-none">
+                      {payCoins.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between text-[12px] border-t border-white/5 pt-3">
+                  <span className="text-[var(--muted)]">Total Savings:</span>
+                  <span className="font-bold text-[var(--win)]">
+                    Save {Math.round((1 - d.cash / d.face) * 100)}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Quantity Stepper & Buy button */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-11 items-center overflow-hidden rounded-[10px] border border-white/10 bg-black/20 shrink-0">
+                  <button
+                    onClick={() => setQty((q) => Math.max(1, q - 1))}
+                    className="w-10 h-11 text-lg text-[var(--muted)] hover:bg-white/5 transition"
+                  >
+                    −
+                  </button>
+                  <span className="w-8 text-center text-sm font-bold text-white tabular-nums">
+                    {qty}
+                  </span>
+                  <button
+                    onClick={() => setQty((q) => q + 1)}
+                    className="w-10 h-11 text-lg text-[var(--muted)] hover:bg-white/5 transition"
+                  >
+                    +
+                  </button>
+                </div>
+                <button className="h-11 flex-1 bg-gradient-to-r from-[#FF973C] to-[#FF6A00] rounded-[10px] text-sm font-bold text-black hover:brightness-110 active:translate-y-px transition duration-150 shadow-[0_12px_24px_-10px_rgba(255,106,0,0.4)]">
+                  Buy Now
+                </button>
+              </div>
+
+              {/* Telemetry info under button */}
+              <div className="font-data flex items-center gap-2 text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">
+                <ZapIcon size={14} className="text-[var(--flame)]" />
+                Instant delivery · No expiry on Arena Coins
               </div>
             </div>
           </HudPanel>
-
-          <div className="mt-[13px] flex items-center gap-[9px] rounded-[12px] border border-[var(--coin)]/[0.22] bg-[var(--coin)]/[0.06] px-[14px] py-[11px]">
-            <CoinIcon size={18} />
-            <span className="text-[13px] text-[var(--ink)]">
-              Earn{" "}
-              <b className="font-bold tabular-nums text-[var(--coin)]">{reward.toLocaleString("en-IN")}</b>{" "}
-              Arena Coins on this purchase
-            </span>
-          </div>
-
-          <div className="mt-6 flex items-center gap-[13px]">
-            <div className="flex h-12 items-center overflow-hidden rounded-[11px] border border-[var(--line)] bg-[var(--carbon)]">
-              <button
-                onClick={() => setQty((q) => Math.max(1, q - 1))}
-                aria-label="Decrease quantity"
-                className="h-12 w-11 text-xl text-[var(--muted)] transition hover:bg-white/[0.06] hover:text-white"
-              >
-                −
-              </button>
-              <span className="min-w-[38px] text-center text-base font-bold tabular-nums text-white">
-                {qty}
-              </span>
-              <button
-                onClick={() => setQty((q) => q + 1)}
-                aria-label="Increase quantity"
-                className="h-12 w-11 text-xl text-[var(--muted)] transition hover:bg-white/[0.06] hover:text-white"
-              >
-                +
-              </button>
-            </div>
-            <button className="h-12 rounded-[12px] border border-[var(--line-2)] bg-[var(--carbon-2)] px-5 text-[15px] font-semibold text-[var(--ink)] transition hover:border-[var(--flame)]/60 hover:text-white">
-              Add to cart
-            </button>
-            <button className="h-12 flex-1 rounded-[12px] bg-gradient-to-br from-[var(--coin)] via-[var(--flame)] to-[var(--flame-deep)] text-[15px] font-bold text-[#1c1304] shadow-[0_14px_30px_-12px_rgba(255,90,0,0.8)] transition hover:brightness-105 active:translate-y-px">
-              Buy now
-            </button>
-          </div>
-
-          <div className="font-data mt-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.06em] text-[var(--muted)]">
-            <ZapIcon size={14} className="text-[var(--flame)]" />
-            Instant delivery · No expiry on Arena Coins
-          </div>
-        </div>
-      </div>
-
-      {/* Info panels */}
-      <div className="mt-14 grid grid-cols-1 gap-[18px] lg:grid-cols-2">
-        <div className="rounded-[14px] border border-[var(--line)] bg-[var(--carbon)] p-5">
-          <div className="eyebrow mb-4">How to redeem</div>
-          <div className="flex flex-col gap-3">
-            {REDEEM_STEPS.map((step, i) => (
-              <div key={i} className="flex items-start gap-[11px]">
-                <span className="font-data flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[6px] bg-[var(--flame)]/[0.14] text-xs font-bold text-[var(--flame)]">
-                  {i + 1}
-                </span>
-                <span className="text-[13px] leading-[1.5] text-[var(--muted)]">{step}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="rounded-[14px] border border-[var(--line)] bg-[var(--carbon)] p-5">
-          <div className="eyebrow mb-4">Terms &amp; conditions</div>
-          <div className="flex flex-col gap-[10px]">
-            {TERMS.map((t) => (
-              <span key={t} className="flex gap-2 text-[13px] leading-[1.5] text-[var(--muted)]">
-                <span className="text-[var(--flame)]">▸</span>
-                {t}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Related */}
-      <div className="mt-14">
-        <div className="eyebrow flex items-center gap-2">
-          <span className="text-[var(--flame)]">▌</span>
-          More drops
-        </div>
-        <h2 className="mb-5 mt-2 text-[24px] font-extrabold tracking-[-0.01em] text-white">
-          You might also like
-        </h2>
-        <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
-          {related.map((p) => (
-            <ProductCard key={p.id} product={productToCard(p)} />
-          ))}
         </div>
       </div>
     </main>

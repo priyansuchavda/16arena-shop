@@ -1,93 +1,126 @@
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
-import { LiveTicker } from "@/components/live-ticker";
-import { ShopStatus } from "@/components/shop-status";
-import { Hero } from "@/components/hero";
-import { CategoryRow } from "@/components/category-row";
-import { PromoCard } from "@/components/promo-card";
-import { ProductSection } from "@/components/product-section";
+import { ShopShell } from "@/components/shop-shell";
+import { type HeroSlide } from "@/components/hero-carousel";
+import { ShopUnavailable } from "@/components/shop-states";
+import { ArenaLogo } from "@/components/arena-logo";
 import {
   apiToCard,
+  categorySlugMap,
+  checkShopVisibility,
   fetchCategories,
+  fetchFeaturedProducts,
   fetchProducts,
-  groupSections,
+  heroSlidesFromProducts,
   topCategories,
   type CategoryItem,
   type LiveSection,
 } from "@/lib/api";
 import {
   categories as staticCategories,
-  getForYou,
   productToCard,
-  sections as staticSections,
-  sectionProducts,
+  products as staticProducts,
   type CardModel,
 } from "@/lib/products";
+import { sectionsFromCards } from "@/lib/shop-catalog";
 
-// Always render against the live API for this temporary integration.
 export const dynamic = "force-dynamic";
 
+/** Static display balance until wallet API is wired to the UI. */
+const WALLET_DISPLAY_BALANCE = 1000;
+
+function staticHeroSlides(): HeroSlide[] {
+  const picks = staticProducts.filter((p) =>
+    ["bgmi-uc", "swiggy", "spotify", "amazon"].includes(p.slug),
+  );
+  return picks.map((p) => ({
+    id: p.id,
+    slug: p.slug,
+    eyebrow: "16ARENA TRUSTED STORE",
+    title: p.brand,
+    subtitle: p.tagline ?? `Get ${p.brand} gift cards with instant delivery & Arena Coins cashback.`,
+    cta: "GET NOW!",
+    accent: p.accent,
+    accent2: p.accent2,
+    imageUrl: null as string | null,
+  }));
+}
+
+function UnavailableShell() {
+  return (
+    <div className="flex min-h-screen flex-col">
+      <div className="flex items-center gap-4 px-5 pt-7">
+        <ArenaLogo />
+      </div>
+      <ShopUnavailable />
+    </div>
+  );
+}
+
 export default async function Home() {
-  let live = true;
+  let shopVisible = true;
   let categoryItems: CategoryItem[];
-  let promoItems: CardModel[];
-  let liveSections: LiveSection[];
+  let allCards = staticProducts.map(productToCard);
+  let featuredCards: CardModel[] = [];
+  let categorySections: LiveSection[] = [];
+  let slides: HeroSlide[] = staticHeroSlides();
+  let walletBalance = WALLET_DISPLAY_BALANCE;
 
   try {
-    const [cats, prods] = await Promise.all([fetchCategories(), fetchProducts()]);
-    if (!prods.length) throw new Error("no products");
+    const [visibility, cats, featuredProds] = await Promise.all([
+      checkShopVisibility(),
+      fetchCategories(),
+      fetchFeaturedProducts(),
+    ]);
+
+    shopVisible = visibility.visible;
+    if (!shopVisible) return <UnavailableShell />;
+
+    const activeTopCats = cats.filter((c) => c.parentId === null && c.isActive);
+    if (!activeTopCats.length) throw new Error("no categories");
+
+    const productsPerCategory = await Promise.all(
+      activeTopCats.map((cat) => fetchProducts(cat.id))
+    );
+
+    const slugs = categorySlugMap(cats);
     categoryItems = topCategories(cats);
-    const featured = prods.filter((p) => p.isFeatured);
-    promoItems = (featured.length >= 4 ? featured : prods).slice(0, 4).map(apiToCard);
-    liveSections = groupSections(prods);
+
+    const allProds = productsPerCategory.flat();
+    if (!allProds.length) throw new Error("no products");
+
+    allCards = allProds.filter((p) => p.isActive !== false).map((p) => apiToCard(p, slugs));
+    featuredCards = featuredProds.filter((p) => p.isActive !== false).map((p) => apiToCard(p, slugs));
+    slides = heroSlidesFromProducts(allProds);
+
+    categorySections = activeTopCats
+      .map((cat, index) => {
+        const cards = productsPerCategory[index]
+          .filter((p) => p.isActive !== false)
+          .map((p) => apiToCard(p, slugs));
+        return {
+          title: cat.name,
+          items: cards,
+        };
+      })
+      .filter((s) => s.items.length > 0);
   } catch {
-    live = false;
     categoryItems = staticCategories.map((c) => ({
       label: c.label,
+      slug: c.slug,
       color: c.color,
-      active: c.active,
+      active: false,
     }));
-    promoItems = getForYou().map(productToCard);
-    liveSections = staticSections.map((s) => ({
-      title: s.title,
-      items: sectionProducts(s).map(productToCard),
-    }));
+    allCards = staticProducts.map(productToCard);
+    categorySections = sectionsFromCards(allCards);
   }
 
   return (
-    <>
-      <SiteHeader />
-      <LiveTicker />
-      <main className="mx-auto w-full max-w-[1240px] flex-1 px-6 pb-20 pt-7">
-        <ShopStatus live={live} />
-        <Hero />
-        <CategoryRow items={categoryItems} />
-
-        <section className="mt-14">
-          <div className="mb-5">
-            <div className="eyebrow flex items-center gap-2">
-              <span className="text-[var(--flame)]">▌</span>
-              Featured
-            </div>
-            <h2 className="mt-2 text-[24px] font-extrabold tracking-[-0.01em] text-white">For you</h2>
-          </div>
-          <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
-            {promoItems.map((p) => (
-              <PromoCard key={p.id} product={p} />
-            ))}
-          </div>
-        </section>
-
-        {liveSections.map((s, i) => (
-          <ProductSection
-            key={s.title}
-            title={s.title}
-            items={s.items}
-            id={i === 0 ? "top-deals" : undefined}
-          />
-        ))}
-      </main>
-      <SiteFooter />
-    </>
+    <ShopShell
+      categories={categoryItems}
+      allCards={allCards}
+      featuredCards={featuredCards}
+      sections={categorySections}
+      slides={slides}
+      walletBalance={walletBalance}
+    />
   );
 }

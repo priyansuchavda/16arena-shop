@@ -30,11 +30,11 @@ export function ArenaLogo({
       width={width}
       height={h}
       className="block max-w-none shrink-0 object-contain object-left"
-      style={{ width, height: h }}
+      style={{ width, height: h, cursor: "pointer" }}
     />
   );
 
-  const classNames = `inline-flex max-w-none shrink-0 origin-left items-center transition-transform duration-200 ease-out hover:scale-[1.09] ${className}`;
+  const classNames = `inline-flex max-w-none shrink-0 origin-left items-center ${className}`;
 
   if (onClick) {
     return (

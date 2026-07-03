@@ -73,7 +73,7 @@ export function ShopLayout({
   return (
     <div className="flex min-h-screen">
       <aside className="sticky top-0 hidden h-screen w-[200px] shrink-0 flex-col pl-5 pr-4 pt-7 lg:flex">
-        <div className="mb-8 mt-1.5 shrink-0">
+        <div className="mb-2 mt-1.5 shrink-0">
           <ArenaLogo height={30} onClick={onSelectAll} />
         </div>
         {!hideSidebar && <ShopSidebar items={categories} onSelectCategory={onSelectCategory} />}

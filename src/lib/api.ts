@@ -26,6 +26,14 @@ export type ApiProduct = {
   name: string;
   slug: string;
   brandName: string | null;
+  description?: string | null;
+  about?: string | null;
+  giftCardInfo?: {
+    redemptionType?: string;
+    redemptionLabel?: string;
+    expiryLabel?: string;
+    cardType?: string;
+  } | null;
   heroImageUrl: string | null;
   logoUrl: string | null;
   thumbnailImageUrl: string | null;

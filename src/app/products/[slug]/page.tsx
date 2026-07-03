@@ -48,6 +48,33 @@ export default async function ProductPage({
   }
   const slugs = categorySlugMap(cats);
 
+  let item: Awaited<ReturnType<typeof fetchProductBySlug>> = null;
+  let related: ReturnType<typeof apiToCard>[] = [];
+  try {
+    item = await fetchProductBySlug(slug);
+    if (item) {
+      const relatedProds = await fetchProducts(item.categoryId).catch(() => []);
+      related = relatedProds
+        .filter((p) => p.slug !== item!.slug)
+        .slice(0, 4)
+        .map((p) => apiToCard(p, slugs));
+    }
+  } catch {
+    // API unreachable
+  }
+
+  if (item) {
+    return (
+      <ShopLayout
+        categories={categoryItems}
+        walletBalance={walletBalance}
+        hideSidebar={true}
+      >
+        <LiveProductDetail product={item} related={related} />
+      </ShopLayout>
+    );
+  }
+
   const sample = getProductBySlug(slug);
   if (sample) {
     return (
@@ -61,30 +88,5 @@ export default async function ProductPage({
     );
   }
 
-  let item: Awaited<ReturnType<typeof fetchProductBySlug>> = null;
-  let related: ReturnType<typeof apiToCard>[] = [];
-  try {
-    item = await fetchProductBySlug(slug);
-    if (item) {
-      const relatedProds = await fetchProducts(item.categoryId).catch(() => []);
-      related = relatedProds
-        .filter((p) => p.slug !== item!.slug)
-        .slice(0, 4)
-        .map((p) => apiToCard(p, slugs));
-    }
-  } catch {
-    // API unreachable — fall through to 404
-  }
-
-  if (!item) notFound();
-
-  return (
-    <ShopLayout
-      categories={categoryItems}
-      walletBalance={walletBalance}
-      hideSidebar={true}
-    >
-      <LiveProductDetail product={item} related={related} />
-    </ShopLayout>
-  );
+  notFound();
 }

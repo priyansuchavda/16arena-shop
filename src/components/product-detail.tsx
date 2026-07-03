@@ -45,25 +45,16 @@ export function ProductDetail({
   const isGaming = /gaming|battle royale|fps|moba/i.test(product.sub);
 
   return (
-    <main className="relative mx-auto w-full max-w-[1240px] flex-1 px-6 pb-20 pt-6">
-      {/* Breadcrumb */}
-      <div className="font-data mb-8 flex items-center gap-2 text-[12px] uppercase tracking-[0.06em] text-[var(--muted)] relative z-10">
-        <Link href="/" className="transition-colors hover:text-[var(--flame)]">
-          ‹ Shop
-        </Link>
-        <span className="text-[var(--faint)]">/</span>
-        <span>{product.sub}</span>
-        <span className="text-[var(--faint)]">/</span>
-        <span className="text-[var(--ink)]">{product.brand}</span>
-      </div>
+    <div className="relative flex-1 pb-20">
+
 
       <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-12 relative z-10">
         {/* Left Column: Product Info & Descriptions */}
         <div className="lg:col-span-7">
           {/* Product Banner/Card Graphic */}
-          <div className="mb-6 relative inline-block">
+          <div className="mb-6 relative block w-full max-w-[560px]">
             <div
-              className="relative flex h-[220px] w-[440px] max-w-full flex-col items-center justify-center rounded-[16px] border border-white/[0.15] p-6 shadow-[0_26px_56px_-18px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.24)]"
+              className="relative flex h-[260px] w-full flex-col items-center justify-center rounded-[16px] border border-white/[0.15] p-6 shadow-[0_26px_56px_-18px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.24)]"
               style={{
                 background: `linear-gradient(150deg, ${product.accent}, ${product.accent2})`,
               }}
@@ -92,57 +83,63 @@ export function ProductDetail({
             {product.brand}
           </h1>
 
-          <div className="mt-4 max-w-[560px]">
-            <p className="text-sm leading-[1.6] text-[var(--muted)]">
-              Instant digital delivery to your 16Arena wallet. Pay part cash, part Arena Coins, and
-              earn coins back on every order. Swag offers instant top-ups and standard packages so you
-              can grab skins, points, and items with maximum savings. All transactions are secure and
-              processed in real-time.
-            </p>
-          </div>
-
-          {/* Info row: Redeem / Expiry / Usage — separated by vertical dividers */}
-          <div className="mt-8 flex items-center max-w-[480px] rounded-[16px] border border-white/[0.08] bg-white/[0.03] px-2 py-4">
-            {[
-              {
-                icon: (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="5" y="2" width="14" height="20" rx="2" /><line x1="12" y1="18" x2="12" y2="18.01" />
-                  </svg>
-                ),
-                label: "REDEEM",
-                value: "Online",
-              },
-              {
-                icon: (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-                  </svg>
-                ),
-                label: "EXPIRY",
-                value: "12 months",
-              },
-              {
-                icon: (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="9" /><polyline points="12 6 12 12 16 14" />
-                  </svg>
-                ),
-                label: "USAGE",
-                value: "Single Item",
-              },
-            ].map(({ icon, label, value }, i, arr) => (
-              <div key={label} className="flex flex-1 items-center">
-                <div className="flex flex-1 flex-col items-center gap-1.5 text-center">
-                  <span className="text-white/50">{icon}</span>
-                  <span className="font-data text-[9px] font-bold uppercase tracking-[0.12em] text-white/35">{label}</span>
-                  <span className="text-[12px] font-semibold text-white">{value}</span>
-                </div>
-                {i < arr.length - 1 && (
-                  <div className="h-10 w-px shrink-0 bg-white/10" />
-                )}
+          {(product.description || product.about) && (
+            <div className="mt-4 max-w-[560px]">
+              <div className={`text-sm leading-[1.6] text-[var(--muted)] whitespace-pre-wrap ${!isReadMore ? 'line-clamp-2' : ''}`}>
+                {product.description}
+                {product.description && product.about && "\n\n"}
+                {product.about}
               </div>
-            ))}
+              <button
+                onClick={() => setIsReadMore(!isReadMore)}
+                className="mt-2 text-[13px] font-bold text-white hover:text-[var(--flame)] transition-colors"
+              >
+                {isReadMore ? "View less" : "View more"}
+              </button>
+            </div>
+          )}
+
+          {/* Info row: Redeem / Expiry / Usage — arranged in a 2-column grid */}
+          <div className="mt-10 grid grid-cols-2 gap-y-6 gap-x-4 max-w-[480px]">
+            <div className="flex items-center gap-3">
+              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-[#F3F1ED] text-black">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>
+                </svg>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] mb-[2px]">Redeem</span>
+                <span className="text-[13px] font-bold text-white leading-none">
+                  {product.giftCardInfo?.redemptionType === 'ONLINE' ? 'Online' : (product.giftCardInfo?.redemptionLabel || 'Online')}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-[#F3F1ED] text-black">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] mb-[2px]">Expiry</span>
+                <span className="text-[13px] font-bold text-white leading-none">
+                  {product.giftCardInfo?.expiryLabel || 'No Expiry'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-[#F3F1ED] text-black">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+                </svg>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] mb-[2px]">Usage</span>
+                <span className="text-[13px] font-bold text-white leading-none">Single Item</span>
+              </div>
+            </div>
           </div>
 
           <hr className="my-8 border-white/10 max-w-[560px]" />
@@ -316,6 +313,6 @@ export function ProductDetail({
           </HudPanel>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

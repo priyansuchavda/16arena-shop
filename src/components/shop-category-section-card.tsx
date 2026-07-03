@@ -49,18 +49,18 @@ function TopDealCard({ product }: { product: CardModel }) {
       {badge && <SectionBadge label={badge.label} bg={badge.bg} fg={badge.fg} />}
 
       <div
-        className="mx-[7px] mt-[7px] flex min-h-0 flex-1 flex-col overflow-hidden rounded-[7px]"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
         style={{
           background: `linear-gradient(155deg, ${product.accent} 0%, ${product.accent2} 100%)`,
         }}
       >
-        <div className="flex flex-1 items-center justify-center p-2">
+        <div className="flex flex-1 items-center justify-center">
           {product.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={product.imageUrl}
               alt={product.brand}
-              className="max-h-full max-w-full object-contain transition-opacity duration-200 group-hover:opacity-90"
+              className="h-full w-full object-cover transition-opacity duration-200 group-hover:opacity-90"
             />
           ) : (
             <span className="text-center text-sm font-extrabold text-white">{product.brand}</span>
@@ -77,7 +77,7 @@ function TopDealCard({ product }: { product: CardModel }) {
 
       <div className="flex h-[29px] shrink-0 items-center justify-center gap-1.5 bg-gradient-to-b from-white/25 to-white/[0.08] px-2">
         {product.originalStr && (
-          <span className="text-[10px] text-white/50 line-through">{product.originalStr}</span>
+          <span className="text-[10px] text-white line-through">{product.originalStr}</span>
         )}
         <span className="text-[10px] font-bold text-white">{product.priceStr}</span>
       </div>
@@ -97,18 +97,18 @@ function TravelHotelCard({ product }: { product: CardModel }) {
       {badge && <SectionBadge label={badge.label} bg={badge.bg} fg={badge.fg} />}
 
       <div
-        className="mx-[7px] mt-[7px] flex min-h-0 flex-1 flex-col overflow-hidden rounded-[7px]"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
         style={{
           background: `linear-gradient(155deg, ${product.accent} 0%, ${product.accent2} 100%)`,
         }}
       >
-        <div className="flex flex-1 items-center justify-center p-2">
+        <div className="flex flex-1 items-center justify-center">
           {product.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={product.imageUrl}
               alt={product.brand}
-              className="max-h-[78%] max-w-[78%] object-contain drop-shadow-md transition-opacity duration-200 group-hover:opacity-90"
+              className="h-full w-full object-cover transition-opacity duration-200 group-hover:opacity-90"
             />
           ) : (
             <span className="px-2 text-center text-sm font-extrabold leading-tight text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.35)]">

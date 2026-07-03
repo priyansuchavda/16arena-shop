@@ -44,6 +44,8 @@ export type Product = {
   rating: number;
   /** Optional headline used on the larger "For you" promo cards. */
   tagline?: string;
+  description?: string;
+  about?: string;
 };
 
 export type Denomination = {

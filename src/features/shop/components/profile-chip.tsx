@@ -47,6 +47,12 @@ export function ProfileChip() {
   }, []);
 
   const openAuthModal = useAuthStore((state) => state.openAuthModal);
+  const openRegisterModal = useAuthStore((state) => state.openRegisterModal);
+
+  const handleEditProfile = () => {
+    setIsOpen(false);
+    openRegisterModal("/shop");
+  };
 
   if (!isAuthenticated || !user) {
     return (
@@ -84,13 +90,13 @@ export function ProfileChip() {
           <div className="p-4 border-b border-[var(--line)] bg-[#141414] text-center">
             <div className="relative w-14 h-14 mx-auto mb-2">
               <ProfileAvatar src={avatarUrl} />
-              <Link
-                href="/register?returnUrl=/shop"
-                onClick={() => setIsOpen(false)}
+              <button
+                type="button"
+                onClick={handleEditProfile}
                 className="absolute bottom-0 right-0 bg-[var(--flame)] p-1.5 rounded-full cursor-pointer hover:brightness-110 transition shadow-lg flex items-center justify-center w-6 h-6 border border-[#0c0c0c]"
               >
                 <Edit2 className="w-2.5 h-2.5 text-[#0c0c0c]" />
-              </Link>
+              </button>
             </div>
             <p className="text-sm font-bold text-white truncate">{displayName}</p>
             <p className="text-[10px] text-[var(--muted)] truncate font-mono mt-0.5">
@@ -99,14 +105,14 @@ export function ProfileChip() {
           </div>
 
           <div className="py-1">
-            <Link
-              href="/register?returnUrl=/shop"
-              className="flex items-center px-4 py-2.5 text-xs font-semibold text-[var(--muted)] hover:bg-white/[0.03] hover:text-white transition"
-              onClick={() => setIsOpen(false)}
+            <button
+              type="button"
+              onClick={handleEditProfile}
+              className="w-full flex items-center px-4 py-2.5 text-xs font-semibold text-[var(--muted)] hover:bg-white/[0.03] hover:text-white transition text-left"
             >
               <User className="w-3.5 h-3.5 mr-2.5 text-[var(--flame)]" />
               Edit Profile
-            </Link>
+            </button>
             <Link
               href="/orders"
               className="flex items-center px-4 py-2.5 text-xs font-semibold text-[var(--muted)] hover:bg-white/[0.03] hover:text-white transition"

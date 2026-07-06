@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ShopLayout } from "./shop-layout";
 import { HeroCarousel, type HeroSlide } from "./hero-carousel";
 import { ScrollRow } from "./scroll-row";
+import { ShopCategoryCards } from "./shop-category-cards";
 import { ShopCategoryView } from "./shop-category-view";
 import { ShopCategorySectionCard } from "./shop-category-section-card";
 import {
@@ -62,6 +63,16 @@ export function ShopShell({
 
   const isHome = activeSlug === ALL_CATEGORY_SLUG;
 
+  const chipCategories = useMemo(() => {
+    const hotDeals = { label: "Hot Deals", slug: "hot-deals" };
+    const rest = categoryItems
+      .filter((c) => c.slug !== "hot-deals")
+      .map((c) => ({ label: c.label, slug: c.slug }));
+    return [hotDeals, ...rest];
+  }, [categoryItems]);
+
+  const selectedChipSlug = isHome ? "hot-deals" : activeSlug;
+
   const forYou = useMemo(() => {
     if (featuredCards && featuredCards.length > 0) {
       return featuredCards;
@@ -110,7 +121,7 @@ export function ShopShell({
         if (forYou.length > 0) {
           list.push(
             <div key={sec.id || `foryou-${idx}`} className="mb-5 animate-fade-in">
-              <ScrollRow title="For You" items={forYou} boxed card="forYou" />
+              <ScrollRow title="For You" items={forYou} card="forYou" />
             </div>
           );
         }
@@ -133,9 +144,7 @@ export function ShopShell({
                   <ScrollRow
                     title={cat.name}
                     items={cards}
-                    boxed
                     card="section"
-                    onViewAll={() => setActiveSlug(cat.slug)}
                   />
                 </div>
               );
@@ -159,9 +168,7 @@ export function ShopShell({
                   <ScrollRow
                     title={targetCategory.name}
                     items={cards}
-                    boxed
                     card="section"
-                    onViewAll={() => setActiveSlug(targetCategory.slug)}
                   />
                 </div>
               );
@@ -215,7 +222,19 @@ export function ShopShell({
           )}
         </div>
       ) : isHome ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-4">
+          <ShopCategoryCards
+            categories={chipCategories}
+            selectedSlug={selectedChipSlug}
+            onCategoryTap={(slug) => {
+              if (slug === "hot-deals") {
+                setActiveSlug(ALL_CATEGORY_SLUG);
+              } else {
+                setActiveSlug(slug);
+              }
+              setSearchQuery("");
+            }}
+          />
           {renderDynamicSections()}
         </div>
       ) : activeCategory ? (

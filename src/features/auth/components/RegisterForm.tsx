@@ -22,15 +22,27 @@ const PRESET_AVATARS = [
   "https://metaninzamedia.blob.core.windows.net/media/images/20251218062820_Avatar_8-min.jpg",
 ];
 
-export const RegisterForm = () => {
+export const RegisterForm = ({
+  returnUrl: returnUrlProp,
+  onClose,
+}: {
+  returnUrl?: string;
+  onClose?: () => void;
+} = {}) => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setUser, isAuthenticated, _hasHydrated } = useAuthStore();
+  const { setUser, isAuthenticated, _hasHydrated, closeRegisterModal } = useAuthStore();
   const { data: userSummary } = useUserSummary();
   const profile = userSummary?.userProfile || userSummary || useAuthStore.getState().user;
   const isProfileComplete = profile?.isProfileComplete ?? false;
 
-  const returnUrl = searchParams.get("returnUrl") || "/shop";
+  const returnUrl = returnUrlProp ?? (searchParams.get("returnUrl") || "/shop");
+
+  const leaveRegisterFlow = (url?: string) => {
+    closeRegisterModal();
+    onClose?.();
+    router.replace(url ?? returnUrl);
+  };
 
   // Input states
   const [displayName, setDisplayName] = useState("");
@@ -100,9 +112,11 @@ export const RegisterForm = () => {
   // Auth guard
   useEffect(() => {
     if (_hasHydrated && !isAuthenticated) {
+      closeRegisterModal();
+      onClose?.();
       router.replace(`/login?returnUrl=${encodeURIComponent(returnUrl)}`);
     }
-  }, [_hasHydrated, isAuthenticated, router, returnUrl]);
+  }, [_hasHydrated, isAuthenticated, router, returnUrl, closeRegisterModal, onClose]);
 
   // Autofill dynamic profile data
   useEffect(() => {
@@ -478,7 +492,7 @@ export const RegisterForm = () => {
       }
 
       if (wasCompleteBefore) {
-        router.replace(returnUrl);
+        leaveRegisterFlow();
       } else {
         setShowReferral(true);
       }
@@ -508,7 +522,7 @@ export const RegisterForm = () => {
       setReferralSuccess("Referral code applied successfully!");
       localStorage.setItem("referralFlowCompleted", "true");
       setTimeout(() => {
-        router.replace(returnUrl);
+        leaveRegisterFlow();
       }, 1500);
     } catch (err: any) {
       const msg = err?.response?.data?.message || "Invalid referral code. Please check and try again.";
@@ -519,13 +533,13 @@ export const RegisterForm = () => {
   };
 
   const handleSkipReferral = () => {
-    localStorage.setItem("referralFlowCompleted", "true");
-    router.replace(returnUrl);
+      localStorage.setItem("referralFlowCompleted", "true");
+      leaveRegisterFlow();
   };
 
   if (!_hasHydrated || !isAuthenticated) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[var(--void)]">
+      <div className="flex items-center justify-center p-8">
         <Loader2 className="w-8 h-8 text-[var(--flame)] animate-spin" />
       </div>
     );
@@ -630,7 +644,7 @@ export const RegisterForm = () => {
         {isProfileComplete && (
           <button
             type="button"
-            onClick={() => router.push(returnUrl)}
+            onClick={() => leaveRegisterFlow()}
             className="flex items-center justify-center text-white hover:opacity-80 transition duration-200"
             aria-label="Close"
           >

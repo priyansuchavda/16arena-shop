@@ -29,14 +29,12 @@ export function ScrollRow({
   id,
   boxed = false,
   card = "swag",
-  onViewAll,
 }: {
   title: string;
   items: CardModel[];
   id?: string;
   boxed?: boolean;
   card?: ScrollRowCard;
-  onViewAll?: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -98,16 +96,6 @@ export function ScrollRow({
       <div className="mb-4 flex items-center justify-between gap-4">
         <h2 className="font-heading text-[20px] font-extrabold tracking-[-0.01em] text-white">{title}</h2>
         <div className="flex shrink-0 items-center gap-2">
-          {onViewAll && (
-            <button
-              type="button"
-              onClick={onViewAll}
-              className="text-xs text-[var(--flame)] hover:underline mr-2 font-bold focus:outline-none"
-              style={{ outline: "none", boxShadow: "none" }}
-            >
-              View All
-            </button>
-          )}
           <button
             type="button"
             aria-label={`Scroll ${title} left`}

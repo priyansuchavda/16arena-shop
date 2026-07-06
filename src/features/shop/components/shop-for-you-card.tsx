@@ -3,34 +3,9 @@
 import Link from "next/link";
 import { CardModel } from "@/features/shop/types/shop.types";
 
-export const FOR_YOU_CARD_WIDTH = 209;
-const CARD_W = FOR_YOU_CARD_WIDTH;
-const CARD_H = 203;
-const HEIGHT_FROM_BOTTOM = 58.42 / 202.67;
-const DIP_FACTOR = 0.048;
-const OVERSCAN_FACTOR = 0.14;
-
-function curveMetrics(width: number, height: number) {
-  const curveY = height * (1 - HEIGHT_FROM_BOTTOM);
-  const dip = width * DIP_FACTOR;
-  const overscan = width * OVERSCAN_FACTOR;
-  return { curveY, dip, overscan };
-}
-
-function curveLine(width: number, height: number) {
-  const { curveY, dip, overscan } = curveMetrics(width, height);
-  return `M ${-overscan} ${curveY} C ${width * 0.32} ${curveY + dip} ${width * 0.68} ${curveY + dip} ${width + overscan} ${curveY}`;
-}
-
-function imageClipPath(width: number, height: number) {
-  const { curveY, dip } = curveMetrics(width, height);
-  return `path('M 0 0 H ${width} V ${curveY} C ${width * 0.68} ${curveY + dip} ${width * 0.32} ${curveY + dip} 0 ${curveY} Z')`;
-}
-
-function footerClipPath(width: number, height: number) {
-  const { curveY, dip } = curveMetrics(width, height);
-  return `path('M 0 ${curveY} C ${width * 0.32} ${curveY + dip} ${width * 0.68} ${curveY + dip} ${width} ${curveY} V ${height} H 0 Z')`;
-}
+export const FOR_YOU_CARD_WIDTH = 341;
+export const FOR_YOU_CARD_HEIGHT = 206;
+const FOOTER_HEIGHT = 36;
 
 function lerpToBlack(hex: string, t: number): string {
   let h = hex.replace("#", "");
@@ -51,20 +26,14 @@ function footerColor(product: CardModel): string {
 export function ShopForYouCard({ product }: { product: CardModel }) {
   const caption = product.brand;
   const footerFill = footerColor(product);
-  const imageClip = imageClipPath(CARD_W, CARD_H);
-  const footerClip = footerClipPath(CARD_W, CARD_H);
-  const strokePath = curveLine(CARD_W, CARD_H);
+  const footerHeight = FOOTER_HEIGHT;
 
   return (
     <Link
       href={`/shop/${product.slug}`}
-      className="shop-card-lift group relative block h-[203px] w-[209px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.05]"
+      className="shop-card-lift group relative flex h-[206px] w-[341px] shrink-0 flex-col overflow-hidden rounded-[10px] border border-white/10 bg-white/[0.05]"
     >
-      {/* Image layer — clipped along bottom curve */}
-      <div
-        className="absolute inset-0 overflow-hidden"
-        style={{ clipPath: imageClip, WebkitClipPath: imageClip }}
-      >
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         {product.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -86,37 +55,14 @@ export function ShopForYouCard({ product }: { product: CardModel }) {
         )}
       </div>
 
-      {/* Footer color block — clipped along top curve */}
       <div
-        className="absolute inset-0"
-        style={{
-          backgroundColor: footerFill,
-          clipPath: footerClip,
-          WebkitClipPath: footerClip,
-        }}
-      />
-
-      {/* Dividing curve stroke */}
-      <svg
-        className="pointer-events-none absolute inset-0 h-full w-full"
-        viewBox={`0 0 ${CARD_W} ${CARD_H}`}
-        preserveAspectRatio="none"
-        aria-hidden
+        className="relative shrink-0 border-t border-white/14"
+        style={{ height: footerHeight, backgroundColor: footerFill }}
       >
-        <path
-          d={strokePath}
-          fill="none"
-          stroke="white"
-          strokeOpacity={0.14}
-          strokeWidth={1}
-          strokeLinecap="round"
-        />
-      </svg>
-
-      {/* Caption overlay */}
-      <p className="font-heading absolute bottom-3 left-2.5 right-2.5 line-clamp-2 text-center text-[13px] font-extrabold leading-[1.2] text-white">
-        {product.name || product.brand}
-      </p>
+        <p className="font-heading absolute inset-x-2.5 top-1/2 line-clamp-2 -translate-y-1/2 text-center text-[13px] font-extrabold leading-[1.2] text-white">
+          {product.name || product.brand}
+        </p>
+      </div>
     </Link>
   );
 }

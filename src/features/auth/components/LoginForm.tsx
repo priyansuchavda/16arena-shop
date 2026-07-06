@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Phone, Loader2 } from "lucide-react";
 import { useRequestOtp, useGoogleLogin, useRequestEmailOtp } from "../hooks/useAuth";
+import { useAuthStore } from "../store/auth.store";
 import { SlantedButton } from "@/shared/components/ui/slanted-button";
 
 export const LoginForm = () => {
@@ -18,6 +19,7 @@ export const LoginForm = () => {
   const requestOtpMutation = useRequestOtp();
   const requestEmailOtpMutation = useRequestEmailOtp();
   const googleLoginMutation = useGoogleLogin();
+  const openRegisterModal = useAuthStore((state) => state.openRegisterModal);
 
   const returnUrl = searchParams.get("returnUrl") || "/shop";
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -69,7 +71,8 @@ export const LoginForm = () => {
       const isComplete = data?.isProfileComplete ?? !!data?.user?.displayName;
 
       if (!isComplete) {
-        router.replace(`/register?returnUrl=${encodeURIComponent(returnUrl)}`);
+        openRegisterModal(returnUrl);
+        router.replace(returnUrl);
       } else {
         router.replace(returnUrl);
       }

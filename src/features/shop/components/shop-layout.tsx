@@ -10,6 +10,7 @@ import { CategoryItem } from "@/features/shop/types/shop.types";
 
 import { useUserSummary, useAuthStore } from "@/features/auth";
 import { AuthModal } from "./auth-modal";
+import { RegisterModal } from "./register-modal";
 
 function TopBar({
   walletBalance,
@@ -25,10 +26,10 @@ function TopBar({
 
   return (
     <div className="flex w-full min-w-0 items-center gap-4">
-      <label className="shop-pill flex h-[52px] min-w-0 flex-1 items-center gap-3 border border-[var(--line)] bg-[var(--surface)] px-4 transition-colors hover:border-white focus-within:border-white focus-within:ring-1 focus-within:ring-white/15 lg:w-[800px] lg:max-w-[800px] lg:flex-none">
+      <label className="flex h-[52px] min-w-0 flex-1 items-center gap-3 rounded-[10px] border border-[var(--line)] bg-[var(--surface)] px-4 transition-colors hover:border-white focus-within:border-white focus-within:ring-1 focus-within:ring-white/15 lg:w-[800px] lg:max-w-[800px] lg:flex-none">
         <SearchIcon className="shrink-0 text-[var(--faint)]" />
         <input
-          placeholder="Search for a brand or gift card"
+          placeholder="Search for brands, catego..."
           value={searchQuery ?? ""}
           onChange={(e) => onSearchChange?.(e.target.value)}
           className="min-w-0 flex-1 border-none bg-transparent text-sm text-[var(--ink)] placeholder:text-[var(--faint)]"
@@ -152,6 +153,7 @@ export function ShopLayout({
         </div>
       </div>
       <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />
+      <RegisterModal />
     </div>
   );
 }

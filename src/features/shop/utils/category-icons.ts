@@ -1,5 +1,5 @@
 import type { StaticImageData } from "next/image";
-import { Compass, Plane, UtensilsCrossed, type LucideIcon } from "lucide-react";
+import { Compass, Gift, Plane, UtensilsCrossed, type LucideIcon } from "lucide-react";
 import colorCartImg from "@/assets/png/color_cart.png";
 import gamingImg from "@/assets/png/gaming.png";
 import hotDealsImg from "@/assets/png/hot_deals.png";
@@ -22,6 +22,10 @@ const CATEGORY_IMAGES: Record<string, StaticImageData> = {
 const FALLBACK_ICONS: Record<string, LucideIcon> = {
   food: UtensilsCrossed,
   travel: Plane,
+  flight: Plane,
+  voucher: Gift,
+  "gift-cards": Gift,
+  gift: Gift,
 };
 
 export function categoryImageFor(slug: string, label: string): StaticImageData | null {

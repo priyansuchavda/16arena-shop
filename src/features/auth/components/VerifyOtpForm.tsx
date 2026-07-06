@@ -4,6 +4,7 @@ import React, { useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useVerifyOtp } from "../hooks/useAuth";
+import { useAuthStore } from "../store/auth.store";
 import { SlantedButton } from "@/shared/components/ui/slanted-button";
 
 export const VerifyOtpForm = () => {
@@ -20,6 +21,7 @@ export const VerifyOtpForm = () => {
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const verifyOtpMutation = useVerifyOtp();
+  const openRegisterModal = useAuthStore((state) => state.openRegisterModal);
 
   const performVerification = async (otpString: string) => {
     if (otpString.length < 4) return;
@@ -36,7 +38,8 @@ export const VerifyOtpForm = () => {
       const isComplete = data?.isProfileComplete ?? !!data?.user?.displayName;
 
       if (!isComplete) {
-        router.replace(`/register?returnUrl=${encodeURIComponent(returnUrl)}`);
+        openRegisterModal(returnUrl);
+        router.replace(returnUrl);
       } else {
         router.replace(returnUrl);
       }

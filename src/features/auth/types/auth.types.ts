@@ -23,6 +23,10 @@ export interface AuthState {
   isAuthModalOpen: boolean;
   openAuthModal: () => void;
   closeAuthModal: () => void;
+  isRegisterModalOpen: boolean;
+  registerReturnUrl: string;
+  openRegisterModal: (returnUrl?: string) => void;
+  closeRegisterModal: () => void;
   setAuth: (user: UserProfile, accessToken: string, refreshToken?: string) => void;
   setUser: (user: UserProfile) => void;
   logout: () => void;

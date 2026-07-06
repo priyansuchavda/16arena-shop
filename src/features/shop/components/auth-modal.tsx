@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { useRequestOtp, useVerifyOtp, useGoogleLogin, useRequestEmailOtp } from "@/features/auth";
+import { useRequestOtp, useVerifyOtp, useGoogleLogin, useRequestEmailOtp, useAuthStore } from "@/features/auth";
 import { Loader2, Mail, Phone } from "lucide-react";
 import { SlantedButton } from "@/shared/components/ui/slanted-button";
 
@@ -12,7 +11,6 @@ type AuthModalProps = {
 };
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  const router = useRouter();
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [loginMode, setLoginMode] = useState<"phone" | "email">("phone");
   const [phone, setPhone] = useState("");
@@ -25,6 +23,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const requestEmailOtpMutation = useRequestEmailOtp();
   const verifyOtpMutation = useVerifyOtp();
   const googleLoginMutation = useGoogleLogin();
+  const openRegisterModal = useAuthStore((state) => state.openRegisterModal);
 
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
@@ -137,7 +136,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       const isComplete = data?.isProfileComplete ?? !!data?.user?.displayName;
 
       if (!isComplete) {
-        router.replace(`/register?returnUrl=/shop`);
+        openRegisterModal("/shop");
       }
       handleClose();
     } catch (err: any) {
@@ -165,7 +164,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       const isComplete = data?.isProfileComplete ?? !!data?.user?.displayName;
 
       if (!isComplete) {
-        router.replace(`/register?returnUrl=/shop`);
+        openRegisterModal("/shop");
       }
       handleClose();
     } catch {

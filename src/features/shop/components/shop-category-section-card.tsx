@@ -48,22 +48,19 @@ function TopDealCard({ product }: { product: CardModel }) {
     >
       {badge && <SectionBadge label={badge.label} bg={badge.bg} fg={badge.fg} />}
 
-      <div
-        className="flex min-h-0 flex-1 flex-col overflow-hidden"
-        style={{
-          background: `linear-gradient(155deg, ${product.accent} 0%, ${product.accent2} 100%)`,
-        }}
-      >
-        <div className="flex flex-1 items-center justify-center">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex flex-1 items-end justify-center p-2.5 pb-0">
           {product.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={product.imageUrl}
-              alt={product.brand}
-              className="h-full w-full object-cover transition-opacity duration-200 group-hover:opacity-90"
-            />
+            <div className="w-full overflow-hidden rounded-[5px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={product.imageUrl}
+                alt={product.brand}
+                className="block w-full object-contain object-bottom transition-opacity duration-200 group-hover:opacity-90"
+              />
+            </div>
           ) : (
-            <span className="text-center text-sm font-extrabold text-white">{product.brand}</span>
+            <span className="pb-2 text-center text-sm font-extrabold text-white">{product.brand}</span>
           )}
         </div>
       </div>
@@ -96,22 +93,19 @@ function TravelHotelCard({ product }: { product: CardModel }) {
     >
       {badge && <SectionBadge label={badge.label} bg={badge.bg} fg={badge.fg} />}
 
-      <div
-        className="flex min-h-0 flex-1 flex-col overflow-hidden"
-        style={{
-          background: `linear-gradient(155deg, ${product.accent} 0%, ${product.accent2} 100%)`,
-        }}
-      >
-        <div className="flex flex-1 items-center justify-center">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex flex-1 items-end justify-center p-2.5 pb-0">
           {product.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={product.imageUrl}
-              alt={product.brand}
-              className="h-full w-full object-cover transition-opacity duration-200 group-hover:opacity-90"
-            />
+            <div className="w-full overflow-hidden rounded-[5px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={product.imageUrl}
+                alt={product.brand}
+                className="block w-full object-contain object-bottom transition-opacity duration-200 group-hover:opacity-90"
+              />
+            </div>
           ) : (
-            <span className="px-2 text-center text-sm font-extrabold leading-tight text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.35)]">
+            <span className="px-2 pb-2 text-center text-sm font-extrabold leading-tight text-white">
               {product.brand}
             </span>
           )}

@@ -9,7 +9,7 @@ export function SiteHeader() {
           <span className="font-heading text-[22px] font-extrabold tracking-[0.06em] text-white">16ARENA</span>
         </Link>
 
-        <label className="shop-pill mx-auto flex h-[46px] w-full max-w-[560px] items-center gap-3 border border-[var(--line)] bg-[var(--surface)] px-4 transition-colors focus-within:border-[var(--flame)]/45">
+        <label className="mx-auto flex h-[46px] w-full max-w-[560px] items-center gap-3 rounded-[10px] border border-[var(--line)] bg-[var(--surface)] px-4 transition-colors focus-within:border-[var(--flame)]/45">
           <SearchIcon className="shrink-0 text-[var(--faint)]" />
           <input
             placeholder="Search for a brand or gift card"

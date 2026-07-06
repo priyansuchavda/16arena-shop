@@ -13,6 +13,11 @@ export const useAuthStore = create<AuthState>()(
       isAuthModalOpen: false,
       openAuthModal: () => set({ isAuthModalOpen: true }),
       closeAuthModal: () => set({ isAuthModalOpen: false }),
+      isRegisterModalOpen: false,
+      registerReturnUrl: "/shop",
+      openRegisterModal: (returnUrl = "/shop") =>
+        set({ isRegisterModalOpen: true, registerReturnUrl: returnUrl }),
+      closeRegisterModal: () => set({ isRegisterModalOpen: false }),
       setAuth: (user, accessToken, refreshToken) =>
         set({
           user,

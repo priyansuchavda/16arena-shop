@@ -1,64 +1,16 @@
-import { categorySlugFromSub } from "./shop-catalog";
-
-export type Tone = "hot" | "low" | "new";
-export type Tag = { tone: Tone; label: string };
-
-/**
- * Normalized model the cards render. Both the static sample data and the
- * live API are mapped into this shape so the UI has a single contract.
- */
-export type CardBadge = { tone: Tone; label: string };
-export type CardModel = {
-  id: string;
-  slug: string;
-  brand: string;
-  name?: string;
-  sub: string;
-  accent: string;
-  accent2: string;
-  imageUrl?: string | null;
-  priceStr: string;
-  originalStr?: string;
-  saveStr?: string;
-  savePct?: number;
-  cashbackPct?: number;
-  coinAmount?: number;
-  wishlist?: number;
-  rating?: number;
-  badge?: CardBadge;
-  tagline?: string;
-  categorySlug?: string;
-};
-
-export type Product = {
-  id: string;
-  slug: string;
-  brand: string;
-  /** Category subtitle shown under the brand, e.g. "Food & dining". */
-  sub: string;
-  /** Gradient start/end for the brand card. */
-  accent: string;
-  accent2: string;
-  tag?: Tag;
-  save: string;
-  rating: number;
-  /** Optional headline used on the larger "For you" promo cards. */
-  tagline?: string;
-  description?: string;
-  about?: string;
-};
-
-export type Denomination = {
-  face: number;
-  faceStr: string;
-  /** Cash portion (50% off). */
-  cash: number;
-  cashStr: string;
-  /** Arena Coins portion. */
-  coins: number;
-  /** Coins earned back (2%). */
-  reward: number;
-};
+import {
+  ApiProduct,
+  Category,
+  Section,
+  CardModel,
+  Denomination,
+  Product,
+  Tone,
+  Tag,
+  CardBadge,
+} from "../types/shop.types";
+import { categorySlugFromSub } from "../utils/shop-catalog";
+import { getData } from "./shop.service";
 
 /** Available voucher face values, in ₹. */
 export const DENOM_FACES = [500, 1000, 2000, 5000];

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Phone, Loader2 } from "lucide-react";
 import { useRequestOtp, useGoogleLogin, useRequestEmailOtp } from "../hooks/useAuth";
+import { SlantedButton } from "@/shared/components/ui/slanted-button";
 
 export const LoginForm = () => {
   const router = useRouter();
@@ -139,23 +140,14 @@ export const LoginForm = () => {
 
         {error && <div className="text-xs font-semibold text-red-500 mb-2">{error}</div>}
 
-        <button
+        <SlantedButton
           type="submit"
-          disabled={!isValid || isPending}
-          className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all duration-200 active:scale-95 ${
-            isValid && !isPending
-              ? "bg-gradient-to-r from-[#ff973c] via-[#fe8321] to-[#ff6a00] text-[#0c0c0c] hover:brightness-105 shadow-[0_8px_24px_rgba(254,131,33,0.3)]"
-              : "bg-white/[0.08] text-white/30 cursor-not-allowed"
-          }`}
+          disabled={!isValid}
+          isLoading={isPending}
+          className="w-full"
         >
-          {isPending ? (
-            <span className="flex items-center justify-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> Sending...
-            </span>
-          ) : (
-            "Send OTP"
-          )}
-        </button>
+          Send OTP
+        </SlantedButton>
 
         <div className="flex items-center my-4">
           <div className="flex-1 h-[1px] bg-white/10" />

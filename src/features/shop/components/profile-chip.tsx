@@ -46,17 +46,20 @@ export function ProfileChip() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const openAuthModal = useAuthStore((state) => state.openAuthModal);
+
   if (!isAuthenticated || !user) {
     return (
-      <Link
-        href="/login"
+      <button
+        type="button"
+        onClick={openAuthModal}
         className="shop-pill group inline-flex h-[42px] shrink-0 items-center border border-[#a67c52]/65 bg-[#6b4423] py-0 pl-0.5 pr-3.5 shadow-[inset_0_1px_0_rgba(255,200,120,0.08)] transition hover:brightness-110 animate-fade-in"
       >
         <ProfileAvatar src={DEFAULT_AVATAR_URL} />
         <span className="ml-2 max-w-[8rem] truncate text-[13px] font-bold leading-none text-white">
           Sign In
         </span>
-      </Link>
+      </button>
     );
   }
 

@@ -70,4 +70,11 @@ export const authApi = {
       avatarUrl: result?.userProfile?.image || result?.avatarUrl || null,
     };
   },
+
+  applyReferral: async (referralCode: string) => {
+    const { data } = await apiClient.post("/v1/auth/apply-referral", {
+      referralCode,
+    });
+    return data;
+  },
 };

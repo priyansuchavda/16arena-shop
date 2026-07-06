@@ -8,7 +8,8 @@ import { ProfileChip } from "./profile-chip";
 import { SearchIcon } from "@/shared/components/icons";
 import { CategoryItem } from "@/features/shop/types/shop.types";
 
-import { useUserSummary } from "@/features/auth";
+import { useUserSummary, useAuthStore } from "@/features/auth";
+import { AuthModal } from "./auth-modal";
 
 function TopBar({
   walletBalance,
@@ -100,6 +101,9 @@ export function ShopLayout({
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
 }) {
+  const isAuthModalOpen = useAuthStore((state) => state.isAuthModalOpen);
+  const closeAuthModal = useAuthStore((state) => state.closeAuthModal);
+
   return (
     <div className="flex min-h-screen">
       <aside className="sticky top-0 hidden h-screen w-[200px] shrink-0 flex-col pl-5 pr-4 pt-7 lg:flex">
@@ -147,6 +151,7 @@ export function ShopLayout({
           )}
         </div>
       </div>
+      <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />
     </div>
   );
 }

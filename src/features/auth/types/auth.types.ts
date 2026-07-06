@@ -20,6 +20,9 @@ export interface AuthState {
   refreshToken: string | null;
   isAuthenticated: boolean;
   _hasHydrated: boolean;
+  isAuthModalOpen: boolean;
+  openAuthModal: () => void;
+  closeAuthModal: () => void;
   setAuth: (user: UserProfile, accessToken: string, refreshToken?: string) => void;
   setUser: (user: UserProfile) => void;
   logout: () => void;

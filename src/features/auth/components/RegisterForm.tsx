@@ -5,7 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "../store/auth.store";
 import { useUserSummary } from "../hooks/useAuth";
 import { userApi } from "@/features/user/services/user.service";
-import { CheckCircle2, AlertCircle, Loader2, Edit2 } from "lucide-react";
+import { authApi } from "../services/auth.service";
+import { CheckCircle2, AlertCircle, Loader2, Edit2, ChevronLeft } from "lucide-react";
+import { SlantedButton } from "@/shared/components/ui/slanted-button";
 
 type AvailabilityStatus = "idle" | "checking" | "available" | "taken";
 
@@ -25,6 +27,8 @@ export const RegisterForm = () => {
   const searchParams = useSearchParams();
   const { setUser, isAuthenticated, _hasHydrated } = useAuthStore();
   const { data: userSummary } = useUserSummary();
+  const profile = userSummary?.userProfile || userSummary || useAuthStore.getState().user;
+  const isProfileComplete = profile?.isProfileComplete ?? false;
 
   const returnUrl = searchParams.get("returnUrl") || "/shop";
 
@@ -51,10 +55,45 @@ export const RegisterForm = () => {
   const [availabilityStatus, setAvailabilityStatus] = useState<AvailabilityStatus>("idle");
   const [availabilityMessage, setAvailabilityMessage] = useState("");
 
+  // Referral flow states
+  const [showReferral, setShowReferral] = useState(false);
+  const [referralCode, setReferralCode] = useState("");
+  const [referralLoading, setReferralLoading] = useState(false);
+  const [referralError, setReferralError] = useState("");
+  const [referralSuccess, setReferralSuccess] = useState("");
+
+  // Shake states
+  const [shakeDisplayNameInput, setShakeDisplayNameInput] = useState(false);
+  const [shakeDisplayNameCounter, setShakeDisplayNameCounter] = useState(false);
+  const [flashDisplayNameRed, setFlashDisplayNameRed] = useState(false);
+
+  const [shakeUsernameInput, setShakeUsernameInput] = useState(false);
+  const [shakeUsernameCounter, setShakeUsernameCounter] = useState(false);
+  const [flashUsernameRed, setFlashUsernameRed] = useState(false);
+
+  const [shakeDayInput, setShakeDayInput] = useState(false);
+  const [shakeMonthInput, setShakeMonthInput] = useState(false);
+
+  const triggerShake = (setter: React.Dispatch<React.SetStateAction<boolean>>) => {
+    setter(true);
+    setTimeout(() => setter(false), 400);
+  };
+
   // Input element refs
   const dayInputRef = useRef<HTMLInputElement>(null);
   const monthInputRef = useRef<HTMLInputElement>(null);
   const yearInputRef = useRef<HTMLInputElement>(null);
+  const displayNameInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus display name input when profile setup is shown
+  useEffect(() => {
+    if (_hasHydrated && isAuthenticated && !showReferral) {
+      const timer = setTimeout(() => {
+        displayNameInputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [_hasHydrated, isAuthenticated, showReferral]);
 
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -69,13 +108,24 @@ export const RegisterForm = () => {
   useEffect(() => {
     const profile = userSummary?.userProfile || userSummary || useAuthStore.getState().user;
     if (profile) {
-      if (profile.displayName) setDisplayName(profile.displayName);
+      // Only autofill valid displayNames (letters & spaces only)
+      if (profile.displayName && /^[A-Za-z\s]+$/.test(profile.displayName)) {
+        setDisplayName(profile.displayName);
+      } else {
+        setDisplayName("");
+      }
       
       // Username
       if (profile.username || profile.userName) {
         const u = profile.username || profile.userName || "";
-        setUserName(u);
-        setUsernameEditable(!u); // Locked if username is already set
+        const isTempUsername = u.toLowerCase().startsWith("user_");
+        if (!isTempUsername) {
+          setUserName(u);
+        } else {
+          setUserName("");
+        }
+        // Editable if username is temporary or profile is incomplete
+        setUsernameEditable(isTempUsername || !profile.isProfileComplete || !u);
       } else {
         setUsernameEditable(true);
       }
@@ -84,7 +134,7 @@ export const RegisterForm = () => {
       if (profile.gender) {
         const g = profile.gender;
         setGender(g === "male" || g === "Male" ? "Male" : g === "female" || g === "Female" ? "Female" : "Others");
-        setGenderEditable(false); // Locked if gender is already set
+        setGenderEditable(!profile.isProfileComplete || false); // Locked if gender is set & profile complete
       } else {
         setGenderEditable(true);
       }
@@ -100,7 +150,7 @@ export const RegisterForm = () => {
           setDobDay(String(date.getUTCDate()).padStart(2, "0"));
           setDobMonth(String(date.getUTCMonth() + 1).padStart(2, "0"));
           setDobYear(String(date.getUTCFullYear()));
-          setDobEditable(false); // Locked if DOB is already set
+          setDobEditable(!profile.isProfileComplete || false); // Locked if DOB is set & profile complete
         } else {
           setDobEditable(true);
         }
@@ -181,24 +231,69 @@ export const RegisterForm = () => {
 
   const handleDisplayNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value;
-    val = val.replace(/[^A-Za-z\s]/g, "");
-    if (val.length > 20) val = val.slice(0, 20);
-    setDisplayName(val);
+    
+    // Collapse consecutive spaces
+    const collapsedSpaces = val.replace(/\s+/g, " ");
+    
+    // If length exceeded 20
+    if (collapsedSpaces.length > 20) {
+      triggerShake(setShakeDisplayNameCounter);
+      setFlashDisplayNameRed(true);
+      setTimeout(() => setFlashDisplayNameRed(false), 1000);
+      return;
+    }
+    
+    // Check for invalid characters
+    const hasInvalidChar = /[^A-Za-z\s]/.test(collapsedSpaces);
+    
+    if (hasInvalidChar) {
+      triggerShake(setShakeDisplayNameInput);
+      setDisplayName(collapsedSpaces);
+      setTimeout(() => {
+        setDisplayName((prev) => prev.replace(/[^A-Za-z\s]/g, "").replace(/\s+/g, " "));
+      }, 500);
+    } else {
+      setDisplayName(collapsedSpaces);
+    }
   };
 
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!usernameEditable) return;
     let val = e.target.value.toLowerCase();
-    val = val.replace(/[^a-z0-9._]/g, "");
-    if (val.length > 20) val = val.slice(0, 20);
-    setUserName(val);
-    triggerAvailabilityCheck(val);
+    
+    // Check max length
+    if (val.length > 20) {
+      triggerShake(setShakeUsernameCounter);
+      setFlashUsernameRed(true);
+      setTimeout(() => setFlashUsernameRed(false), 1000);
+      return;
+    }
+    
+    // Check for invalid characters
+    const hasInvalidChar = /[^a-z0-9._]/.test(val);
+    
+    if (hasInvalidChar) {
+      triggerShake(setShakeUsernameInput);
+      setUserName(val);
+      setTimeout(() => {
+        setUserName((prev) => {
+          const cleaned = prev.replace(/[^a-z0-9._]/g, "");
+          triggerAvailabilityCheck(cleaned);
+          return cleaned;
+        });
+      }, 500);
+    } else {
+      setUserName(val);
+      triggerAvailabilityCheck(val);
+    }
   };
 
   const validateDob = (dd: string, mm: string, yyyy: string): string | null => {
     if (!dobEditable) return null; // Skip if dob not editable
     if (!dd.trim() && !mm.trim() && !yyyy.trim()) return null;
-    if (!dd.trim() || !mm.trim() || !yyyy.trim()) return "Please complete your date of birth";
+    if (!dd.trim() || !mm.trim() || !yyyy.trim()) {
+      return "Please complete your date of birth or clear all fields";
+    }
 
     const day = parseInt(dd, 10);
     const month = parseInt(mm, 10);
@@ -211,31 +306,102 @@ export const RegisterForm = () => {
     const currentYear = now.getFullYear();
     const minYear = currentYear - 120;
 
-    if (year < minYear || year > currentYear) return `Enter a year between ${minYear} and ${currentYear}`;
+    if (year < minYear || year > currentYear) {
+      return `Enter a year between ${minYear} and ${currentYear}`;
+    }
 
-    const dobDate = new Date(year, month - 1, day);
-    if (dobDate > now) return "Date of birth cannot be in the future";
+    // Days-in-month check
+    const maxDays = new Date(year, month, 0).getDate();
+    if (day < 1 || day > maxDays) {
+      return "Enter a valid day for this month";
+    }
 
-    let age = now.getFullYear() - dobDate.getFullYear();
-    const mDiff = now.getMonth() - dobDate.getMonth();
-    if (mDiff < 0 || (mDiff === 0 && now.getDate() < dobDate.getDate())) {
+    // Calculated birthdate cannot be in the future
+    const dobDate = new Date(Date.UTC(year, month - 1, day));
+    const todayUtc = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    if (dobDate > todayUtc) {
+      return "Date of birth cannot be in the future";
+    }
+
+    // Age gate check & upper limit check
+    let age = now.getFullYear() - year;
+    const mDiff = now.getMonth() - (month - 1);
+    if (mDiff < 0 || (mDiff === 0 && now.getDate() < day)) {
       age--;
     }
 
-    if (age < 18) return "You must be at least 18 years old";
+    if (age > 120) {
+      return "Please enter a realistic date of birth";
+    }
+
+    if (age < 16) {
+      return "You must be at least 16 years old";
+    }
+
     return null;
   };
 
   const handleDayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, "").slice(0, 2);
-    setDobDay(val);
-    if (val.length === 2) monthInputRef.current?.focus();
+    const rawVal = e.target.value.replace(/\D/g, "");
+    
+    if (rawVal.length === 1) {
+      setDobDay(rawVal);
+    } else if (rawVal.length === 2) {
+      const dayNum = parseInt(rawVal, 10);
+      if (dayNum >= 1 && dayNum <= 31) {
+        setDobDay(rawVal);
+        monthInputRef.current?.focus();
+      } else {
+        triggerShake(setShakeDayInput);
+      }
+    } else if (rawVal.length === 0) {
+      setDobDay("");
+    }
+  };
+
+  const handleDayBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, "");
+    if (val.length === 1) {
+      setDobDay("0" + val);
+    }
   };
 
   const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, "").slice(0, 2);
-    setDobMonth(val);
-    if (val.length === 2) yearInputRef.current?.focus();
+    const rawVal = e.target.value.replace(/\D/g, "");
+    
+    if (rawVal.length === 1) {
+      setDobMonth(rawVal);
+    } else if (rawVal.length === 2) {
+      const firstDigit = rawVal[0];
+      const secondDigit = rawVal[1];
+      
+      if (firstDigit === "1") {
+        if (secondDigit === "0" || secondDigit === "1" || secondDigit === "2") {
+          setDobMonth(rawVal);
+          yearInputRef.current?.focus();
+        } else {
+          triggerShake(setShakeMonthInput);
+        }
+      } else if (firstDigit === "0") {
+        if (secondDigit >= "1" && secondDigit <= "9") {
+          setDobMonth(rawVal);
+          yearInputRef.current?.focus();
+        } else {
+          triggerShake(setShakeMonthInput);
+        }
+      } else {
+        triggerShake(setShakeMonthInput);
+      }
+    } else if (rawVal.length === 0) {
+      setDobMonth("");
+    }
+  };
+
+  const handleMonthBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, "");
+    if (val.length === 1) {
+      setDobMonth("0" + val);
+    }
   };
 
   const handleMonthKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -293,12 +459,15 @@ export const RegisterForm = () => {
       const updated = await userApi.updateProfile(payload);
       const data = updated?.data || updated;
       
+      // Get complete status before setting updated user state
+      const profileBefore = userSummary?.userProfile || userSummary || useAuthStore.getState().user;
+      const wasCompleteBefore = profileBefore?.isProfileComplete ?? false;
+
       if (data) {
         setUser(data);
       } else {
-        const currentProfile = userSummary?.userProfile || userSummary || useAuthStore.getState().user;
         setUser({
-          ...currentProfile,
+          ...profileBefore,
           displayName: displayName.trim(),
           image: avatarUrl,
           avatarUrl: avatarUrl,
@@ -308,12 +477,50 @@ export const RegisterForm = () => {
         });
       }
 
-      router.replace(returnUrl);
+      if (wasCompleteBefore) {
+        router.replace(returnUrl);
+      } else {
+        setShowReferral(true);
+      }
     } catch (err: any) {
       setError(err?.response?.data?.message || "Failed to save profile. Please try again.");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleReferralInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+    setReferralCode(val);
+    setReferralError("");
+  };
+
+  const handleApplyReferral = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!referralCode.trim()) return;
+
+    setReferralLoading(true);
+    setReferralError("");
+    setReferralSuccess("");
+
+    try {
+      await authApi.applyReferral(referralCode);
+      setReferralSuccess("Referral code applied successfully!");
+      localStorage.setItem("referralFlowCompleted", "true");
+      setTimeout(() => {
+        router.replace(returnUrl);
+      }, 1500);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || "Invalid referral code. Please check and try again.";
+      setReferralError(msg);
+    } finally {
+      setReferralLoading(false);
+    }
+  };
+
+  const handleSkipReferral = () => {
+    localStorage.setItem("referralFlowCompleted", "true");
+    router.replace(returnUrl);
   };
 
   if (!_hasHydrated || !isAuthenticated) {
@@ -324,23 +531,119 @@ export const RegisterForm = () => {
     );
   }
 
-  return (
-    <div className="relative w-full max-w-md overflow-hidden rounded-[24px] border border-[var(--line)] bg-[#121212]/90 p-8 backdrop-blur-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-      <div
-        className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full opacity-40 blur-3xl"
-        style={{ background: "radial-gradient(circle, #fe8321, transparent 70%)" }}
-      />
-      <div
-        className="pointer-events-none absolute -right-10 top-8 h-36 w-36 rounded-full opacity-30 blur-3xl"
-        style={{ background: "radial-gradient(circle, #ff973c, transparent 70%)" }}
-      />
+  if (showReferral) {
+    return (
+      <div className="relative w-full max-w-[420px] overflow-hidden rounded-[16px] border border-white/10 bg-[#161616] p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-sans text-[21px] font-semibold leading-[20px] tracking-[0px] text-white">
+            Referral Bonus
+          </h2>
+        </div>
 
-      <div className="relative mb-6">
-        <h1 className="font-heading text-2xl font-extrabold text-white">Set up your profile</h1>
-        <p className="mt-1 text-sm text-[var(--muted)] leading-relaxed">
-          Update your public gaming profile details.
-        </p>
+        {/* Divider */}
+        <div className="h-[1px] bg-white/10 w-full mb-5" />
+
+        {/* Banner area */}
+        {referralSuccess && (
+          <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 text-green-500 rounded-xl text-xs font-semibold text-center animate-in fade-in duration-200">
+            {referralSuccess}
+          </div>
+        )}
+        {referralError && (
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl text-xs font-semibold text-center animate-in fade-in duration-200">
+            {referralError}
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="relative z-10 flex flex-col items-center text-center">
+          
+          {/* Gift Box Icon with radial backdrop glow */}
+          <div className="relative flex items-center justify-center my-4 h-[140px] w-full">
+            <div className="absolute w-[200px] h-[100px] bg-gradient-to-r from-[#FF973C]/20 to-[#FE750E]/20 rounded-full blur-xl" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/coin_box.png" alt="Gift Box" className="relative z-10 w-[140px] h-[140px] object-contain" />
+          </div>
+
+          <p className="text-sm font-semibold text-white/90">
+            Enter Referral Code and Earn
+          </p>
+          <h2 className="text-xl font-extrabold text-[#FF973C] tracking-wide mt-1">
+            10 Arena Coins
+          </h2>
+
+          {/* Form */}
+          <form onSubmit={handleApplyReferral} className="w-full mt-6 text-left space-y-6">
+            <div>
+              <label className="block text-xs font-bold text-white/60 tracking-wide mb-2">
+                Enter Referral Code <span className="text-[10px] font-normal text-white/40 lowercase">(optional)</span>
+              </label>
+              <div className="p-[1.5px] bg-gradient-to-r from-[#FF973C] to-[#FE750E] rounded-[10px] overflow-hidden">
+                <input
+                  type="text"
+                  value={referralCode}
+                  onChange={handleReferralInputChange}
+                  placeholder="EX: 12GHHAHX"
+                  style={{ outline: 'none', boxShadow: 'none', border: 'none', borderRadius: '8.5px' }}
+                  className="w-full bg-[#121212] text-white px-4 py-3 text-base font-bold tracking-wider outline-none placeholder:text-white/20 text-center uppercase focus:bg-[#161616] transition duration-200"
+                />
+              </div>
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="space-y-4">
+              <SlantedButton
+                type="submit"
+                disabled={!referralCode.trim()}
+                isLoading={referralLoading}
+                className="w-full"
+              >
+                Continue
+              </SlantedButton>
+
+              <button
+                type="button"
+                onClick={handleSkipReferral}
+                style={{ textDecoration: 'underline' }}
+                className="block text-white/60 hover:text-white text-xs font-bold mx-auto py-1 transition duration-200"
+              >
+                Skip
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full max-w-[420px] overflow-hidden rounded-[16px] border border-white/10 bg-[#161616] p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="font-sans text-[21px] font-semibold leading-[20px] tracking-[0px] text-white">
+            {isProfileComplete ? "Update profile details" : "Set up your profile"}
+          </h2>
+        </div>
+        
+        {isProfileComplete && (
+          <button
+            type="button"
+            onClick={() => router.push(returnUrl)}
+            className="flex items-center justify-center text-white hover:opacity-80 transition duration-200"
+            aria-label="Close"
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M8 8l8 8M16 8l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="h-[1px] bg-white/10 w-full mb-5" />
 
       <form onSubmit={handleSaveProfile} noValidate className="relative z-10 flex flex-col gap-4">
         {/* AVATAR SELECTOR */}
@@ -369,31 +672,33 @@ export const RegisterForm = () => {
 
         {/* DISPLAY NAME */}
         <div>
-          <label className="flex justify-between text-xs font-bold text-[var(--muted)] uppercase tracking-wider mb-2">
+          <label className="flex justify-between text-xs font-bold text-white/60 mb-2">
             <span>
-              Display Name <span className="text-red-500">*</span>
+              Display Name {!isProfileComplete && <span className="text-red-500">*</span>}
             </span>
-            <span className={displayName.length >= 20 ? "text-red-500" : ""}>
+            <span className={`transition duration-200 ${shakeDisplayNameCounter ? "animate-shake" : ""} ${flashDisplayNameRed ? "text-red-500 font-bold" : displayName.length >= 20 ? "text-red-500" : ""}`}>
               {displayName.length}/20
             </span>
           </label>
           <input
+            ref={displayNameInputRef}
             type="text"
             value={displayName}
             onChange={handleDisplayNameChange}
             placeholder="Ninza"
-            className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-xl text-white text-sm outline-none placeholder:text-[var(--faint)] focus:border-white transition"
+            style={{ outline: 'none', boxShadow: 'none', borderRadius: '10px' }}
+            className={`w-full px-4 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm outline-none placeholder:text-[var(--faint)] focus:border-[#ff7a00] transition duration-200 ${shakeDisplayNameInput ? "animate-shake border-red-500" : ""}`}
           />
         </div>
 
         {/* USERNAME */}
         <div>
-          <label className="flex justify-between text-xs font-bold text-[var(--muted)] uppercase tracking-wider mb-2">
+          <label className="flex justify-between text-xs font-bold text-white/60 mb-2">
             <span>
-              Username <span className="text-red-500">*</span>
+              Username {!isProfileComplete && <span className="text-red-500">*</span>}
             </span>
             {usernameEditable && (
-              <span className={userName.length >= 20 ? "text-red-500" : ""}>
+              <span className={`transition duration-200 ${shakeUsernameCounter ? "animate-shake" : ""} ${flashUsernameRed ? "text-red-500 font-bold" : userName.length >= 20 ? "text-red-500" : ""}`}>
                 {userName.length}/20
               </span>
             )}
@@ -405,14 +710,12 @@ export const RegisterForm = () => {
               value={userName}
               onChange={handleUsernameChange}
               placeholder="ninza123"
-              className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-xl text-white text-sm outline-none placeholder:text-[var(--faint)] focus:border-white transition"
+              style={{ outline: 'none', boxShadow: 'none', borderRadius: '10px' }}
+              className={`w-full px-4 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm outline-none placeholder:text-[var(--faint)] focus:border-[#ff7a00] transition duration-200 ${shakeUsernameInput ? "animate-shake border-red-500" : ""}`}
             />
           ) : (
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--faint)] font-mono select-none">@</span>
-              <div className="w-full pl-8 pr-4 py-3 bg-white/5 border border-white/5 rounded-xl text-white/50 text-sm font-mono cursor-not-allowed select-none">
-                {userName}
-              </div>
+            <div className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-[10px] text-white/50 text-sm font-mono cursor-not-allowed select-none">
+              {userName}
             </div>
           )}
 
@@ -436,9 +739,9 @@ export const RegisterForm = () => {
 
         {/* DATE OF BIRTH */}
         <div>
-          <label className="block text-xs font-bold text-[var(--muted)] uppercase tracking-wider mb-2">
+          <label className="block text-xs font-bold text-white/60 mb-2">
             <span>
-              Date of Birth {!dobEditable && <span className="text-white/20 normal-case">(locked)</span>}
+              Date of Birth {!isProfileComplete && <span className="text-[10px] font-normal text-white/40 lowercase">(optional)</span>}
             </span>
           </label>
 
@@ -451,7 +754,9 @@ export const RegisterForm = () => {
                 placeholder="DD"
                 value={dobDay}
                 onChange={handleDayChange}
-                className="w-16 px-2 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-xl text-white text-sm text-center outline-none placeholder:text-[var(--faint)] focus:border-white transition"
+                onBlur={handleDayBlur}
+                style={{ outline: 'none', boxShadow: 'none', borderRadius: '10px' }}
+                className={`w-16 px-2 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm text-center outline-none placeholder:text-[var(--faint)] focus:border-[#ff7a00] transition duration-200 ${shakeDayInput ? "animate-shake border-red-500" : ""}`}
               />
               <span className="text-[var(--faint)]">/</span>
               <input
@@ -462,7 +767,9 @@ export const RegisterForm = () => {
                 value={dobMonth}
                 onChange={handleMonthChange}
                 onKeyDown={handleMonthKeyDown}
-                className="w-16 px-2 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-xl text-white text-sm text-center outline-none placeholder:text-[var(--faint)] focus:border-white transition"
+                onBlur={handleMonthBlur}
+                style={{ outline: 'none', boxShadow: 'none', borderRadius: '10px' }}
+                className={`w-16 px-2 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm text-center outline-none placeholder:text-[var(--faint)] focus:border-[#ff7a00] transition duration-200 ${shakeMonthInput ? "animate-shake border-red-500" : ""}`}
               />
               <span className="text-[var(--faint)]">/</span>
               <input
@@ -473,11 +780,12 @@ export const RegisterForm = () => {
                 value={dobYear}
                 onChange={(e) => setDobYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
                 onKeyDown={handleYearKeyDown}
-                className="w-24 px-2 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-xl text-white text-sm text-center outline-none placeholder:text-[var(--faint)] focus:border-white transition"
+                style={{ outline: 'none', boxShadow: 'none', borderRadius: '10px' }}
+                className="w-24 px-2 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm text-center outline-none placeholder:text-[var(--faint)] focus:border-[#ff7a00] transition duration-200"
               />
             </div>
           ) : (
-            <div className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-white/50 text-sm cursor-not-allowed select-none">
+            <div className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-[10px] text-white/50 text-sm cursor-not-allowed select-none">
               {dobDay}/{dobMonth}/{dobYear}
             </div>
           )}
@@ -485,9 +793,9 @@ export const RegisterForm = () => {
 
         {/* GENDER SELECTOR */}
         <div>
-          <label className="block text-xs font-bold text-[var(--muted)] uppercase tracking-wider mb-2">
+          <label className="block text-xs font-bold text-white/60 mb-2">
             <span>
-              Gender {!genderEditable && <span className="text-white/20 normal-case">(locked)</span>}
+              Gender {!isProfileComplete && <span className="text-[10px] font-normal text-white/40 lowercase">(optional)</span>}
             </span>
           </label>
           <div className="flex gap-2">
@@ -499,7 +807,8 @@ export const RegisterForm = () => {
                   type="button"
                   disabled={!genderEditable}
                   onClick={() => genderEditable && setGender(g)}
-                  className={`flex-1 py-2.5 rounded-xl border text-sm font-semibold transition active:scale-95 ${
+                  style={{ borderRadius: '10px' }}
+                  className={`flex-1 py-2.5 rounded-[10px] border text-sm font-semibold transition active:scale-95 ${
                     isSelected
                       ? "bg-[rgba(254,131,33,0.1)] border-[var(--flame)] text-white shadow-[0_0_12px_rgba(254,131,33,0.15)]"
                       : "bg-[var(--surface)] border-[var(--line)] text-[var(--muted)] hover:bg-white/[0.02]"
@@ -515,24 +824,13 @@ export const RegisterForm = () => {
         {/* ERROR BANNER */}
         {error && <div className="text-xs font-semibold text-red-500 text-center my-1">{error}</div>}
 
-        {/* CONTINUE BUTTON */}
-        <button
+        <SlantedButton
           type="submit"
-          disabled={saving}
-          className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all duration-200 active:scale-95 ${
-            !saving
-              ? "bg-gradient-to-r from-[#ff973c] via-[#fe8321] to-[#ff6a00] text-[#0c0c0c] hover:brightness-105 shadow-[0_8px_24px_rgba(254,131,33,0.3)]"
-              : "bg-white/[0.08] text-white/30 cursor-not-allowed"
-          }`}
+          isLoading={saving}
+          className="w-full"
         >
-          {saving ? (
-            <span className="flex items-center justify-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> Saving Profile...
-            </span>
-          ) : (
-            "Save Changes"
-          )}
-        </button>
+          {isProfileComplete ? "Save Changes" : "Continue"}
+        </SlantedButton>
       </form>
 
       {/* AVATAR SHEET DIALOG */}

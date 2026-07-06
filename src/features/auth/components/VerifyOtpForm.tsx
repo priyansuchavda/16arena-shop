@@ -4,6 +4,7 @@ import React, { useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useVerifyOtp } from "../hooks/useAuth";
+import { SlantedButton } from "@/shared/components/ui/slanted-button";
 
 export const VerifyOtpForm = () => {
   const router = useRouter();
@@ -143,23 +144,14 @@ export const VerifyOtpForm = () => {
 
         {error && <div className="text-xs font-semibold text-red-500 text-center">{error}</div>}
 
-        <button
+        <SlantedButton
           type="submit"
-          disabled={otp.join("").length < 4 || verifyOtpMutation.isPending}
-          className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all duration-200 active:scale-95 ${
-            otpValid && !verifyOtpMutation.isPending
-              ? "bg-gradient-to-r from-[#ff973c] via-[#fe8321] to-[#ff6a00] text-[#0c0c0c] hover:brightness-105 shadow-[0_8px_24px_rgba(254,131,33,0.3)]"
-              : "bg-white/[0.08] text-white/30 cursor-not-allowed"
-          }`}
+          disabled={!otpValid}
+          isLoading={verifyOtpMutation.isPending}
+          className="w-full"
         >
-          {verifyOtpMutation.isPending ? (
-            <span className="flex items-center justify-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> Verifying...
-            </span>
-          ) : (
-            "Verify"
-          )}
-        </button>
+          Verify
+        </SlantedButton>
 
         <button
           type="button"

@@ -1,17 +1,24 @@
 import { Suspense } from "react";
 import { LoginForm } from "@/features/auth/components/LoginForm";
-import { ArenaLogo } from "@/shared/components/arena-logo";
+import { ShopLayout } from "@/features/shop/components/shop-layout";
+import { categories as staticCategories } from "@/features/shop";
 import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
+  const categoryItems = staticCategories.map((c) => ({
+    label: c.label,
+    slug: c.slug,
+    color: c.color,
+    active: false,
+  }));
+
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--void)] p-6">
-      <div className="mb-8">
-        <ArenaLogo height={44} />
+    <ShopLayout categories={categoryItems}>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-[4px] p-4">
+        <Suspense fallback={<Loader2 className="w-8 h-8 text-[var(--flame)] animate-spin" />}>
+          <LoginForm />
+        </Suspense>
       </div>
-      <Suspense fallback={<Loader2 className="w-8 h-8 text-[var(--flame)] animate-spin" />}>
-        <LoginForm />
-      </Suspense>
-    </div>
+    </ShopLayout>
   );
 }

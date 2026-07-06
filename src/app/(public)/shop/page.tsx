@@ -16,13 +16,12 @@ import {
   categorySlugMap,
   heroSlidesFromProducts,
   topCategories,
+  flattenCategories,
 } from "@/features/shop/utils/mappers";
 import { sectionsFromCards } from "@/features/shop/utils/shop-catalog";
+import type { ApiProduct } from "@/features/shop/types/shop.types";
 
 export const dynamic = "force-dynamic";
-
-/** Static display balance until wallet API is wired to the UI. */
-const WALLET_DISPLAY_BALANCE = 1000;
 
 function staticHeroSlides(): HeroSlide[] {
   const picks = staticProducts.filter((p) =>
@@ -55,51 +54,65 @@ function UnavailableShell() {
 export default async function Home() {
   let shopVisible = true;
   let categoryItems: CategoryItem[] = [];
-  let allCards = staticProducts.map(productToCard);
+  let allCards: CardModel[] = [];
   let featuredCards: CardModel[] = [];
-  let categorySections: LiveSection[] = [];
-  let slides: HeroSlide[] = staticHeroSlides();
-  const walletBalance = WALLET_DISPLAY_BALANCE;
+  let slides: HeroSlide[] = [];
+  let walletBalance = 0;
+  
+  // Dynamic layout structures
+  let layoutSections: any[] = [];
+  let categoryProductsMap: Record<string, ApiProduct[]> = {};
+  let categoriesData: any[] = [];
 
   try {
-    const [visibility, cats, featuredProds] = await Promise.all([
+    const [visibility, cats, featuredProds, sections, wallet] = await Promise.all([
       shopApi.checkShopVisibility(),
       shopApi.fetchCategories(),
       shopApi.fetchFeaturedProducts(),
+      shopApi.fetchShopSections(),
+      shopApi.fetchWalletBalance().catch(() => 0),
     ]);
 
     shopVisible = visibility.visible;
+    walletBalance = wallet;
+    categoriesData = cats;
+
     if (shopVisible) {
       const activeTopCats = cats.filter((c) => c.parentId === null && c.isActive);
       if (!activeTopCats.length) throw new Error("no categories");
 
-      const productsPerCategory = await Promise.all(
-        activeTopCats.map((cat) => shopApi.fetchProducts(cat.id))
+      // Parallel fetch for flattened categories list
+      const flatCats = flattenCategories(cats);
+      const categoryProductsEntries = await Promise.all(
+        flatCats.map(async (cat) => {
+          try {
+            const products = await shopApi.fetchProducts(cat.id);
+            return { id: cat.id, products };
+          } catch {
+            return { id: cat.id, products: [] };
+          }
+        })
       );
+      
+      categoryProductsMap = categoryProductsEntries.reduce((acc, curr) => {
+        acc[curr.id] = curr.products;
+        return acc;
+      }, {} as Record<string, ApiProduct[]>);
 
       const slugs = categorySlugMap(cats);
       categoryItems = topCategories(cats);
 
-      const allProds = productsPerCategory.flat();
+      const allProds = Object.values(categoryProductsMap).flat();
       if (!allProds.length) throw new Error("no products");
 
       allCards = allProds.filter((p) => p.isActive !== false).map((p) => apiToCard(p, slugs));
       featuredCards = featuredProds.filter((p) => p.isActive !== false).map((p) => apiToCard(p, slugs));
       slides = heroSlidesFromProducts(allProds);
-
-      categorySections = activeTopCats
-        .map((cat, index) => {
-          const cards = productsPerCategory[index]
-            .filter((p) => p.isActive !== false)
-            .map((p) => apiToCard(p, slugs));
-          return {
-            title: cat.name,
-            items: cards,
-          };
-        })
-        .filter((s) => s.items.length > 0);
+      layoutSections = sections;
     }
-  } catch {
+  } catch (err) {
+    console.error("Error fetching dynamic shop catalog", err);
+    // Fallback to static catalog
     categoryItems = staticCategories.map((c) => ({
       label: c.label,
       slug: c.slug,
@@ -107,7 +120,20 @@ export default async function Home() {
       active: false,
     }));
     allCards = staticProducts.map(productToCard);
-    categorySections = sectionsFromCards(allCards);
+    featuredCards = allCards.slice(0, 4);
+    slides = staticHeroSlides();
+    layoutSections = [
+      { id: "s1", name: "shop_banner", priority: 1, isVisible: true, isActive: true },
+      { id: "s2", name: "featured_card", priority: 2, isVisible: true, isActive: true },
+      ...sectionsFromCards(allCards).map((sec, idx) => ({
+        id: `sec-${idx}`,
+        name: "category_item_card",
+        category: sec.title,
+        priority: 3 + idx,
+        isVisible: true,
+        isActive: true,
+      })),
+    ];
   }
 
   if (!shopVisible) {
@@ -116,10 +142,12 @@ export default async function Home() {
 
   return (
     <ShopShell
-      categories={categoryItems}
+      categories={categoriesData}
+      categoryItems={categoryItems}
       allCards={allCards}
       featuredCards={featuredCards}
-      sections={categorySections}
+      sections={layoutSections}
+      categoryProductsMap={categoryProductsMap}
       slides={slides}
       walletBalance={walletBalance}
     />

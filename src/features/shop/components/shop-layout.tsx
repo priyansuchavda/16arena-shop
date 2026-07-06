@@ -10,7 +10,15 @@ import { CategoryItem } from "@/features/shop/types/shop.types";
 
 import { useUserSummary } from "@/features/auth";
 
-function TopBar({ walletBalance }: { walletBalance: number }) {
+function TopBar({
+  walletBalance,
+  searchQuery,
+  onSearchChange,
+}: {
+  walletBalance: number;
+  searchQuery?: string;
+  onSearchChange?: (q: string) => void;
+}) {
   const { data: userSummary } = useUserSummary();
   const coins = userSummary?.arenaCoins ?? walletBalance;
 
@@ -20,7 +28,10 @@ function TopBar({ walletBalance }: { walletBalance: number }) {
         <SearchIcon className="shrink-0 text-[var(--faint)]" />
         <input
           placeholder="Search for a brand or gift card"
-          className="min-w-0 flex-1 border-none bg-transparent text-sm text-[var(--ink)] outline-none placeholder:text-[var(--faint)]"
+          value={searchQuery ?? ""}
+          onChange={(e) => onSearchChange?.(e.target.value)}
+          className="min-w-0 flex-1 border-none bg-transparent text-sm text-[var(--ink)] placeholder:text-[var(--faint)]"
+          style={{ outline: "none", boxShadow: "none" }}
         />
       </label>
 
@@ -38,10 +49,14 @@ function ShopTopBar({
   walletBalance,
   onSelectAll,
   categoryMode = false,
+  searchQuery,
+  onSearchChange,
 }: {
   walletBalance: number;
   onSelectAll?: () => void;
   categoryMode?: boolean;
+  searchQuery?: string;
+  onSearchChange?: (q: string) => void;
 }) {
   return (
     <div
@@ -53,7 +68,11 @@ function ShopTopBar({
       <div className="mx-auto flex w-full max-w-[1160px] items-center gap-4">
         <ArenaLogo className="shrink-0 lg:hidden" height={28} onClick={onSelectAll} />
         <div className="min-w-0 flex-1">
-          <TopBar walletBalance={walletBalance} />
+          <TopBar
+            walletBalance={walletBalance}
+            searchQuery={searchQuery}
+            onSearchChange={onSearchChange}
+          />
         </div>
       </div>
     </div>
@@ -68,6 +87,8 @@ export function ShopLayout({
   hideSidebar = false,
   onSelectCategory,
   onSelectAll,
+  searchQuery,
+  onSearchChange,
 }: {
   categories: CategoryItem[];
   children: React.ReactNode;
@@ -76,6 +97,8 @@ export function ShopLayout({
   hideSidebar?: boolean;
   onSelectCategory?: (slug: string) => void;
   onSelectAll?: () => void;
+  searchQuery?: string;
+  onSearchChange?: (q: string) => void;
 }) {
   return (
     <div className="flex min-h-screen">
@@ -95,6 +118,8 @@ export function ShopLayout({
           walletBalance={walletBalance}
           onSelectAll={onSelectAll}
           categoryMode={categoryMode}
+          searchQuery={searchQuery}
+          onSearchChange={onSearchChange}
         />
 
         <div

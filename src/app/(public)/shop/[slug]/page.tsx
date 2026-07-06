@@ -101,12 +101,12 @@ export default async function ShopSlugPage({
     );
   }
 
-  let item: Awaited<ReturnType<typeof shopApi.fetchProductBySlug>> = null;
+  let item: any = null;
   let related: ReturnType<typeof apiToCard>[] = [];
   const slugs = categorySlugMap(liveCats);
 
   try {
-    item = await shopApi.fetchProductBySlug(slug);
+    item = await shopApi.fetchProductDetail(slug);
     if (item) {
       const relatedProds = await shopApi.fetchProducts(item.categoryId).catch(() => []);
       related = relatedProds

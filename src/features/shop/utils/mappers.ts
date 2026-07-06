@@ -153,3 +153,14 @@ export function groupSections(prods: ApiProduct[]): LiveSection[] {
     .map(([title, items]) => ({ title, items: items.slice(0, 8) }))
     .sort((a, b) => b.items.length - a.items.length);
 }
+
+export function flattenCategories(categories: ApiCategory[]): ApiCategory[] {
+  const flat: ApiCategory[] = [];
+  for (const cat of categories) {
+    flat.push(cat);
+    if (cat.subCategories && cat.subCategories.length > 0) {
+      flat.push(...flattenCategories(cat.subCategories));
+    }
+  }
+  return flat;
+}

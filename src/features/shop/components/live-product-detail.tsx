@@ -1,358 +1,644 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { AlertCircle, ChevronDown, ChevronUp, Copy, Check, Info, Loader2, Sparkles, Tag as TagIcon, ArrowRight } from "lucide-react";
 import coinImg from "@/assets/png/coin.png";
-import { HudPanel, CornerTicks } from "./hud";
+import { HudPanel } from "./hud";
 import { CoinIcon, ZapIcon } from "@/shared/components/icons";
-import { gradientFor } from "@/features/shop/utils/mappers";
-import { type ApiProduct } from "@/features/shop/types/shop.types";
-import { rgba } from "../services/product.service";
+import { gradientFor, apiToCard } from "@/features/shop/utils/mappers";
+import { useAuthStore, useUserSummary } from "@/features/auth";
+import { useCheckout } from "../hooks/useCheckout";
+import { shopApi } from "../api";
+import {
+  ShopProductDetail,
+  ShopSku,
+  CheckoutPreview,
+  ShopAmountRestrictions,
+} from "../types/shop.types";
+import { splitFixedSkus, resolveFlexibleSku, isFlexibleSkuSelection, resolveSkuAmountRestrictions, computeOptimalCoinsToRedeem, shouldShowCoinEditor, computeFlexibleSubtotal } from "../services/product.service";
 
-// Helper to generate dynamic denominations based on the starting price
-function generateLiveDenominations(startingPrice: number, startingOriginalPrice: number) {
-  const basePrice = startingPrice;
-  const baseOriginal = startingOriginalPrice;
-  const ratio = baseOriginal > basePrice ? basePrice / baseOriginal : 0.95; // e.g. 5% discount
-
-  // Standard multiplier packages
-  const factors = [1, 2.5, 5, 10];
-  return factors.map((f) => {
-    const face = Math.round(baseOriginal * f);
-    const cash = Math.round(face * ratio);
-    const coins = Math.round(cash * 0.5 * 10); // 50% coins (10 coins per rupee)
-    const reward = Math.round(cash * 0.02 * 10); // 2% reward
-    return {
-      face,
-      faceStr: `₹${face}`,
-      cash,
-      cashStr: `₹${cash}`,
-      coins,
-      reward,
-    };
-  });
+function rgba(hex: string, opacity: number) {
+  const cleanHex = hex.replace("#", "");
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
-const FAQS = [
-  {
-    q: "How does the top-up work?",
-    a: "Select your desired denomination, enter your account details (such as game UID for gaming items), and complete the payment. The vouchers or points are credited to your account instantly.",
-  },
-  {
-    q: "How long does delivery take?",
-    a: "Delivery is instant! Once the transaction completes successfully, you will receive confirmation and the vouchers will be delivered directly to your wallet.",
-  },
-  {
-    q: "What should I do if I entered the wrong details?",
-    a: "Please double check your details before buying. Digital vouchers and top-ups are non-refundable once processed due to the instant nature of fulfillment.",
-  },
-];
+interface LiveProductDetailProps {
+  product: ShopProductDetail;
+  related?: any[];
+}
 
-export function LiveProductDetail({
-  product,
-}: {
-  product: ApiProduct;
-  related: unknown[]; // Kept in signature for prop compatibility
-}) {
+export function LiveProductDetail({ product, related = [] }: LiveProductDetailProps) {
+  const router = useRouter();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const { data: userSummary } = useUserSummary();
+  const { handleCheckout, loading: checkoutLoading, error: checkoutError } = useCheckout();
+
+  // Extract color tokens
   const g = gradientFor(product.brandName ?? product.name);
-  const save = Math.round(product.savingsPercent ?? product.maxSavingsPercent ?? 0);
+  const fixedSkus = useMemo(() => splitFixedSkus(product), [product]);
+  const flexibleSku = useMemo(() => resolveFlexibleSku(product), [product]);
 
-  const startingPrice = product.startingPrice ?? 420;
-  const startingOriginalPrice = product.startingOriginalPrice ?? 420;
+  // Active SKU states
+  const [selectedSku, setSelectedSku] = useState<ShopSku | null>(() => {
+    if (fixedSkus.length > 0) {
+      const popular = fixedSkus.find((s) => s.isPopular);
+      return popular || fixedSkus[0];
+    }
+    return flexibleSku || null;
+  });
 
-  const denoms = generateLiveDenominations(startingPrice, startingOriginalPrice);
-  const [denomIdx, setDenomIdx] = useState(1); // Default to second tier
+  const isFlexibleSelection = selectedSku?.isDynamicDenomination ?? false;
+
+  // Flexible Amount fields
+  const amountRestrictions = useMemo(() => {
+    if (!selectedSku) return null;
+    return resolveSkuAmountRestrictions(product, selectedSku);
+  }, [product, selectedSku]);
+
+  const [customAmountText, setCustomAmountText] = useState(() => {
+    return amountRestrictions ? String(amountRestrictions.minVoucherAmount) : "";
+  });
+  const [customAmount, setCustomAmount] = useState<number>(() => {
+    return amountRestrictions ? amountRestrictions.minVoucherAmount : 0;
+  });
+  const [amountError, setAmountError] = useState<string | null>(null);
+
+  // Quantity
   const [qty, setQty] = useState(1);
-  const [isReadMore, setIsReadMore] = useState(false);
 
-  const d = denoms[denomIdx] || denoms[0];
-  const payCash = d.cash * qty;
-  const payCoins = d.coins * qty;
-  const reward = d.reward * qty;
+  // Coupon
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
 
-  const isGaming = /gaming|battle royale|fps|moba/i.test(product.categoryName);
+  // Coins settings
+  const coinsBalance = userSummary?.arenaCoins ?? 0;
+  const [applyCoins, setApplyCoins] = useState(true);
+  const [customCoins, setCustomCoins] = useState<number | null>(null);
+
+  // Accordions states
+  const [showHowToRedeem, setShowHowToRedeem] = useState(true);
+  const [showTerms, setShowTerms] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+
+  // Checkout Preview cache
+  const [checkoutPreview, setCheckoutPreview] = useState<CheckoutPreview | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const previewDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Handle custom amount input validation
+  const handleCustomAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, "");
+    setCustomAmountText(val);
+
+    if (!val) {
+      setAmountError("Please enter an amount");
+      setCustomAmount(0);
+      return;
+    }
+
+    const num = parseInt(val, 10);
+    setCustomAmount(num);
+
+    if (amountRestrictions) {
+      if (num < amountRestrictions.minVoucherAmount) {
+        setAmountError(`Minimum amount is ₹${amountRestrictions.minVoucherAmount}`);
+      } else if (num > amountRestrictions.maxVoucherAmount) {
+        setAmountError(`Maximum amount is ₹${amountRestrictions.maxVoucherAmount}`);
+      } else {
+        setAmountError(null);
+      }
+    }
+  };
+
+  // Computes optimal coins
+  const subtotal = useMemo(() => {
+    if (!selectedSku) return 0;
+    if (isFlexibleSelection) {
+      return computeFlexibleSubtotal(product, selectedSku, customAmount) * qty;
+    }
+    return (selectedSku.retailPrice ?? 0) * qty;
+  }, [product, selectedSku, isFlexibleSelection, customAmount, qty]);
+
+  const optimalCoins = useMemo(() => {
+    if (!selectedSku) return 0;
+    return computeOptimalCoinsToRedeem({
+      rules: product.coinRules,
+      coinsBalance,
+      subtotal,
+      paymentRules: selectedSku.paymentRules,
+      sku: selectedSku,
+    });
+  }, [product, selectedSku, coinsBalance, subtotal]);
+
+  const coinsToRedeem = useMemo(() => {
+    if (!applyCoins) return 0;
+    if (customCoins !== null) {
+      return Math.min(customCoins, optimalCoins);
+    }
+    return optimalCoins;
+  }, [applyCoins, customCoins, optimalCoins]);
+
+  const allowHybridInrPayment = useMemo(() => {
+    const rules = selectedSku?.paymentRules;
+    if (rules?.isCoinOnly) return false;
+    if (rules?.allowInrPayment === false) return false;
+    return true;
+  }, [selectedSku]);
+
+  // Load Checkout Preview
+  const loadPreview = async () => {
+    if (!selectedSku) return;
+    if (isFlexibleSelection && (!customAmount || amountError)) {
+      return;
+    }
+
+    setPreviewLoading(true);
+    setPreviewError(null);
+
+    try {
+      const preview = await shopApi.checkoutPreview({
+        skuId: selectedSku.id,
+        quantity: qty,
+        coinsToRedeem,
+        couponCode: appliedCoupon,
+        customVoucherAmount: isFlexibleSelection ? customAmount : null,
+        allowHybridInrPayment,
+      });
+
+      if (preview) {
+        setCheckoutPreview(preview);
+      } else {
+        setPreviewError("Failed to resolve checkout price preview.");
+      }
+    } catch (err: any) {
+      setPreviewError(err?.response?.data?.message || "Error validating order calculations.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // Debounced preview trigger
+  useEffect(() => {
+    if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
+
+    previewDebounceRef.current = setTimeout(() => {
+      loadPreview();
+    }, 400);
+
+    return () => {
+      if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
+    };
+  }, [selectedSku, customAmount, qty, appliedCoupon, coinsToRedeem]);
+
+  // Set default flexible amount when selecting flexible SKU
+  useEffect(() => {
+    if (isFlexibleSelection && amountRestrictions) {
+      setCustomAmountText(String(amountRestrictions.minVoucherAmount));
+      setCustomAmount(amountRestrictions.minVoucherAmount);
+      setAmountError(null);
+    }
+  }, [selectedSku, isFlexibleSelection, amountRestrictions]);
+
+  // Trigger Checkout
+  const triggerBuy = () => {
+    if (!selectedSku) return;
+    if (!isAuthenticated) {
+      router.push(`/login?returnUrl=/shop/product/${product.slug}`);
+      return;
+    }
+    if (isFlexibleSelection && amountError) return;
+
+    handleCheckout({
+      skuId: selectedSku.id,
+      quantity: qty,
+      coinsToRedeem,
+      couponCode: appliedCoupon,
+      customVoucherAmount: isFlexibleSelection ? customAmount : null,
+      allowHybridInrPayment,
+      productName: product.name,
+    });
+  };
+
+  const handleApplyCoupon = () => {
+    if (!couponCode.trim()) return;
+    setAppliedCoupon(couponCode.trim());
+  };
+
+  const handleRemoveCoupon = () => {
+    setCouponCode("");
+    setAppliedCoupon(null);
+  };
+
+  // Pricing display resolvers
+  const displayPrice = checkoutPreview?.totalPayable ?? (isFlexibleSelection ? customAmount : selectedSku?.retailPrice ?? 0) * qty;
+  const displayOriginal = isFlexibleSelection
+    ? (customAmount * qty)
+    : (selectedSku?.originalPrice ?? selectedSku?.retailPrice ?? 0) * qty;
+  const savingsPct = isFlexibleSelection
+    ? 0
+    : selectedSku?.savingsPercent || Math.round((1 - (selectedSku?.retailPrice || 1) / (selectedSku?.originalPrice || 1)) * 100);
 
   return (
-    <div className="relative flex-1 pb-20">
-      {/* Premium themed background graphics blending into black */}
+    <div className="relative flex-1 pb-20 px-4 md:px-8 max-w-[1280px] mx-auto">
+      {/* Dynamic graphic background */}
       {product.heroImageUrl && (
-        <div className="absolute right-0 top-[-110px] pointer-events-none hidden lg:block w-[55%] h-[720px] overflow-hidden opacity-30 select-none">
+        <div className="absolute right-0 top-[-80px] pointer-events-none hidden lg:block w-[55%] h-[680px] overflow-hidden opacity-10 select-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={product.heroImageUrl}
             alt=""
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover rounded-3xl"
             style={{
-              maskImage: "radial-gradient(ellipse at 80% 50%, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 75%)",
-              WebkitMaskImage: "radial-gradient(ellipse at 80% 50%, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 75%)",
+              maskImage: "radial-gradient(ellipse at 80% 50%, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 80%)",
+              WebkitMaskImage: "radial-gradient(ellipse at 80% 50%, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 80%)",
             }}
           />
         </div>
       )}
 
+      <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-12 relative z-10 pt-6">
+        {/* LEFT COLUMN: VOUCHER DESIGN & INFOS */}
+        <div className="lg:col-span-7 flex flex-col gap-6">
 
-      <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-12 relative z-10">
-        {/* Left Column: Product Info & Descriptions */}
-        <div className="lg:col-span-7">
-          {/* Product Banner/Card Graphic */}
-          <div className="mb-6 relative block w-full max-w-[560px]">
-            <div
-              className="relative flex h-[260px] w-full flex-col items-center justify-center rounded-[16px] border border-white/[0.15] p-6 shadow-[0_26px_56px_-18px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.24)]"
-              style={{
-                background: `linear-gradient(150deg, ${g.accent}, ${g.accent2})`,
-              }}
-            >
-              {/* Translucent center box */}
-              <div className="flex flex-col items-center justify-center rounded-[12px] bg-white/[0.08] backdrop-blur-md px-6 py-4 border border-white/10 text-center">
-                <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-white/70">
-                  Voucher worth
-                </span>
-                <span className="text-[30px] font-extrabold leading-none text-white mt-1 tabular-nums">
-                  {d.faceStr}
+          {/* Brand Premium Card Design */}
+          <div className="relative w-full max-w-[560px] aspect-[1.85/1] rounded-[24px] overflow-hidden border border-white/10 p-6 flex flex-col justify-between shadow-2xl transition hover:scale-[1.01]"
+            style={{
+              background: `linear-gradient(135deg, ${g.accent} 0%, ${g.accent2} 100%)`,
+              boxShadow: `0 20px 50px -15px ${rgba(g.accent, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.15)`
+            }}>
+            <div className="flex justify-between items-start">
+              <span className="text-[10px] font-bold tracking-[0.15em] uppercase text-white/60">Digital Gift Voucher</span>
+              <Sparkles className="w-5 h-5 text-white/50" />
+            </div>
+
+            <div className="flex flex-col gap-1 items-start">
+              <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/70">Voucher Worth</span>
+              <span className="text-[34px] font-black leading-none text-white tabular-nums">
+                ₹{(isFlexibleSelection ? customAmount : selectedSku?.faceValue ?? selectedSku?.unitAmount ?? 0).toLocaleString("en-IN")}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {product.logoUrl && (
+                <div className="relative w-8 h-8 rounded-full overflow-hidden border border-white/15 bg-black/10">
+                  <Image src={product.logoUrl} alt="" fill className="object-cover" />
+                </div>
+              )}
+              <span className="text-xs font-bold uppercase tracking-[0.05em] text-white/90">
+                {product.brandName ?? product.name}
+              </span>
+            </div>
+          </div>
+
+          {/* Title and Descriptions */}
+          <div className="max-w-[560px]">
+            <h1 className="text-[32px] font-extrabold tracking-tight text-white">{product.name}</h1>
+            {(product.description || product.about) && (
+              <p className="mt-3 text-sm text-[var(--muted)] leading-relaxed whitespace-pre-wrap">
+                {product.description || product.about}
+              </p>
+            )}
+          </div>
+
+          {/* Core Voucher Badges */}
+          <div className="mt-4 grid grid-cols-3 gap-4 max-w-[560px]">
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 text-sm text-white">🛍️</div>
+              <div className="flex flex-col">
+                <span className="text-[9px] font-bold uppercase tracking-[0.05em] text-[var(--muted)]">Redemption</span>
+                <span className="text-xs font-bold text-white mt-0.5">
+                  {product.giftCardInfo?.redemptionType === "ONLINE" ? "Online Only" : "Web & App"}
                 </span>
               </div>
+            </div>
 
-              {/* Logo / Brand Name at bottom-left */}
-              <div className="absolute bottom-4 left-5 flex items-center gap-2">
-                <span className="text-[12px] font-extrabold uppercase tracking-[0.06em] text-white">
-                  {product.brandName ?? product.name}
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 text-sm text-white">🗓️</div>
+              <div className="flex flex-col">
+                <span className="text-[9px] font-bold uppercase tracking-[0.05em] text-[var(--muted)]">Expiry</span>
+                <span className="text-xs font-bold text-white mt-0.5">
+                  {product.giftCardInfo?.expiryLabel || "No Expiry"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 text-sm text-white">💳</div>
+              <div className="flex flex-col">
+                <span className="text-[9px] font-bold uppercase tracking-[0.05em] text-[var(--muted)]">Voucher Type</span>
+                <span className="text-xs font-bold text-white mt-0.5">
+                  {product.giftCardInfo?.cardType || "Digital Code"}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Title & Description */}
-          <h1 className="text-[34px] font-extrabold tracking-[-0.02em] text-white">
-            {product.name}
-          </h1>
+          <hr className="my-2 border-white/5 max-w-[560px]" />
 
-          {(product.description || product.about) && (
-            <div className="mt-4 max-w-[560px]">
-              <div className={`text-sm leading-[1.6] text-[var(--muted)] whitespace-pre-wrap ${!isReadMore ? 'line-clamp-2' : ''}`}>
-                {product.description}
-                {product.description && product.about && "\n\n"}
-                {product.about}
-              </div>
+          {/* How to use Accordion */}
+          {product.giftCardInfo?.howToUseInstructions && (
+            <div className="max-w-[560px] rounded-2xl border border-white/5 bg-[#121212]/30 overflow-hidden">
               <button
-                onClick={() => setIsReadMore(!isReadMore)}
-                className="mt-2 text-[13px] font-bold text-white hover:text-[var(--flame)] transition-colors"
+                onClick={() => setShowHowToRedeem(!showHowToRedeem)}
+                className="w-full flex items-center justify-between p-4 font-bold text-sm text-white hover:bg-white/[0.02] transition"
               >
-                {isReadMore ? "View less" : "View more"}
+                <span className="flex items-center gap-2">💡 How to Redeem</span>
+                {showHowToRedeem ? <ChevronUp className="w-4 h-4 text-white/50" /> : <ChevronDown className="w-4 h-4 text-white/50" />}
               </button>
+              {showHowToRedeem && (
+                <div className="p-4 pt-0 text-xs text-[var(--muted)] leading-relaxed border-t border-white/5 bg-black/10">
+                  <div className="whitespace-pre-line">
+                    {product.giftCardInfo.howToUseInstructions}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Info row: Redeem / Expiry / Usage — arranged in a 2-column grid */}
-          <div className="mt-10 grid grid-cols-2 gap-y-6 gap-x-4 max-w-[480px]">
-            <div className="flex items-center gap-3">
-              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-[#F3F1ED] text-black">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>
-                </svg>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] mb-[2px]">Redeem</span>
-                <span className="text-[13px] font-bold text-white leading-none">
-                  {product.giftCardInfo?.redemptionType === 'ONLINE' ? 'Online' : (product.giftCardInfo?.redemptionLabel || 'Online')}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-[#F3F1ED] text-black">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] mb-[2px]">Expiry</span>
-                <span className="text-[13px] font-bold text-white leading-none">
-                  {product.giftCardInfo?.expiryLabel || 'No Expiry'}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-[#F3F1ED] text-black">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
-                </svg>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] mb-[2px]">Usage</span>
-                <span className="text-[13px] font-bold text-white leading-none">Single Item</span>
-              </div>
-            </div>
-          </div>
-
-          <hr className="my-8 border-white/10 max-w-[560px]" />
-
-          {/* How to Redeem — flat, no dropdown */}
-          <div className="max-w-[560px] rounded-[14px] border border-white/10 bg-black/20 p-5 mb-4">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-[16px]">❓</span>
-              <h2 className="font-heading text-[14px] font-bold text-white">How to redeem</h2>
-            </div>
-            <hr className="border-white/8 mb-4" />
-            <div className="flex flex-col gap-3 text-sm text-[var(--muted)]">
-              {[
-                "Complete checkout — the voucher code is generated instantly.",
-                "Open your 16Arena Wallet and copy the unique code.",
-                "Redeem the code at the merchant website to claim your credits.",
-              ].map((step, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-white">
-                    {i + 1}
-                  </span>
-                  <span className="leading-[1.5]">{step}</span>
+          {/* Terms & Conditions Accordion */}
+          {product.giftCardInfo?.termsAndConditions && (
+            <div className="max-w-[560px] rounded-2xl border border-white/5 bg-[#121212]/30 overflow-hidden">
+              <button
+                onClick={() => setShowTerms(!showTerms)}
+                className="w-full flex items-center justify-between p-4 font-bold text-sm text-white hover:bg-white/[0.02] transition"
+              >
+                <span className="flex items-center gap-2">📜 Terms & Conditions</span>
+                {showTerms ? <ChevronUp className="w-4 h-4 text-white/50" /> : <ChevronDown className="w-4 h-4 text-white/50" />}
+              </button>
+              {showTerms && (
+                <div className="p-4 pt-0 text-xs text-[var(--muted)] leading-relaxed border-t border-white/5 bg-black/10">
+                  <div className="whitespace-pre-line">
+                    {product.giftCardInfo.termsAndConditions}
+                  </div>
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-
-          {/* Terms & Conditions — flat, no dropdown */}
-          <div className="max-w-[560px] rounded-[14px] border border-white/10 bg-black/20 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-[16px]">📄</span>
-              <h2 className="font-heading text-[14px] font-bold text-white">Terms & Conditions</h2>
-            </div>
-            <hr className="border-white/8 mb-4" />
-            <div className="flex flex-col gap-4 text-sm text-[var(--muted)]">
-              {[
-                "Vouchers are non-refundable once delivered to your wallet.",
-                "Arena Coins applied at checkout are deducted immediately.",
-                "Validity and usage follow the issuing brand's policy.",
-                "Coin rewards credit within 24 hours of a successful order.",
-              ].map((term, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-white">
-                    {i + 1}
-                  </span>
-                  <span className="leading-[1.5]">{term}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Right Column: Buy & Denomination Panel */}
-        <div className="lg:col-span-5 lg:sticky lg:top-[90px]">
+        {/* RIGHT COLUMN: DENOMINATIONS & COIN MATH */}
+        <div className="lg:col-span-5 lg:sticky lg:top-[90px] w-full">
           <HudPanel cut={14} border="var(--line)" fill="var(--carbon)" className="w-full">
-            <div className="p-6">
-              {/* Conditional UID input for Gaming */}
-              {isGaming && (
-                <div className="mb-4">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] block mb-2">
-                    Add User ID (UID)
+            <div className="p-6 flex flex-col gap-5">
+
+              {/* Denomination Choices */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] block mb-3">
+                  Select Denomination
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {fixedSkus.map((sku) => {
+                    const active = selectedSku?.id === sku.id;
+                    return (
+                      <button
+                        key={sku.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSku(sku);
+                          setCustomCoins(null);
+                        }}
+                        className={`flex flex-col items-center p-3 rounded-xl border transition text-center ${active
+                          ? "border-[var(--flame)] bg-[var(--flame)]/[0.08] text-white shadow-[0_0_15px_rgba(254,131,33,0.1)]"
+                          : "border-white/5 bg-black/30 text-[var(--muted)] hover:border-white/20"
+                          }`}
+                      >
+                        <span className="text-sm font-extrabold text-white">₹{sku.retailPrice}</span>
+                        {sku.savingsPercent ? (
+                          <span className="text-[9px] text-[var(--win)] font-semibold mt-0.5">Save {sku.savingsPercent}%</span>
+                        ) : (
+                          <span className="text-[9px] text-white/30 mt-0.5">Voucher</span>
+                        )}
+                      </button>
+                    );
+                  })}
+
+                  {flexibleSku && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSku(flexibleSku);
+                        setCustomCoins(null);
+                      }}
+                      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition text-center ${isFlexibleSelection
+                        ? "border-[var(--flame)] bg-[var(--flame)]/[0.08] text-white shadow-[0_0_15px_rgba(254,131,33,0.1)]"
+                        : "border-white/5 bg-black/30 text-[var(--muted)] hover:border-white/20"
+                        }`}
+                    >
+                      <span className="text-sm font-extrabold text-white">Custom</span>
+                      <span className="text-[9px] text-[var(--flame)] font-semibold mt-0.5">Any Amount</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Dynamic Input (for custom voucher values) */}
+              {isFlexibleSelection && amountRestrictions && (
+                <div className="animate-in slide-in-from-top-2 duration-150 p-4 rounded-xl border border-white/5 bg-black/30">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] flex justify-between mb-2">
+                    <span>Enter Custom Amount</span>
+                    <span className="text-[var(--flame)]">Min: ₹{amountRestrictions.minVoucherAmount} - Max: ₹{amountRestrictions.maxVoucherAmount}</span>
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Enter your Player ID / UID"
-                    className="w-full h-11 bg-black/40 border border-white/10 rounded-[10px] px-4 text-sm text-white placeholder:text-white/30 outline-none focus:border-[var(--flame)]/60 transition-colors"
-                  />
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-white text-base">₹</span>
+                    <input
+                      type="text"
+                      value={customAmountText}
+                      onChange={handleCustomAmountChange}
+                      maxLength={String(amountRestrictions.maxVoucherAmount).length}
+                      className="w-full h-11 bg-black/40 border border-white/10 rounded-xl pl-8 pr-4 text-sm text-white font-bold outline-none focus:border-[var(--flame)]/60 transition"
+                      placeholder={`${amountRestrictions.minVoucherAmount}`}
+                    />
+                  </div>
+                  {amountError && (
+                    <div className="flex items-center gap-1 mt-2 text-xs font-semibold text-red-400">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>{amountError}</span>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Coupon Code Input */}
-              <div className="mb-6">
+              {/* Coupon Validate */}
+              <div>
                 <label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] block mb-2">
                   Coupon Code
                 </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="Have a voucher code?"
-                    className="flex-1 h-11 bg-black/40 border border-white/10 rounded-[10px] px-4 text-sm text-white placeholder:text-white/30 outline-none focus:border-[var(--flame)]/60 transition-colors"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value)}
+                    disabled={appliedCoupon !== null}
+                    placeholder="VOUCHER50"
+                    className="flex-1 h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs font-semibold text-white placeholder:text-white/20 outline-none focus:border-[var(--flame)] focus:ring-0 focus-visible:outline-none"
+                    style={{ outline: "none", boxShadow: "none" }}
                   />
-                  <button className="h-11 px-4 bg-white/5 border border-white/10 rounded-[10px] text-sm text-white hover:bg-white/10 transition">
-                    Apply
-                  </button>
+                  {appliedCoupon ? (
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="h-11 px-4 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold rounded-xl active:scale-95 transition"
+                    >
+                      Remove
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      className="h-11 px-4 bg-white/5 border border-white/10 text-white text-xs font-bold rounded-xl hover:bg-white/10 active:scale-95 transition"
+                    >
+                      Apply
+                    </button>
+                  )}
                 </div>
+                {appliedCoupon && (
+                  <p className="text-[10px] font-bold text-[var(--win)] mt-1.5 flex items-center gap-1">
+                    ✓ Code &apos;{appliedCoupon}&apos; validation scheduled
+                  </p>
+                )}
               </div>
 
-              {/* Denomination Grid */}
-              <div className="mb-6">
-                <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] mb-3">
-                  Select Amount
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {denoms.map((denom, i) => {
-                    const active = i === denomIdx;
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => setDenomIdx(i)}
-                        className={`flex flex-col items-center gap-[4px] rounded-[11px] border px-3 py-3 transition text-center ${
-                          active
-                            ? "border-[var(--flame)] bg-[var(--flame)]/[0.08] text-white"
-                            : "border-white/10 bg-black/20 text-[var(--muted)] hover:border-white/20"
-                        }`}
-                      >
-                        <span className="text-base font-bold tabular-nums text-white">
-                          {denom.faceStr}
-                        </span>
-                        <span className="text-[10px] text-[var(--muted)]">Pay {denom.cashStr}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              {/* Arena Coins coverage selector */}
+              {optimalCoins > 0 && (
+                <div className="p-4 rounded-xl border border-white/5 bg-black/25">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)]">Redeem Arena Coins</span>
+                    <button
+                      type="button"
+                      onClick={() => setApplyCoins(!applyCoins)}
+                      className={`text-xs font-bold ${applyCoins ? "text-[var(--flame)]" : "text-white/40"} transition`}
+                    >
+                      {applyCoins ? "Redeeming" : "Off"}
+                    </button>
+                  </div>
 
-              {/* You Pay details box */}
-              <div className="p-4 bg-black/20 border border-white/5 rounded-xl mb-6">
-                <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
-                  You Pay
-                </div>
-                <div className="mt-2.5 flex items-center gap-2">
-                  <span className="text-[28px] font-extrabold text-white tabular-nums leading-none">
-                    ₹{payCash.toLocaleString("en-IN")}
-                  </span>
-                  <span className="text-xl text-white/40 leading-none">+</span>
-                  <div className="flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
-                    <Image src={coinImg} alt="Coins" width={15} height={15} />
-                    <span className="text-[14px] font-bold text-[#FBCD00] tabular-nums leading-none">
-                      {payCoins.toLocaleString("en-IN")}
+                  <div className="flex items-center justify-between mb-3 text-xs">
+                    <span className="text-white/50">Your Balance:</span>
+                    <span className="text-[#FFA000] font-bold flex items-center gap-1">
+                      <Image src={coinImg} alt="" width={13} height={13} />
+                      {coinsBalance.toLocaleString()}
                     </span>
                   </div>
+
+                  {applyCoins && (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between text-[10px] text-white/50 font-bold uppercase">
+                        <span>Coins to Spend</span>
+                        <span className="text-[#FFA000]">{coinsToRedeem.toLocaleString()}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max={optimalCoins}
+                        value={coinsToRedeem}
+                        onChange={(e) => setCustomCoins(parseInt(e.target.value, 10))}
+                        className="w-full accent-[var(--flame)] cursor-pointer h-1 rounded-lg bg-white/10 outline-none"
+                      />
+                      <div className="flex justify-between text-[9px] text-white/30">
+                        <span>0</span>
+                        <span>Max Allowed: {optimalCoins.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="mt-3 flex items-center justify-between text-[12px] border-t border-white/5 pt-3">
-                  <span className="text-[var(--muted)]">Total Savings:</span>
-                  <span className="font-bold text-[var(--win)]">
-                    Save {Math.round((1 - d.cash / d.face) * 100)}%
+              )}
+
+              {/* You Pay Price Card */}
+              <div className="p-4 bg-black/30 border border-white/5 rounded-2xl relative overflow-hidden">
+                {previewLoading && (
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-2xl">
+                    <Loader2 className="w-6 h-6 text-[var(--flame)] animate-spin" />
+                  </div>
+                )}
+
+                <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--muted)]">Total Payable</span>
+
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-3xl font-black text-white tabular-nums leading-none">
+                    ₹{displayPrice.toLocaleString()}
+                  </span>
+                  {coinsToRedeem > 0 && (
+                    <>
+                      <span className="text-xl text-white/30 font-light leading-none">+</span>
+                      <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg border border-white/5 leading-none">
+                        <Image src={coinImg} alt="Coins" width={14} height={14} />
+                        <span className="text-xs font-bold text-[#FFA000] tabular-nums">
+                          {coinsToRedeem.toLocaleString()}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="mt-3.5 flex justify-between items-center text-[10px] font-bold border-t border-white/5 pt-3 uppercase">
+                  <span className="text-[var(--muted)] tracking-wider">Estimated Savings:</span>
+                  <span className="text-[var(--win)] tracking-wider font-extrabold">
+                    {savingsPct > 0 ? `SAVE ${savingsPct}%` : `BEST VALUE`}
                   </span>
                 </div>
               </div>
 
-              {/* Quantity Stepper & Buy button */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex h-11 items-center overflow-hidden rounded-[10px] border border-white/10 bg-black/20 shrink-0">
+              {/* Buy Action Box */}
+              <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center border border-white/10 bg-black/20 rounded-xl overflow-hidden h-12 shrink-0">
                   <button
+                    type="button"
                     onClick={() => setQty((q) => Math.max(1, q - 1))}
-                    className="w-10 h-11 text-lg text-[var(--muted)] hover:bg-white/5 transition"
+                    className="w-10 h-full hover:bg-white/5 text-white/60 font-bold active:scale-90 transition"
                   >
                     −
                   </button>
-                  <span className="w-8 text-center text-sm font-bold text-white tabular-nums">
+                  <span className="w-8 text-center text-xs font-bold text-white font-mono tabular-nums">
                     {qty}
                   </span>
                   <button
+                    type="button"
                     onClick={() => setQty((q) => q + 1)}
-                    className="w-10 h-11 text-lg text-[var(--muted)] hover:bg-white/5 transition"
+                    className="w-10 h-full hover:bg-white/5 text-white/60 font-bold active:scale-90 transition"
                   >
                     +
                   </button>
                 </div>
-                <button className="h-11 flex-1 bg-gradient-to-r from-[#FF973C] to-[#FF6A00] rounded-[10px] text-sm font-bold text-black hover:brightness-110 active:translate-y-px transition duration-150 shadow-[0_12px_24px_-10px_rgba(255,106,0,0.4)]">
-                  Buy Now
+
+                <button
+                  type="button"
+                  onClick={triggerBuy}
+                  disabled={checkoutLoading || previewLoading || (isFlexibleSelection && !!amountError)}
+                  className="flex-1 h-12 bg-gradient-to-r from-[#FF973C] via-[#FF6A00] to-[#FF973C] rounded-xl text-sm font-extrabold text-black hover:brightness-105 active:scale-[0.98] transition shadow-[0_12px_24px_-10px_rgba(255,106,0,0.4)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 uppercase tracking-wider"
+                >
+                  {checkoutLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-black" />
+                      <span>Checking Out...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Buy Now</span>
+                      <ArrowRight className="w-4 h-4 text-black" />
+                    </>
+                  )}
                 </button>
               </div>
 
-              {/* Telemetry info under button */}
-              <div className="font-data flex items-center gap-2 text-[10px] uppercase tracking-[0.06em] text-[var(--muted)]">
-                <ZapIcon size={14} className="text-[var(--flame)]" />
-                Instant delivery · No expiry on Arena Coins
+              {/* Warnings and Info flags */}
+              {checkoutError && (
+                <div className="text-xs font-semibold text-red-400 text-center mt-1 bg-red-500/10 p-2 rounded-lg border border-red-500/25">
+                  {checkoutError}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.06em] text-[var(--muted)] font-medium mt-1">
+                <ZapIcon size={12} className="text-[var(--flame)]" />
+                Instant Delivery · Secure Razorpay Checkout Gateway
               </div>
+
             </div>
           </HudPanel>
         </div>

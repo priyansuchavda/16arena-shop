@@ -160,4 +160,110 @@ export const categories: Category[] = [
   { label: "Travel", slug: "travel", color: "#38bdf8" },
 ];
 
+export function splitFixedSkus(product: any): any[] {
+  if (!product?.skus) return [];
+  return product.skus
+    .filter((s: any) => !s.isDynamicDenomination && s.stockStatus !== "out_of_stock" && s.isActive !== false)
+    .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+}
+
+export function resolveFlexibleSku(product: any): any | null {
+  if (!product?.skus) return null;
+  return product.skus.find((s: any) => s.isDynamicDenomination && s.isActive) || null;
+}
+
+export function isFlexibleSkuSelection(sku: any | null): boolean {
+  return sku?.isDynamicDenomination === true;
+}
+
+export function resolveAmountRestrictions(product: any): any | null {
+  const giftRestrictions = product.giftCardInfo?.amountRestrictions;
+  if (giftRestrictions && (giftRestrictions.maxVoucherAmount > 0 || giftRestrictions.minVoucherAmount > 0)) {
+    return giftRestrictions;
+  }
+  return product.amountRestrictions || null;
+}
+
+export function resolveSkuAmountRestrictions(product: any, sku: any): any | null {
+  if (sku.isDynamicDenomination) {
+    const min = sku.minFaceValue;
+    const max = sku.maxFaceValue;
+    if (min !== undefined && max !== undefined && max > 0) {
+      return {
+        minVoucherAmount: min,
+        maxVoucherAmount: max,
+      };
+    }
+    if (sku.amountRestrictions) return sku.amountRestrictions;
+  }
+  return resolveAmountRestrictions(product);
+}
+
+export function computeOptimalCoinsToRedeem({
+  rules,
+  coinsBalance,
+  subtotal,
+  paymentRules,
+  sku,
+}: {
+  rules: { coinToInrRate: number; maxCoveragePercent: number };
+  coinsBalance: number;
+  subtotal: number;
+  paymentRules?: any;
+  sku?: any;
+}): number {
+  if (sku && !sku.allowCoinRedemption && !sku.isCoinOnly) {
+    return 0;
+  }
+
+  if (paymentRules) {
+    if (paymentRules.isCoinOnly) {
+      return Math.min(coinsBalance, paymentRules.maxCoinsAllowedEstimate);
+    }
+    if (!paymentRules.allowCoinRedemption) return 0;
+    return Math.min(coinsBalance, paymentRules.maxCoinsAllowedEstimate);
+  }
+
+  const maxCoverage = sku?.maxCoinCoveragePercent ?? rules?.maxCoveragePercent ?? 50;
+  const coinToInrRate = rules?.coinToInrRate ?? 0.10;
+  const maxAllowedValue = subtotal * (maxCoverage / 100.0);
+  const maxCoinsNeeded = Math.floor(maxAllowedValue / coinToInrRate);
+  return Math.min(coinsBalance, maxCoinsNeeded);
+}
+
+export function shouldShowCoinEditor({
+  paymentRules,
+  sku,
+}: {
+  paymentRules?: any;
+  sku?: any;
+}): boolean {
+  if (sku?.isDynamicDenomination) {
+    if (!paymentRules) return true;
+    if (paymentRules.isCoinOnly) return true;
+    return paymentRules.allowCoinRedemption;
+  }
+  if (paymentRules?.isCoinOnly) return true;
+  if (paymentRules) return paymentRules.allowCoinRedemption;
+  return sku?.allowCoinRedemption ?? true;
+}
+
+export function computeFlexibleSubtotal(product: any, sku: any, amount: number): number {
+  if (!sku || !sku.isDynamicDenomination) return sku?.retailPrice || sku?.price || 0;
+  const restrictions = resolveSkuAmountRestrictions(product, sku);
+  const minAmount = restrictions?.minVoucherAmount ?? 100;
+  
+  let unitRate = 1;
+  if (minAmount > 0) {
+    if (sku.perUnitPrice !== undefined && sku.perUnitPrice > 0) {
+      unitRate = sku.perUnitPrice / minAmount;
+    } else if (sku.price !== undefined && sku.price > 0) {
+      unitRate = sku.price / minAmount;
+    } else if (sku.retailPrice !== undefined && sku.retailPrice > 0) {
+      unitRate = sku.retailPrice / minAmount;
+    }
+  }
+  return amount * unitRate;
+}
+
 

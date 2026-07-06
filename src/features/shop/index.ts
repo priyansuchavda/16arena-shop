@@ -15,3 +15,6 @@ export * from "./services/product.service";
 
 // Types
 export * from "./types/shop.types";
+
+// Hooks
+export * from "./hooks/useCheckout";

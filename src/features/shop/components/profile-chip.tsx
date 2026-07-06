@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { LogOut, Edit2, User, ChevronDown } from "lucide-react";
+import { LogOut, Edit2, User, ChevronDown, ClipboardList } from "lucide-react";
 import { useAuthStore, useUserSummary, useLogout } from "@/features/auth";
 
 const DEFAULT_AVATAR_URL =
@@ -103,6 +103,14 @@ export function ProfileChip() {
             >
               <User className="w-3.5 h-3.5 mr-2.5 text-[var(--flame)]" />
               Edit Profile
+            </Link>
+            <Link
+              href="/orders"
+              className="flex items-center px-4 py-2.5 text-xs font-semibold text-[var(--muted)] hover:bg-white/[0.03] hover:text-white transition"
+              onClick={() => setIsOpen(false)}
+            >
+              <ClipboardList className="w-3.5 h-3.5 mr-2.5 text-[var(--flame)]" />
+              Order History
             </Link>
             <button
               onClick={handleLogout}

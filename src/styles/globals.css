@@ -453,3 +453,10 @@
   top: 58%;
   animation-delay: 0.7s;
 }
+
+/* Suppress default focus outlines inside shop pill inputs */
+.shop-pill input:focus,
+.shop-pill input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}

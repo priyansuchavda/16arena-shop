@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "metaninzamedia.blob.core.windows.net",
       },
+      {
+        protocol: "https",
+        hostname: "assets.myhubble.money",
+      },
     ],
   },
 };

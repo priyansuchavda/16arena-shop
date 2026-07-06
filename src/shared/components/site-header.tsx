@@ -13,7 +13,8 @@ export function SiteHeader() {
           <SearchIcon className="shrink-0 text-[var(--faint)]" />
           <input
             placeholder="Search for a brand or gift card"
-            className="flex-1 border-none bg-transparent text-sm text-[var(--ink)] outline-none placeholder:text-[var(--faint)]"
+            className="flex-1 border-none bg-transparent text-sm text-[var(--ink)] placeholder:text-[var(--faint)]"
+            style={{ outline: "none", boxShadow: "none" }}
           />
         </label>
 

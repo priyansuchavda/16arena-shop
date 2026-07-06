@@ -96,7 +96,7 @@ export default async function ShopSlugPage({
         walletBalance={walletBalance}
         hideSidebar={true}
       >
-        <ProductDetail product={sample} related={getRelated(slug)} />
+        <ProductDetail product={sample} related={getRelated(slug).map(productToCard)} />
       </ShopLayout>
     );
   }

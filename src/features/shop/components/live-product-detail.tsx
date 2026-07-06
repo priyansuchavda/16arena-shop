@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, ChevronDown, ChevronUp, Copy, Check, Info, Loader2, Sparkles, Tag as TagIcon, ArrowRight } from "lucide-react";
 import coinImg from "@/assets/png/coin.png";
 import { HudPanel } from "./hud";
+import { ScrollRow } from "./scroll-row";
 import { CoinIcon, ZapIcon } from "@/shared/components/icons";
 import { gradientFor, apiToCard } from "@/features/shop/utils/mappers";
 import { useAuthStore, useUserSummary } from "@/features/auth";
@@ -16,6 +17,7 @@ import {
   ShopSku,
   CheckoutPreview,
   ShopAmountRestrictions,
+  CardModel,
 } from "../types/shop.types";
 import { splitFixedSkus, resolveFlexibleSku, isFlexibleSkuSelection, resolveSkuAmountRestrictions, computeOptimalCoinsToRedeem, shouldShowCoinEditor, computeFlexibleSubtotal } from "../services/product.service";
 
@@ -29,7 +31,7 @@ function rgba(hex: string, opacity: number) {
 
 interface LiveProductDetailProps {
   product: ShopProductDetail;
-  related?: any[];
+  related?: CardModel[];
 }
 
 export function LiveProductDetail({ product, related = [] }: LiveProductDetailProps) {
@@ -84,6 +86,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   const [showHowToRedeem, setShowHowToRedeem] = useState(true);
   const [showTerms, setShowTerms] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [isReadMore, setIsReadMore] = useState(false);
 
   // Checkout Preview cache
   const [checkoutPreview, setCheckoutPreview] = useState<CheckoutPreview | null>(null);
@@ -246,7 +249,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     : selectedSku?.savingsPercent || Math.round((1 - (selectedSku?.retailPrice || 1) / (selectedSku?.originalPrice || 1)) * 100);
 
   return (
-    <div className="relative flex-1 pb-20 px-4 md:px-8 max-w-[1280px] mx-auto">
+    <div className="relative flex-1 pb-20">
       {/* Dynamic graphic background */}
       {product.heroImageUrl && (
         <div className="absolute right-0 top-[-80px] pointer-events-none hidden lg:block w-[55%] h-[680px] overflow-hidden opacity-10 select-none">
@@ -301,16 +304,30 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           <div className="max-w-[560px]">
             <h1 className="text-[32px] font-extrabold tracking-tight text-white">{product.name}</h1>
             {(product.description || product.about) && (
-              <p className="mt-3 text-sm text-[var(--muted)] leading-relaxed whitespace-pre-wrap">
-                {product.description || product.about}
-              </p>
+              <>
+                <p
+                  className={`mt-3 text-sm text-[var(--muted)] leading-relaxed whitespace-pre-wrap ${!isReadMore ? "line-clamp-2" : ""}`}
+                >
+                  {product.description || product.about}
+                </p>
+                <button
+                  onClick={() => setIsReadMore(!isReadMore)}
+                  className="mt-2 text-[13px] font-bold text-white hover:text-[var(--flame)] transition-colors"
+                >
+                  {isReadMore ? "View less" : "View more"}
+                </button>
+              </>
             )}
           </div>
 
           {/* Core Voucher Badges */}
           <div className="mt-4 grid grid-cols-3 gap-4 max-w-[560px]">
             <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 text-sm text-white">🛍️</div>
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-white">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>
+                </svg>
+              </div>
               <div className="flex flex-col">
                 <span className="text-[9px] font-bold uppercase tracking-[0.05em] text-[var(--muted)]">Redemption</span>
                 <span className="text-xs font-bold text-white mt-0.5">
@@ -320,7 +337,11 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
             </div>
 
             <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 text-sm text-white">🗓️</div>
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-white">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
               <div className="flex flex-col">
                 <span className="text-[9px] font-bold uppercase tracking-[0.05em] text-[var(--muted)]">Expiry</span>
                 <span className="text-xs font-bold text-white mt-0.5">
@@ -330,7 +351,11 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
             </div>
 
             <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 text-sm text-white">💳</div>
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-white">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+                </svg>
+              </div>
               <div className="flex flex-col">
                 <span className="text-[9px] font-bold uppercase tracking-[0.05em] text-[var(--muted)]">Voucher Type</span>
                 <span className="text-xs font-bold text-white mt-0.5">
@@ -521,7 +546,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
                   <div className="flex items-center justify-between mb-3 text-xs">
                     <span className="text-white/50">Your Balance:</span>
-                    <span className="text-[#FFA000] font-bold flex items-center gap-1">
+                    <span className="text-[var(--coin)] font-bold flex items-center gap-1">
                       <Image src={coinImg} alt="" width={13} height={13} />
                       {coinsBalance.toLocaleString()}
                     </span>
@@ -531,7 +556,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                     <div className="flex flex-col gap-2">
                       <div className="flex justify-between text-[10px] text-white/50 font-bold uppercase">
                         <span>Coins to Spend</span>
-                        <span className="text-[#FFA000]">{coinsToRedeem.toLocaleString()}</span>
+                        <span className="text-[var(--coin)]">{coinsToRedeem.toLocaleString()}</span>
                       </div>
                       <input
                         type="range"
@@ -569,7 +594,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                       <span className="text-xl text-white/30 font-light leading-none">+</span>
                       <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg border border-white/5 leading-none">
                         <Image src={coinImg} alt="Coins" width={14} height={14} />
-                        <span className="text-xs font-bold text-[#FFA000] tabular-nums">
+                        <span className="text-xs font-bold text-[var(--coin)] tabular-nums">
                           {coinsToRedeem.toLocaleString()}
                         </span>
                       </div>
@@ -611,7 +636,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                   type="button"
                   onClick={triggerBuy}
                   disabled={checkoutLoading || previewLoading || (isFlexibleSelection && !!amountError)}
-                  className="flex-1 h-12 bg-gradient-to-r from-[#FF973C] via-[#FF6A00] to-[#FF973C] rounded-xl text-sm font-extrabold text-black hover:brightness-105 active:scale-[0.98] transition shadow-[0_12px_24px_-10px_rgba(255,106,0,0.4)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 uppercase tracking-wider"
+                  className="flex-1 h-12 bg-gradient-to-r from-[var(--flame)] via-[var(--flame-deep)] to-[var(--flame)] rounded-xl text-sm font-extrabold text-black hover:brightness-105 active:scale-[0.98] transition shadow-[0_12px_24px_-10px_rgba(255,68,0,0.4)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 uppercase tracking-wider"
                 >
                   {checkoutLoading ? (
                     <>
@@ -643,6 +668,12 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           </HudPanel>
         </div>
       </div>
+
+      {related.length > 0 && (
+        <div className="mt-4 relative z-10">
+          <ScrollRow title="You may also like" items={related} card="section" />
+        </div>
+      )}
     </div>
   );
 }

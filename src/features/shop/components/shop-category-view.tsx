@@ -21,7 +21,7 @@ export function ShopCategoryView({ category, cards }: ShopCategoryViewProps) {
         <CategoryHeroBackdrop hero={hero} accent={category.color} />
 
         <div className="px-5 lg:px-10">
-          <div className="relative z-10 mx-auto max-w-[1160px] pt-8 sm:pt-10 lg:pt-14">
+          <div className="shop-content-width relative z-10 pt-8 sm:pt-10 lg:pt-14">
             <h1 className="font-heading text-[28px] font-bold leading-tight tracking-tight text-white sm:text-[34px]">
               {title}
             </h1>
@@ -36,7 +36,7 @@ export function ShopCategoryView({ category, cards }: ShopCategoryViewProps) {
       {/* Cards — solid void; image fade completes at the seam above */}
       <div className="relative z-10 bg-[var(--void)] px-5 pb-16 lg:px-10">
         {cards.length > 0 ? (
-          <div className="mx-auto grid max-w-[1160px] grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-x-4 gap-y-8">
+          <div className="shop-content-width grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-x-4 gap-y-8">
             {cards.map((card, i) => (
               <div key={`${card.id}-${i}`} className="flex justify-start">
                 <ShopCategorySectionCard product={card} />

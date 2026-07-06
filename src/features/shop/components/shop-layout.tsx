@@ -66,7 +66,7 @@ function ShopTopBar({
         categoryMode ? "bg-transparent" : "bg-transparent backdrop-blur-[2px]",
       ].join(" ")}
     >
-      <div className="mx-auto flex w-full max-w-[1160px] items-center gap-4">
+      <div className="shop-content-width flex items-center gap-4">
         <ArenaLogo className="shrink-0 lg:hidden" height={28} onClick={onSelectAll} />
         <div className="min-w-0 flex-1">
           <TopBar
@@ -132,7 +132,7 @@ export function ShopLayout({
           {!hideSidebar && (
             <div
               className={[
-                "mx-auto w-full max-w-[1160px] px-5 lg:px-10",
+                "shop-content-width px-5 lg:px-10",
                 categoryMode && "lg:hidden",
               ]
                 .filter(Boolean)
@@ -146,7 +146,7 @@ export function ShopLayout({
             children
           ) : (
             <div className="px-5 lg:px-10">
-              <main className="mx-auto w-full max-w-[1160px]">{children}</main>
+              <main className="shop-content-width">{children}</main>
             </div>
           )}
         </div>

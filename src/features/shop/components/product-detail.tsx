@@ -5,9 +5,10 @@ import Link from "next/link";
 import Image from "next/image";
 import coinImg from "@/assets/png/coin.png";
 import { HudPanel } from "./hud";
+import { ScrollRow } from "./scroll-row";
 import { ZapIcon } from "@/shared/components/icons";
 import { CARD_DENOM_INDEX, denominations } from "../services/product.service";
-import { type Product } from "@/features/shop/types/shop.types";
+import { type Product, type CardModel } from "@/features/shop/types/shop.types";
 
 const FAQS = [
   {
@@ -26,9 +27,10 @@ const FAQS = [
 
 export function ProductDetail({
   product,
+  related,
 }: {
   product: Product;
-  related: Product[]; // Kept in signature for compatibility
+  related: CardModel[];
 }) {
   const denoms = denominations();
   const [denomIdx, setDenomIdx] = useState(CARD_DENOM_INDEX);
@@ -99,7 +101,7 @@ export function ProductDetail({
           {/* Info row: Redeem / Expiry / Usage — arranged in a 2-column grid */}
           <div className="mt-10 grid grid-cols-2 gap-y-6 gap-x-4 max-w-[480px]">
             <div className="flex items-center gap-3">
-              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-[#F3F1ED] text-black">
+              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-white/5 text-white">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>
                 </svg>
@@ -113,7 +115,7 @@ export function ProductDetail({
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-[#F3F1ED] text-black">
+              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-white/5 text-white">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
@@ -127,7 +129,7 @@ export function ProductDetail({
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-[#F3F1ED] text-black">
+              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-white/5 text-white">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
                 </svg>
@@ -264,7 +266,7 @@ export function ProductDetail({
                   <span className="text-xl text-white/40 leading-none">+</span>
                   <div className="flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
                     <Image src={coinImg} alt="Coins" width={15} height={15} />
-                    <span className="text-[14px] font-bold text-[#FBCD00] tabular-nums leading-none">
+                    <span className="text-[14px] font-bold text-[var(--coin)] tabular-nums leading-none">
                       {payCoins.toLocaleString("en-IN")}
                     </span>
                   </div>
@@ -296,7 +298,7 @@ export function ProductDetail({
                     +
                   </button>
                 </div>
-                <button className="h-11 flex-1 bg-gradient-to-r from-[#FF973C] to-[#FF6A00] rounded-[10px] text-sm font-bold text-black hover:brightness-110 active:translate-y-px transition duration-150 shadow-[0_12px_24px_-10px_rgba(255,106,0,0.4)]">
+                <button className="h-11 flex-1 bg-gradient-to-r from-[var(--flame)] to-[var(--flame-deep)] rounded-[10px] text-sm font-bold text-black hover:brightness-110 active:translate-y-px transition duration-150 shadow-[0_12px_24px_-10px_rgba(255,68,0,0.4)]">
                   Buy Now
                 </button>
               </div>
@@ -310,6 +312,12 @@ export function ProductDetail({
           </HudPanel>
         </div>
       </div>
+
+      {related.length > 0 && (
+        <div className="mt-4">
+          <ScrollRow title="You may also like" items={related} card="section" />
+        </div>
+      )}
     </div>
   );
 }

@@ -196,7 +196,7 @@ export function ShopShell({
       }}
     >
       {searchQuery ? (
-        <div className="animate-fade-in relative z-10 max-w-[1160px] mx-auto pt-6">
+        <div className="animate-fade-in relative z-10 pt-6">
           <h2 className="font-heading text-[20px] font-extrabold text-white mb-6">
             Search Results for &apos;{searchQuery}&apos;
           </h2>

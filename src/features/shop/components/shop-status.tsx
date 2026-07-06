@@ -1,7 +1,7 @@
-import { SHOP_API_BASE } from "@/features/shop/services/shop.service";
+import { env } from "@/config/env";
 
 export function ShopStatus({ live }: { live: boolean }) {
-  const host = SHOP_API_BASE.replace(/^https?:\/\//, "").replace(/\/api.*$/, "");
+  const host = env.SHOP_API_BASE.replace(/^https?:\/\//, "").replace(/\/api.*$/, "");
   return (
     <div className="mb-6 flex items-center gap-[9px]">
       <span

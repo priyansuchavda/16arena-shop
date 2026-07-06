@@ -49,6 +49,8 @@ export const metadata: Metadata = {
     "Buy gift cards, coupons, vouchers and trading cards with instant digital delivery from 16arenashop.",
 };
 
+import { Providers } from "./providers";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -60,7 +62,7 @@ export default function RootLayout({
       className={`dark ${hubot.variable} ${polySans.variable} ${polySansMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-[var(--void)] font-sans text-[var(--ink)]">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

@@ -10,7 +10,7 @@ import {
   CardBadge,
 } from "../types/shop.types";
 import { categorySlugFromSub } from "../utils/shop-catalog";
-import { getData } from "./shop.service";
+
 
 /** Available voucher face values, in ₹. */
 export const DENOM_FACES = [500, 1000, 2000, 5000];
@@ -160,22 +160,4 @@ export const categories: Category[] = [
   { label: "Travel", slug: "travel", color: "#38bdf8" },
 ];
 
-export async function fetchProducts(categoryId?: string): Promise<ApiProduct[]> {
-  const path = categoryId
-    ? `/api/v1/shop/products?categoryId=${categoryId}&page=1&pageSize=20`
-    : "/api/v1/shop/products";
-  const data = await getData<{ items: ApiProduct[] }>(path);
-  return data.items ?? [];
-}
 
-export async function fetchProductBySlug(slug: string): Promise<ApiProduct | null> {
-  try {
-    return await getData<ApiProduct>(`/api/v1/shop/products/${slug}`);
-  } catch {
-    return null;
-  }
-}
-
-export function fetchFeaturedProducts(): Promise<ApiProduct[]> {
-  return getData<ApiProduct[]>("/api/v1/shop/products/featured");
-}

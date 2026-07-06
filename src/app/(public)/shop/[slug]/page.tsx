@@ -9,10 +9,7 @@ import {
   products as staticProducts,
   categories as staticCategories,
   productToCard,
-  fetchProducts,
-  fetchProductBySlug,
-  fetchCategories,
-  fetchWalletBalance,
+  shopApi,
   type CategoryItem,
   type CardModel,
   type ApiCategory,
@@ -42,8 +39,8 @@ export default async function ShopSlugPage({
   let liveCats: ApiCategory[] = [];
 
   try {
-    liveCats = await fetchCategories();
-    walletBalance = await fetchWalletBalance().catch(() => 1000);
+    liveCats = await shopApi.fetchCategories();
+    walletBalance = await shopApi.fetchWalletBalance().catch(() => 1000);
     categoryItems = topCategories(liveCats);
   } catch {
     categoryItems = staticCategories.map((c) => ({
@@ -66,7 +63,7 @@ export default async function ShopSlugPage({
       // Find the corresponding live category ID
       const matchingLiveCat = liveCats.find((c) => c.slug === slug);
       if (matchingLiveCat) {
-        const liveProducts = await fetchProducts(matchingLiveCat.id);
+        const liveProducts = await shopApi.fetchProducts(matchingLiveCat.id);
         allCards = liveProducts.filter((p) => p.isActive !== false).map((p) => apiToCard(p, slugs));
       } else {
         // Fall back to static cards
@@ -104,14 +101,14 @@ export default async function ShopSlugPage({
     );
   }
 
-  let item: Awaited<ReturnType<typeof fetchProductBySlug>> = null;
+  let item: Awaited<ReturnType<typeof shopApi.fetchProductBySlug>> = null;
   let related: ReturnType<typeof apiToCard>[] = [];
   const slugs = categorySlugMap(liveCats);
 
   try {
-    item = await fetchProductBySlug(slug);
+    item = await shopApi.fetchProductBySlug(slug);
     if (item) {
-      const relatedProds = await fetchProducts(item.categoryId).catch(() => []);
+      const relatedProds = await shopApi.fetchProducts(item.categoryId).catch(() => []);
       related = relatedProds
         .filter((p) => p.slug !== item!.slug)
         .slice(0, 4)

@@ -1,3 +1,5 @@
+"use client";
+
 import { ShopSidebar } from "./shop-sidebar";
 import { MobileCategoryStrip } from "./mobile-category-strip";
 import { ArenaLogo } from "@/shared/components/arena-logo";
@@ -6,7 +8,12 @@ import { ProfileChip } from "./profile-chip";
 import { SearchIcon } from "@/shared/components/icons";
 import { CategoryItem } from "@/features/shop/types/shop.types";
 
+import { useUserSummary } from "@/features/auth";
+
 function TopBar({ walletBalance }: { walletBalance: number }) {
+  const { data: userSummary } = useUserSummary();
+  const coins = userSummary?.arenaCoins ?? walletBalance;
+
   return (
     <div className="flex w-full min-w-0 items-center gap-4">
       <label className="shop-pill flex h-[52px] min-w-0 flex-1 items-center gap-3 border border-[var(--line)] bg-[var(--surface)] px-4 transition-colors hover:border-white focus-within:border-white focus-within:ring-1 focus-within:ring-white/15 lg:w-[800px] lg:max-w-[800px] lg:flex-none">
@@ -20,7 +27,7 @@ function TopBar({ walletBalance }: { walletBalance: number }) {
       <div className="hidden flex-1 lg:block" aria-hidden />
 
       <div className="flex shrink-0 items-center gap-2.5">
-        <WalletCoinChip balance={walletBalance} />
+        <WalletCoinChip balance={coins} />
         <ProfileChip />
       </div>
     </div>

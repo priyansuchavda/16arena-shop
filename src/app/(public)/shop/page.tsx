@@ -2,10 +2,7 @@ import { ArenaLogo } from "@/shared/components/arena-logo";
 import {
   ShopShell,
   ShopUnavailable,
-  checkShopVisibility,
-  fetchCategories,
-  fetchFeaturedProducts,
-  fetchProducts,
+  shopApi,
   categories as staticCategories,
   productToCard,
   products as staticProducts,
@@ -66,9 +63,9 @@ export default async function Home() {
 
   try {
     const [visibility, cats, featuredProds] = await Promise.all([
-      checkShopVisibility(),
-      fetchCategories(),
-      fetchFeaturedProducts(),
+      shopApi.checkShopVisibility(),
+      shopApi.fetchCategories(),
+      shopApi.fetchFeaturedProducts(),
     ]);
 
     shopVisible = visibility.visible;
@@ -77,7 +74,7 @@ export default async function Home() {
       if (!activeTopCats.length) throw new Error("no categories");
 
       const productsPerCategory = await Promise.all(
-        activeTopCats.map((cat) => fetchProducts(cat.id))
+        activeTopCats.map((cat) => shopApi.fetchProducts(cat.id))
       );
 
       const slugs = categorySlugMap(cats);

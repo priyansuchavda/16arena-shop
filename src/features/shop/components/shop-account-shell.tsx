@@ -15,9 +15,14 @@ const staticCategoryItems: CategoryItem[] = staticCategories.map((c) => ({
 type ShopAccountShellProps = {
   children: React.ReactNode;
   hideSidebar?: boolean;
+  fullWidth?: boolean;
 };
 
-export function ShopAccountShell({ children, hideSidebar = false }: ShopAccountShellProps) {
+export function ShopAccountShell({
+  children,
+  hideSidebar = false,
+  fullWidth = false,
+}: ShopAccountShellProps) {
   const router = useRouter();
 
   return (
@@ -28,6 +33,9 @@ export function ShopAccountShell({ children, hideSidebar = false }: ShopAccountS
       onSelectAll={() => router.push("/shop")}
     >
       <div className="mx-auto w-full max-w-[1200px] pb-12 pt-1">{children}</div>
+      <div className={fullWidth ? "w-full pb-12 pt-1" : "mx-auto w-full max-w-[900px] pb-12 pt-1"}>
+        {children}
+      </div>
     </ShopLayout>
   );
 }

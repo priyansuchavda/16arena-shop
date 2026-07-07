@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { User, ChevronDown, ChevronRight, Bell, ClipboardList } from "lucide-react";
+import { User, ChevronDown, ChevronRight, Bell } from "lucide-react";
 import { useAuthStore, useUserSummary, useLogout } from "@/features/auth";
 
 const DEFAULT_AVATAR_URL =
@@ -136,26 +136,13 @@ export function ProfileChip() {
             <div className="border-b border-white/5" />
 
             <Link
-              href="/orders"
+              href="/gift-cards"
               className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.02] transition text-left"
               onClick={() => setIsOpen(false)}
             >
               <div className="flex items-center gap-3.5">
                 <CardIcon className="w-5 h-5 text-white/90" />
                 <span className="text-[15px] font-medium text-white/95">My gift cards</span>
-              </div>
-              <ChevronRight className="w-4 h-4 text-white/40" />
-            </Link>
-            <div className="border-b border-white/5" />
-
-            <Link
-              href="/orders"
-              className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.02] transition text-left"
-              onClick={() => setIsOpen(false)}
-            >
-              <div className="flex items-center gap-3.5">
-                <ClipboardList className="w-5 h-5 text-white/90" />
-                <span className="text-[15px] font-medium text-white/95">Order History</span>
               </div>
               <ChevronRight className="w-4 h-4 text-white/40" />
             </Link>

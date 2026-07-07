@@ -1,6 +1,5 @@
 "use client";
 
-import { ShopSidebar } from "./shop-sidebar";
 import { MobileCategoryStrip } from "./mobile-category-strip";
 import { ArenaLogo } from "@/shared/components/arena-logo";
 import { WalletCoinChip } from "./wallet-coin-chip";
@@ -36,30 +35,31 @@ function ShopTopBar({
         categoryMode ? "bg-transparent" : "bg-transparent backdrop-blur-[2px]",
       ].join(" ")}
     >
-      <div className="shop-content-width flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
-        {/* Mobile top-row: Logo and User/Action chips. Destructured via lg:contents on desktop */}
-        <div className="flex items-center justify-between lg:contents">
-          <ArenaLogo className="shrink-0 lg:hidden" height={28} onClick={onSelectAll} />
-          
-          <div className="flex shrink-0 items-center gap-2.5 lg:order-2">
-            <NotificationBell />
-            <WalletCoinChip balance={coins} />
-            <ProfileChip />
-          </div>
+      <div className="shop-content-width flex items-center justify-between gap-4">
+        {/* Left Section: Logo */}
+        <div className="flex lg:flex-1 justify-start shrink-0">
+          <ArenaLogo className="shrink-0 cursor-pointer" height={28} onClick={onSelectAll} />
         </div>
 
-        {/* Search Input: full width under actions on mobile, first on desktop */}
-        <div className="min-w-0 flex-1 lg:order-1 lg:max-w-[800px]">
-          <label className="flex h-[52px] min-w-0 w-full items-center gap-3 rounded-[10px] border border-[var(--line)] bg-[var(--surface)] px-4 transition-colors hover:border-white focus-within:border-white focus-within:ring-1 focus-within:ring-white/15">
+        {/* Middle Section: Centered Search Bar */}
+        <div className="flex-1 lg:flex-initial w-full lg:max-w-[600px] mx-2 lg:mx-0">
+          <label className="flex h-[52px] w-full items-center gap-3 rounded-[10px] border border-[var(--line)] bg-[var(--surface)] px-4 transition-colors hover:border-white focus-within:border-white focus-within:ring-1 focus-within:ring-white/15">
             <SearchIcon className="shrink-0 text-[var(--faint)]" />
             <input
-              placeholder="Search for brands, categories..."
+              placeholder="Search for brands, catego..."
               value={searchQuery ?? ""}
               onChange={(e) => onSearchChange?.(e.target.value)}
               className="min-w-0 flex-1 border-none bg-transparent text-sm text-[var(--ink)] placeholder:text-[var(--faint)]"
               style={{ outline: "none", boxShadow: "none" }}
             />
           </label>
+        </div>
+
+        {/* Right Section: Coins, Profile, Notifications */}
+        <div className="flex lg:flex-1 justify-end items-center gap-2.5 shrink-0">
+          <NotificationBell />
+          <WalletCoinChip balance={coins} />
+          <ProfileChip />
         </div>
       </div>
     </div>
@@ -92,13 +92,6 @@ export function ShopLayout({
 
   return (
     <div className="flex min-h-screen">
-      <aside className="sticky top-0 hidden h-screen w-[200px] shrink-0 flex-col pl-5 pr-4 pt-7 lg:flex">
-        <div className="mb-2 mt-1.5 shrink-0">
-          <ArenaLogo height={30} onClick={onSelectAll} />
-        </div>
-        {!hideSidebar && <ShopSidebar items={categories} onSelectCategory={onSelectCategory} />}
-      </aside>
-
       <div
         className={["relative flex min-w-0 flex-1 flex-col overflow-x-clip", categoryMode && "shop-category-column"]
           .filter(Boolean)

@@ -97,6 +97,7 @@ export function topCategories(cats: ApiCategory[]): CategoryItem[] {
       active: false,
       count: c.productCount,
       badge: c.badgeText,
+      iconUrl: c.iconUrl,
     }));
 }
 

@@ -53,6 +53,17 @@ export const RegisterForm = ({
   const [gender, setGender] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState(PRESET_AVATARS[0]);
 
+  const hasInitializedRef = useRef(false);
+  const initialValuesRef = useRef({
+    displayName: "",
+    userName: "",
+    dobDay: "",
+    dobMonth: "",
+    dobYear: "",
+    gender: null as string | null,
+    avatarUrl: PRESET_AVATARS[0],
+  });
+
   // Editability lock states
   const [usernameEditable, setUsernameEditable] = useState(true);
   const [dobEditable, setDobEditable] = useState(true);
@@ -97,15 +108,7 @@ export const RegisterForm = ({
   const yearInputRef = useRef<HTMLInputElement>(null);
   const displayNameInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus display name input when profile setup is shown
-  useEffect(() => {
-    if (_hasHydrated && isAuthenticated && !showReferral) {
-      const timer = setTimeout(() => {
-        displayNameInputRef.current?.focus();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [_hasHydrated, isAuthenticated, showReferral]);
+  // Auto-focus display name input disabled as per request
 
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -122,8 +125,17 @@ export const RegisterForm = ({
   useEffect(() => {
     const profile = userSummary?.userProfile || userSummary || useAuthStore.getState().user;
     if (profile) {
+      let initDisplayName = "";
+      let initUserName = "";
+      let initDobDay = "";
+      let initDobMonth = "";
+      let initDobYear = "";
+      let initGender: string | null = null;
+      let initAvatarUrl = PRESET_AVATARS[0];
+
       // Only autofill valid displayNames (letters & spaces only) if profile is already complete
       if (profile.isProfileComplete && profile.displayName && /^[A-Za-z\s]+$/.test(profile.displayName)) {
+        initDisplayName = profile.displayName;
         setDisplayName(profile.displayName);
       } else {
         setDisplayName("");
@@ -135,6 +147,7 @@ export const RegisterForm = ({
         const isTempUsername = u.toLowerCase().startsWith("user_");
         // Only autofill username if profile is complete and not a temporary username
         if (profile.isProfileComplete && !isTempUsername) {
+          initUserName = u;
           setUserName(u);
         } else {
           setUserName("");
@@ -148,23 +161,28 @@ export const RegisterForm = ({
       // Gender
       if (profile.gender) {
         const g = profile.gender;
-        setGender(g === "male" || g === "Male" ? "Male" : g === "female" || g === "Female" ? "Female" : "Others");
+        initGender = g === "male" || g === "Male" ? "Male" : g === "female" || g === "Female" ? "Female" : "Others";
+        setGender(initGender);
         setGenderEditable(!profile.isProfileComplete || false); // Locked if gender is set & profile complete
       } else {
         setGenderEditable(true);
       }
 
       if (profile.image || profile.avatarUrl || profile.photoURL) {
-        setAvatarUrl(profile.image || profile.avatarUrl || profile.photoURL || PRESET_AVATARS[0]);
+        initAvatarUrl = profile.image || profile.avatarUrl || profile.photoURL || PRESET_AVATARS[0];
+        setAvatarUrl(initAvatarUrl);
       }
 
       // DOB
       if (profile.dateOfBirth) {
         const date = new Date(profile.dateOfBirth);
         if (!isNaN(date.getTime())) {
-          setDobDay(String(date.getUTCDate()).padStart(2, "0"));
-          setDobMonth(String(date.getUTCMonth() + 1).padStart(2, "0"));
-          setDobYear(String(date.getUTCFullYear()));
+          initDobDay = String(date.getUTCDate()).padStart(2, "0");
+          initDobMonth = String(date.getUTCMonth() + 1).padStart(2, "0");
+          initDobYear = String(date.getUTCFullYear());
+          setDobDay(initDobDay);
+          setDobMonth(initDobMonth);
+          setDobYear(initDobYear);
           setDobEditable(!profile.isProfileComplete || false); // Locked if DOB is set & profile complete
         } else {
           setDobEditable(true);
@@ -172,8 +190,32 @@ export const RegisterForm = ({
       } else {
         setDobEditable(true);
       }
+
+      if (!hasInitializedRef.current) {
+        initialValuesRef.current = {
+          displayName: initDisplayName,
+          userName: initUserName,
+          dobDay: initDobDay,
+          dobMonth: initDobMonth,
+          dobYear: initDobYear,
+          gender: initGender,
+          avatarUrl: initAvatarUrl,
+        };
+        hasInitializedRef.current = true;
+      }
     }
   }, [userSummary]);
+
+  const hasChanges =
+    displayName !== initialValuesRef.current.displayName ||
+    userName !== initialValuesRef.current.userName ||
+    dobDay !== initialValuesRef.current.dobDay ||
+    dobMonth !== initialValuesRef.current.dobMonth ||
+    dobYear !== initialValuesRef.current.dobYear ||
+    gender !== initialValuesRef.current.gender ||
+    avatarUrl !== initialValuesRef.current.avatarUrl;
+
+  const isSaveDisabled = isProfileComplete && !hasChanges;
 
   useEffect(() => {
     return () => {
@@ -842,6 +884,7 @@ export const RegisterForm = ({
         <SlantedButton
           type="submit"
           isLoading={saving}
+          disabled={isSaveDisabled}
           className="w-full"
         >
           {isProfileComplete ? "Save Changes" : "Continue"}

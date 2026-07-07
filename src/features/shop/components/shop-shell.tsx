@@ -107,10 +107,10 @@ export function ShopShell({
   const isHome = activeSlug === ALL_CATEGORY_SLUG;
 
   const chipCategories = useMemo(() => {
-    const hotDeals = { label: "Hot Deals", slug: "hot-deals" };
+    const hotDeals = { label: "Hot Deals", slug: "hot-deals", iconUrl: null as string | null };
     const rest = categoryItems
       .filter((c) => c.slug !== "hot-deals")
-      .map((c) => ({ label: c.label, slug: c.slug }));
+      .map((c) => ({ label: c.label, slug: c.slug, iconUrl: c.iconUrl }));
     return [hotDeals, ...rest];
   }, [categoryItems]);
 

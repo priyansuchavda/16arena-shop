@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
-import { AlertCircle, ChevronDown, ChevronUp, Copy, Check, Info, Loader2, Sparkles, Tag as TagIcon, ArrowRight } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, Copy, Check, Info, Loader2, Tag as TagIcon, ArrowRight } from "lucide-react";
 import coinImg from "@/assets/png/coin.png";
 import { HudPanel } from "./hud";
 import { ScrollRow } from "./scroll-row";

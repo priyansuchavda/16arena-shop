@@ -7,9 +7,25 @@ type CategoryNavIconProps = {
   label: string;
   active?: boolean;
   size?: number;
+  iconUrl?: string | null;
 };
 
-export function CategoryNavIcon({ slug, label, active = false, size = 32 }: CategoryNavIconProps) {
+export function CategoryNavIcon({ slug, label, active = false, size = 32, iconUrl }: CategoryNavIconProps) {
+  if (iconUrl) {
+    return (
+      <Image
+        src={iconUrl}
+        alt={label}
+        width={size}
+        height={size}
+        className={[
+          "object-contain transition-transform duration-200",
+          active ? "scale-105" : "",
+        ].join(" ")}
+      />
+    );
+  }
+
   const image = categoryImageFor(slug, label);
 
   if (image) {

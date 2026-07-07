@@ -1,14 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import { categoryImageFor } from "@/features/shop/utils/category-icons";
 import { CategoryNavIcon } from "./category-nav-icon";
-import { ChevronLeftIcon, ChevronRightIcon } from "@/shared/components/icons";
 
 export type ShopCategoryChip = {
   label: string;
   slug: string;
+  iconUrl?: string | null;
 };
 
 type ShopCategoryCardsProps = {
@@ -17,70 +17,19 @@ type ShopCategoryCardsProps = {
   onCategoryTap: (slug: string) => void;
 };
 
-const CHIP_WIDTH = 73;
-const CHIP_GAP = 12;
-
 export function ShopCategoryCards({
   categories,
   selectedSlug,
   onCategoryTap,
 }: ShopCategoryCardsProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-
-  const updateArrowState = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const maxScroll = el.scrollWidth - el.clientWidth;
-    setCanScrollLeft(el.scrollLeft > 4);
-    setCanScrollRight(maxScroll > 4 && el.scrollLeft < maxScroll - 4);
-  }, []);
-
-  const scroll = (dir: -1 | 1) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const step = CHIP_WIDTH + CHIP_GAP;
-    const max = el.scrollWidth - el.clientWidth;
-    const target =
-      dir === 1 ? Math.min(el.scrollLeft + step * 3, max) : Math.max(0, el.scrollLeft - step * 3);
-    el.scrollTo({ left: target, behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    updateArrowState();
-    el.addEventListener("scroll", updateArrowState, { passive: true });
-    const observer = new ResizeObserver(updateArrowState);
-    observer.observe(el);
-
-    return () => {
-      el.removeEventListener("scroll", updateArrowState);
-      observer.disconnect();
-    };
-  }, [categories, updateArrowState]);
-
-  const navBtn =
-    "flex h-8 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface)] transition-colors duration-200";
-  const navBtnState = (active: boolean) =>
-    active ? "text-white hover:bg-white/14" : "text-[var(--muted)]";
 
   return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        aria-label="Scroll categories left"
-        onClick={() => scroll(-1)}
-        className={`${navBtn} ${navBtnState(canScrollLeft)}`}
-      >
-        <ChevronLeftIcon size={15} />
-      </button>
-
+    <>
       <div
         ref={scrollRef}
-        className="shop-scroll flex min-w-0 flex-1 gap-3 overflow-x-auto py-1 select-none"
+        className="shop-scroll flex min-w-0 w-full gap-3 overflow-x-auto py-1 select-none"
       >
         {categories.map((category) => {
           const isSelected = category.slug === selectedSlug;
@@ -132,7 +81,7 @@ export function ShopCategoryCards({
                   />
                 ) : (
                   <span className="relative z-10 flex h-[42px] w-[42px] items-center justify-center transition-transform group-hover:scale-105">
-                    <CategoryNavIcon slug={category.slug} label={category.label} active={isSelected} size={42} />
+                    <CategoryNavIcon slug={category.slug} label={category.label} active={isSelected} size={42} iconUrl={category.iconUrl} />
                   </span>
                 )}
               </div>
@@ -148,16 +97,87 @@ export function ShopCategoryCards({
             </button>
           );
         })}
+
+        {/* View All Card */}
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          className="group relative flex h-[72px] w-[73px] shrink-0 flex-col justify-between overflow-hidden rounded-[9px] border text-center transition-all duration-200 active:scale-95 border-white/20 bg-white/[0.03] hover:border-white/40"
+        >
+          <div className="relative flex flex-1 items-center justify-center">
+            <div
+              className="pointer-events-none absolute bottom-1 h-[12px] w-[40px] rounded-full opacity-80 mix-blend-screen transition-all duration-200 bg-[#D9D9D9] blur-[12px]"
+              aria-hidden
+            />
+            <div
+              className="pointer-events-none absolute bottom-1 h-[3px] w-[40px] rounded-full mix-blend-screen transition-all duration-200 bg-[#D9D9D9] blur-[3px]"
+              aria-hidden
+            />
+            <span className="relative z-10 flex h-[42px] w-[42px] items-center justify-center transition-transform group-hover:scale-105 text-white/70">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="3" y="3" width="4" height="4" rx="1.5" fill="currentColor"/>
+                <rect x="10" y="3" width="4" height="4" rx="1.5" fill="currentColor"/>
+                <rect x="17" y="3" width="4" height="4" rx="1.5" fill="currentColor"/>
+                <rect x="3" y="10" width="4" height="4" rx="1.5" fill="currentColor"/>
+                <rect x="10" y="10" width="4" height="4" rx="1.5" fill="currentColor"/>
+                <rect x="17" y="10" width="4" height="4" rx="1.5" fill="currentColor"/>
+                <rect x="3" y="17" width="4" height="4" rx="1.5" fill="currentColor"/>
+                <rect x="10" y="17" width="4" height="4" rx="1.5" fill="currentColor"/>
+                <rect x="17" y="17" width="4" height="4" rx="1.5" fill="currentColor"/>
+              </svg>
+            </span>
+          </div>
+          <div className="w-full border-t border-white/5 py-0.5 text-[9px] font-semibold tracking-wide text-white bg-white/[0.03]">
+            View All
+          </div>
+        </button>
       </div>
 
-      <button
-        type="button"
-        aria-label="Scroll categories right"
-        onClick={() => scroll(1)}
-        className={`${navBtn} ${navBtnState(canScrollRight)}`}
-      >
-        <ChevronRightIcon size={15} />
-      </button>
-    </div>
+      {/* Bottom Popup Dialog */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 backdrop-blur-[4px] p-4 animate-in fade-in duration-200"
+          onClick={() => setIsOpen(false)}
+        >
+          <div
+            className="w-full max-w-[380px] bg-[#141414] border border-white/10 rounded-[28px] p-6 mb-6 shadow-2xl animate-in slide-in-from-bottom-8 duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="grid grid-cols-3 gap-x-3 gap-y-8">
+              {categories.map((c) => {
+                const isSelected = c.slug === selectedSlug;
+                return (
+                  <button
+                    key={c.slug}
+                    type="button"
+                    onClick={() => {
+                      onCategoryTap(c.slug);
+                      setIsOpen(false);
+                    }}
+                    className="flex flex-col items-center gap-2 text-center group focus:outline-none"
+                  >
+                    <span className="flex h-12 w-12 items-center justify-center transition-transform duration-200 group-hover:scale-105">
+                      <CategoryNavIcon
+                        slug={c.slug}
+                        label={c.label}
+                        active={isSelected}
+                        size={42}
+                        iconUrl={c.iconUrl}
+                      />
+                    </span>
+                    <span
+                      className="max-w-[90px] truncate text-[10px] font-bold uppercase tracking-wider transition-colors duration-200"
+                      style={{ color: isSelected ? "#FF973C" : "rgba(255, 255, 255, 0.75)" }}
+                    >
+                      {c.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

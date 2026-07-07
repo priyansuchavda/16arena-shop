@@ -63,6 +63,7 @@ export type CategoryItem = {
   active?: boolean;
   count?: number;
   badge?: string | null;
+  iconUrl?: string | null;
 };
 
 export type LiveSection = { title: string; items: CardModel[] };

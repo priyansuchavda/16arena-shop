@@ -59,10 +59,10 @@ export function ProfileChip() {
       <button
         type="button"
         onClick={openAuthModal}
-        className="shop-pill group inline-flex h-[42px] shrink-0 items-center border border-[#a67c52]/65 bg-[#6b4423] py-0 pl-0.5 pr-3.5 shadow-[inset_0_1px_0_rgba(255,200,120,0.08)] transition hover:brightness-110 animate-fade-in"
+        className="shop-pill group inline-flex h-[42px] shrink-0 items-center border border-[#a67c52]/65 bg-[#6b4423] py-0 pl-0.5 pr-0.5 sm:pr-3.5 shadow-[inset_0_1px_0_rgba(255,200,120,0.08)] transition hover:brightness-110 animate-fade-in"
       >
         <ProfileAvatar src={DEFAULT_AVATAR_URL} />
-        <span className="ml-2 max-w-[8rem] truncate text-[13px] font-bold leading-none text-white">
+        <span className="ml-2 max-w-[8rem] truncate text-[13px] font-bold leading-none text-white hidden sm:inline">
           Sign In
         </span>
       </button>
@@ -76,13 +76,13 @@ export function ProfileChip() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="shop-pill group inline-flex h-[42px] shrink-0 items-center border border-[#a67c52]/65 bg-[#6b4423] py-0 pl-0.5 pr-3.5 shadow-[inset_0_1px_0_rgba(255,200,120,0.08)] transition hover:brightness-110 focus:outline-none"
+        className="shop-pill group inline-flex h-[42px] shrink-0 items-center border border-[#a67c52]/65 bg-[#6b4423] py-0 pl-0.5 pr-0.5 sm:pr-3.5 shadow-[inset_0_1px_0_rgba(255,200,120,0.08)] transition hover:brightness-110 focus:outline-none"
       >
         <ProfileAvatar src={avatarUrl} />
-        <span className="ml-2 max-w-[8rem] truncate text-[13px] font-bold leading-none text-white">
+        <span className="ml-2 max-w-[8rem] truncate text-[13px] font-bold leading-none text-white hidden sm:inline">
           {displayName}
         </span>
-        <ChevronDown className="w-3.5 h-3.5 text-white/50 ml-1.5 transition-transform group-hover:text-white" />
+        <ChevronDown className="w-3.5 h-3.5 text-white/50 ml-1.5 transition-transform group-hover:text-white hidden sm:inline" />
       </button>
 
       {isOpen && (

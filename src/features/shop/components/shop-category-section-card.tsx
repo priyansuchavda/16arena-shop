@@ -44,7 +44,7 @@ function TopDealCard({ product }: { product: CardModel }) {
   return (
     <Link
       href={`/shop/${product.slug}`}
-      className="shop-card-lift group relative flex h-[202px] w-[140px] shrink-0 flex-col overflow-hidden rounded-[11px] border border-white/10 bg-white/[0.05]"
+      className="shop-card-lift group relative flex h-[202px] w-full shrink-0 flex-col overflow-hidden rounded-[11px] border border-white/10 bg-white/[0.05]"
     >
       {badge && <SectionBadge label={badge.label} bg={badge.bg} fg={badge.fg} />}
 
@@ -89,7 +89,7 @@ function TravelHotelCard({ product }: { product: CardModel }) {
   return (
     <Link
       href={`/shop/${product.slug}`}
-      className="shop-card-lift group relative flex h-[202px] w-[140px] shrink-0 flex-col overflow-hidden rounded-[11px] border border-white/10 bg-white/[0.05]"
+      className="shop-card-lift group relative flex h-[202px] w-full shrink-0 flex-col overflow-hidden rounded-[11px] border border-white/10 bg-white/[0.05]"
     >
       {badge && <SectionBadge label={badge.label} bg={badge.bg} fg={badge.fg} />}
 

@@ -13,42 +13,6 @@ import { useUserSummary, useAuthStore } from "@/features/auth";
 import { AuthModal } from "./auth-modal";
 import { RegisterModal } from "./register-modal";
 
-function TopBar({
-  walletBalance,
-  searchQuery,
-  onSearchChange,
-}: {
-  walletBalance: number;
-  searchQuery?: string;
-  onSearchChange?: (q: string) => void;
-}) {
-  const { data: userSummary } = useUserSummary();
-  const coins = userSummary?.arenaCoins ?? walletBalance;
-
-  return (
-    <div className="flex w-full min-w-0 items-center gap-4">
-      <label className="flex h-[52px] min-w-0 flex-1 items-center gap-3 rounded-[10px] border border-[var(--line)] bg-[var(--surface)] px-4 transition-colors hover:border-white focus-within:border-white focus-within:ring-1 focus-within:ring-white/15 lg:w-[800px] lg:max-w-[800px] lg:flex-none">
-        <SearchIcon className="shrink-0 text-[var(--faint)]" />
-        <input
-          placeholder="Search for brands, catego..."
-          value={searchQuery ?? ""}
-          onChange={(e) => onSearchChange?.(e.target.value)}
-          className="min-w-0 flex-1 border-none bg-transparent text-sm text-[var(--ink)] placeholder:text-[var(--faint)]"
-          style={{ outline: "none", boxShadow: "none" }}
-        />
-      </label>
-
-      <div className="hidden flex-1 lg:block" aria-hidden />
-
-      <div className="flex shrink-0 items-center gap-2.5">
-        <NotificationBell />
-        <WalletCoinChip balance={coins} />
-        <ProfileChip />
-      </div>
-    </div>
-  );
-}
-
 function ShopTopBar({
   walletBalance,
   onSelectAll,
@@ -62,6 +26,9 @@ function ShopTopBar({
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
 }) {
+  const { data: userSummary } = useUserSummary();
+  const coins = userSummary?.arenaCoins ?? walletBalance;
+
   return (
     <div
       className={[
@@ -69,14 +36,30 @@ function ShopTopBar({
         categoryMode ? "bg-transparent" : "bg-transparent backdrop-blur-[2px]",
       ].join(" ")}
     >
-      <div className="shop-content-width flex items-center gap-4">
-        <ArenaLogo className="shrink-0 lg:hidden" height={28} onClick={onSelectAll} />
-        <div className="min-w-0 flex-1">
-          <TopBar
-            walletBalance={walletBalance}
-            searchQuery={searchQuery}
-            onSearchChange={onSearchChange}
-          />
+      <div className="shop-content-width flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+        {/* Mobile top-row: Logo and User/Action chips. Destructured via lg:contents on desktop */}
+        <div className="flex items-center justify-between lg:contents">
+          <ArenaLogo className="shrink-0 lg:hidden" height={28} onClick={onSelectAll} />
+          
+          <div className="flex shrink-0 items-center gap-2.5 lg:order-2">
+            <NotificationBell />
+            <WalletCoinChip balance={coins} />
+            <ProfileChip />
+          </div>
+        </div>
+
+        {/* Search Input: full width under actions on mobile, first on desktop */}
+        <div className="min-w-0 flex-1 lg:order-1 lg:max-w-[800px]">
+          <label className="flex h-[52px] min-w-0 w-full items-center gap-3 rounded-[10px] border border-[var(--line)] bg-[var(--surface)] px-4 transition-colors hover:border-white focus-within:border-white focus-within:ring-1 focus-within:ring-white/15">
+            <SearchIcon className="shrink-0 text-[var(--faint)]" />
+            <input
+              placeholder="Search for brands, categories..."
+              value={searchQuery ?? ""}
+              onChange={(e) => onSearchChange?.(e.target.value)}
+              className="min-w-0 flex-1 border-none bg-transparent text-sm text-[var(--ink)] placeholder:text-[var(--faint)]"
+              style={{ outline: "none", boxShadow: "none" }}
+            />
+          </label>
         </div>
       </div>
     </div>
@@ -135,7 +118,7 @@ export function ShopLayout({
           {!hideSidebar && (
             <div
               className={[
-                "shop-content-width px-5 lg:px-10",
+                "shop-content-width px-5 py-1.5 lg:px-10",
                 categoryMode && "lg:hidden",
               ]
                 .filter(Boolean)

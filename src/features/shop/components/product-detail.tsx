@@ -47,9 +47,9 @@ export function ProductDetail({
     <div className="relative flex-1 pb-20">
 
 
-      <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-12 relative z-10">
-        {/* Left Column: Product Info & Descriptions */}
-        <div className="lg:col-span-7">
+      <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-12 relative z-10">
+        {/* Block A: Product Info & Banner */}
+        <div className="lg:col-span-7 order-1 flex flex-col">
           {/* Product Banner/Card Graphic */}
           <div className="mb-6 relative block w-full max-w-[560px]">
             <div
@@ -140,59 +140,10 @@ export function ProductDetail({
               </div>
             </div>
           </div>
-
-          <hr className="my-8 border-white/10 max-w-[560px]" />
-
-          {/* How to Redeem — flat, no dropdown */}
-          <div className="max-w-[560px] rounded-[14px] border border-white/10 bg-black/20 p-5 mb-4">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-[16px]">❓</span>
-              <h2 className="font-heading text-[14px] font-bold text-white">How to redeem</h2>
-            </div>
-            <hr className="border-white/8 mb-4" />
-            <div className="flex flex-col gap-3 text-sm text-[var(--muted)]">
-              {[
-                "Complete checkout — the voucher code is generated instantly.",
-                "Open your 16Arena Wallet and copy the unique code.",
-                "Redeem the code at the merchant website to claim your credits.",
-              ].map((step, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-white">
-                    {i + 1}
-                  </span>
-                  <span className="leading-[1.5]">{step}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Terms & Conditions — flat, no dropdown */}
-          <div className="max-w-[560px] rounded-[14px] border border-white/10 bg-black/20 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-[16px]">📄</span>
-              <h2 className="font-heading text-[14px] font-bold text-white">Terms & Conditions</h2>
-            </div>
-            <hr className="border-white/8 mb-4" />
-            <div className="flex flex-col gap-4 text-sm text-[var(--muted)]">
-              {[
-                "Vouchers are non-refundable once delivered to your wallet.",
-                "Arena Coins applied at checkout are deducted immediately.",
-                "Validity and usage follow the issuing brand's policy.",
-                "Coin rewards credit within 24 hours of a successful order.",
-              ].map((term, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-white">
-                    {i + 1}
-                  </span>
-                  <span className="leading-[1.5]">{term}</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
 
-        {/* Right Column: Buy & Denomination Panel */}
-        <div className="lg:col-span-5 lg:sticky lg:top-[90px]">
+        {/* Block B: Buy & Denomination Panel */}
+        <div className="lg:col-span-5 lg:sticky lg:top-[90px] order-2 lg:row-span-2 w-full">
           <HudPanel cut={14} border="var(--line)" fill="var(--carbon)" className="w-full">
             <div className="p-6">
               {/* Conditional UID input for Gaming */}
@@ -312,6 +263,58 @@ export function ProductDetail({
               </div>
             </div>
           </HudPanel>
+        </div>
+
+        {/* Block C: How to Redeem & Terms */}
+        <div className="lg:col-span-7 order-3 lg:order-3 flex flex-col gap-4">
+          <hr className="my-2 border-white/10 max-w-[560px]" />
+
+          {/* How to Redeem — flat, no dropdown */}
+          <div className="max-w-[560px] rounded-[14px] border border-white/10 bg-black/20 p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-[16px]">❓</span>
+              <h2 className="font-heading text-[14px] font-bold text-white">How to redeem</h2>
+            </div>
+            <hr className="border-white/8 mb-4" />
+            <div className="flex flex-col gap-3 text-sm text-[var(--muted)]">
+              {[
+                "Complete checkout — the voucher code is generated instantly.",
+                "Open your 16Arena Wallet and copy the unique code.",
+                "Redeem the code at the merchant website to claim your credits.",
+              ].map((step, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-white">
+                    {i + 1}
+                  </span>
+                  <span className="leading-[1.5]">{step}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Terms & Conditions — flat, no dropdown */}
+          <div className="max-w-[560px] rounded-[14px] border border-white/10 bg-black/20 p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-[16px]">📄</span>
+              <h2 className="font-heading text-[14px] font-bold text-white">Terms & Conditions</h2>
+            </div>
+            <hr className="border-white/8 mb-4" />
+            <div className="flex flex-col gap-4 text-sm text-[var(--muted)]">
+              {[
+                "Vouchers are non-refundable once delivered to your wallet.",
+                "Arena Coins applied at checkout are deducted immediately.",
+                "Validity and usage follow the issuing brand's policy.",
+                "Coin rewards credit within 24 hours of a successful order.",
+              ].map((term, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-white">
+                    {i + 1}
+                  </span>
+                  <span className="leading-[1.5]">{term}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

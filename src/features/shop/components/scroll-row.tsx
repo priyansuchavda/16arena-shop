@@ -56,7 +56,9 @@ export function ScrollRow({
     if (!el) return;
 
     if (alignedRow) {
-      const step = alignedRow.cardWidth + alignedRow.cardGap;
+      const firstChild = el.firstElementChild as HTMLElement | null;
+      const cardWidth = firstChild ? firstChild.offsetWidth : alignedRow.cardWidth;
+      const step = cardWidth + alignedRow.cardGap;
       const max = el.scrollWidth - el.clientWidth;
       const target =
         dir === 1 ? Math.min(el.scrollLeft + step, max) : Math.max(0, el.scrollLeft - step);
@@ -137,6 +139,7 @@ export function ScrollRow({
             <div
               key={`${p.id}-${i}`}
               className={`shrink-0 ${i === items.length - 1 ? "snap-end" : "snap-start"}`}
+              style={{ width: alignedRow.cardWidth }}
             >
               <Card product={p} />
             </div>

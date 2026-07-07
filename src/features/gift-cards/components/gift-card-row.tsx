@@ -81,7 +81,10 @@ function GiftCardGraphic({
 
 export function GiftCardRow({ card }: GiftCardRowProps) {
   return (
-    <div className="relative rounded-2xl border border-white/10 bg-black overflow-hidden shadow-lg p-5 flex flex-col gap-4">
+    <Link
+      href={`/orders/${card.orderId}`}
+      className="shop-card-lift relative rounded-2xl border border-white/10 bg-black overflow-hidden shadow-lg p-5 flex flex-col gap-4 group cursor-pointer"
+    >
       {/* Cashback/Savings Badge */}
       {card.cashbackText && (
         <div className="absolute top-3.5 right-3.5 z-10 rounded-md bg-emerald-500 px-2 py-0.5 text-[9px] font-bold text-black shadow-md">
@@ -109,16 +112,13 @@ export function GiftCardRow({ card }: GiftCardRowProps) {
         {/* Divider */}
         <div className="h-px bg-white/[0.08]" />
 
-        {/* View Details link */}
+        {/* View Details text */}
         <div className="text-left">
-          <Link
-            href={`/orders/${card.orderId}`}
-            className="inline-block text-xs font-bold text-emerald-400 underline hover:text-emerald-300 transition"
-          >
+          <span className="inline-block text-xs font-bold text-emerald-400 underline group-hover:text-emerald-300 transition-colors">
             View Details
-          </Link>
+          </span>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

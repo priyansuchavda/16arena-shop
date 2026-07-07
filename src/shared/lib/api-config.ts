@@ -11,8 +11,11 @@ export function getApiServerUrl(): string {
 
 /**
  * REST client base URL resolver.
- * Browser uses same-origin `/api` so HttpOnly refresh cookies work via Next rewrites.
- * Server-side calls use the configured API host directly.
+ *
+ * Browser: `/api` on localhost:3000 — Next.js rewrites to NEXT_PUBLIC_SHOP_API_BASE
+ * (see next.config.ts). Required so HttpOnly refresh-token cookies work.
+ *
+ * Server: direct backend URL from env.
  */
 export function getApiBaseUrl(): string {
   if (typeof window !== "undefined") {

@@ -106,7 +106,6 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
   const coinsBalance = checkoutPreview?.coinsBalance ?? userSummary?.arenaCoins ?? 0;
 
-  const previewDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const cartSyncKeyRef = useRef<string>("");
   const cartSyncedRef = useRef(false);
 
@@ -169,13 +168,25 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
       rules?.maxCoinsAllowedEstimate ??
       checkoutPreview?.paymentRules?.maxCoinsAllowedEstimate ??
       optimalCoins;
+    const coinRate =
+      rules?.coinToInrRate ?? product.coinRules?.coinToInrRate ?? 0.01;
+    const estimatedPayable =
+      checkoutPreview?.totalPayable ??
+      Math.max(0, subtotal - coinsToRedeem * coinRate);
     return resolveAllowHybridInrPayment({
       coinsToRedeem,
       maxCoinsAllowed: maxCoins,
-      totalPayable: checkoutPreview?.totalPayable,
+      totalPayable: estimatedPayable,
       paymentRules: rules,
     });
-  }, [selectedSku, checkoutPreview, coinsToRedeem, optimalCoins]);
+  }, [
+    selectedSku,
+    checkoutPreview,
+    coinsToRedeem,
+    optimalCoins,
+    subtotal,
+    product.coinRules?.coinToInrRate,
+  ]);
 
   const buildDeliveryInfo = () => {
     if (!isFlexibleSelection || !customAmount) return undefined;
@@ -279,50 +290,14 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     }
   };
 
-  // Sync cart when SKU/qty/amount changes, then preview.
+  // Reset server preview when selection changes — preview runs on Buy Now only.
   useEffect(() => {
-    if (!isAuthenticated) {
-      setCheckoutPreview(null);
-      setPreviewLoading(false);
-      setPreviewError(null);
-      cartSyncedRef.current = false;
-      cartSyncKeyRef.current = "";
-      return;
-    }
-
-    if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
-
-    previewDebounceRef.current = setTimeout(() => {
-      void loadPreview({ syncCart: true });
-    }, 400);
-
-    return () => {
-      if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
-    };
-  }, [
-    isAuthenticated,
-    selectedSku,
-    customAmount,
-    qty,
-    amountError,
-    isFlexibleSelection,
-  ]);
-
-  // Preview-only refresh when coins/coupon/hybrid changes (no cart POST).
-  useEffect(() => {
-    if (!isAuthenticated || !selectedSku || !cartSyncedRef.current) return;
-    if (isFlexibleSelection && (!customAmount || amountError)) return;
-
-    if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
-
-    previewDebounceRef.current = setTimeout(() => {
-      void loadPreview({ syncCart: false });
-    }, 300);
-
-    return () => {
-      if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
-    };
-  }, [coinsToRedeem, appliedCoupon, allowHybridInrPayment]);
+    setCheckoutPreview(null);
+    setPreviewError(null);
+    setCartItemIds(null);
+    cartSyncedRef.current = false;
+    cartSyncKeyRef.current = "";
+  }, [selectedSku?.id, qty, customAmount, isFlexibleSelection]);
 
   // Set default flexible amount when selecting flexible SKU
   useEffect(() => {
@@ -354,11 +329,6 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
       return;
     }
 
-    if (checkoutPreview) {
-      setPaymentSheetOpen(true);
-      return;
-    }
-
     const preview = await loadPreview({ syncCart: true });
     if (preview) {
       setPaymentSheetOpen(true);
@@ -373,26 +343,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     setCouponError(null);
 
     try {
-      let serverSubtotal = checkoutPreview?.subtotal;
-      if (serverSubtotal == null) {
-        await syncCartForSelection();
-        const basePreview = await shopApi.checkoutPreview(
-          buildCheckoutRequest({
-            cartItemIds: null,
-            coinsToRedeem,
-            couponCode: null,
-            allowHybridInrPayment,
-            quantity: qty,
-            isSquad: qty >= 5,
-          })
-        );
-        serverSubtotal = basePreview?.subtotal;
-      }
-
-      if (serverSubtotal == null) {
-        setCouponError("Load price before applying a coupon.");
-        return;
-      }
+      const serverSubtotal = checkoutPreview?.subtotal ?? subtotal;
 
       const result = await shopApi.validateCoupon(code, serverSubtotal);
       if (result.valid) {
@@ -756,11 +707,15 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                       )}
                     </div>
 
-                    {!isAuthenticated && (
+                    {!isAuthenticated ? (
                       <p className="mt-2 text-[10px] font-semibold text-[var(--flame)]">
-                        Sign in to see live pricing and checkout
+                        Sign in to checkout
                       </p>
-                    )}
+                    ) : !checkoutPreview ? (
+                      <p className="mt-2 text-[10px] font-semibold text-white/40">
+                        Estimated price — tap Buy Now for final total
+                      </p>
+                    ) : null}
                     {previewError && (
                       <p className="mt-2 text-[10px] font-semibold text-red-400">{previewError}</p>
                     )}

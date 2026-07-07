@@ -1,4 +1,35 @@
 import { apiClient } from "@/shared/lib/axios";
+import { refreshAccessToken } from "@/shared/lib/auth-session";
+import type { UserProfile } from "../types/auth.types";
+
+function unwrapData<T>(payload: unknown): T {
+  if (!payload || typeof payload !== "object") {
+    return payload as T;
+  }
+
+  const root = payload as Record<string, unknown>;
+  if ("data" in root && root.data !== undefined) {
+    return root.data as T;
+  }
+
+  return payload as T;
+}
+
+function normalizeUser(user: unknown): UserProfile {
+  if (!user || typeof user !== "object") {
+    return {};
+  }
+
+  const profile = user as UserProfile;
+  return {
+    ...profile,
+    id: profile.id ?? profile.userId ?? profile.uid,
+    uid: profile.uid ?? profile.userId ?? profile.id,
+    userId: profile.userId ?? profile.id ?? profile.uid,
+    avatarUrl: profile.avatarUrl ?? profile.image ?? profile.photoURL ?? null,
+    photoURL: profile.photoURL ?? profile.image ?? profile.avatarUrl ?? null,
+  };
+}
 
 export const authApi = {
   requestPhoneOtp: async (phone: string, countryCode: string = "+91") => {
@@ -25,6 +56,11 @@ export const authApi = {
       ...(fcmToken && { fcmToken }),
     });
     return data;
+  },
+
+  refreshSession: async () => {
+    const accessToken = await refreshAccessToken();
+    return { accessToken };
   },
 
   getProfile: async () => {
@@ -75,5 +111,29 @@ export const authApi = {
       referralCode,
     });
     return data;
+  },
+
+  parseSessionResponse: (response: unknown) => {
+    const session = unwrapData<{
+      accessToken?: string;
+      user?: UserProfile;
+    }>(response);
+
+    if (!session?.accessToken) {
+      return null;
+    }
+
+    return {
+      accessToken: session.accessToken,
+      user: normalizeUser(session.user),
+    };
+  },
+
+  parseProfileResponse: (response: unknown) => {
+    const profile = unwrapData<UserProfile | { user?: UserProfile }>(response);
+    if (profile && typeof profile === "object" && "user" in profile) {
+      return normalizeUser(profile.user);
+    }
+    return normalizeUser(profile);
   },
 };

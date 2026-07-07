@@ -2,8 +2,9 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { shopApi } from "../api";
+import { buildCheckoutRequest, shopApi } from "../api";
 import { useAuthStore } from "@/features/auth";
+import { getApiErrorMessage } from "../services/shop-api-client";
 
 export type CheckoutParams = {
   skuId?: string;
@@ -12,9 +13,12 @@ export type CheckoutParams = {
   couponCode?: string | null;
   customVoucherAmount?: number | null;
   allowHybridInrPayment: boolean;
+  useWalletCredits?: boolean;
+  walletCreditsToUse?: number;
   productName: string;
   cartItemIds?: string[];
   isCartCheckout?: boolean;
+  deliveryInfo?: Record<string, string>;
 };
 
 declare global {
@@ -39,22 +43,6 @@ function loadRazorpayScript(): Promise<boolean> {
     script.onerror = () => resolve(false);
     document.body.appendChild(script);
   });
-}
-
-function getErrorMessage(err: unknown, fallback: string): string {
-  if (err && typeof err === "object") {
-    const axiosErr = err as {
-      response?: { data?: { message?: string } };
-      message?: string;
-    };
-    return (
-      axiosErr.response?.data?.message ??
-      axiosErr.message ??
-      fallback
-    );
-  }
-  if (err instanceof Error) return err.message;
-  return fallback;
 }
 
 export const useCheckout = () => {
@@ -169,19 +157,37 @@ export const useCheckout = () => {
           await shopApi.addToCart(
             params.skuId,
             params.quantity,
-            params.customVoucherAmount
+            params.customVoucherAmount,
+            params.deliveryInfo
           );
         }
 
-        const createdOrder = await shopApi.createOrder({
+        const checkoutRequest = buildCheckoutRequest({
           cartItemIds: params.isCartCheckout ? params.cartItemIds ?? null : null,
           coinsToRedeem: params.coinsToRedeem,
+          useWalletCredits: params.useWalletCredits,
+          walletCreditsToUse: params.walletCreditsToUse,
           couponCode: params.couponCode,
           allowHybridInrPayment: params.allowHybridInrPayment,
           quantity: params.quantity,
         });
 
-        const orderId = createdOrder?.id;
+        if (params.skuId) {
+          await shopApi.checkoutPreview({
+            skuId: params.skuId,
+            quantity: params.quantity,
+            coinsToRedeem: params.coinsToRedeem,
+            couponCode: params.couponCode,
+            customVoucherAmount: params.customVoucherAmount,
+            allowHybridInrPayment: params.allowHybridInrPayment,
+            useWalletCredits: params.useWalletCredits,
+            walletCreditsToUse: params.walletCreditsToUse,
+          });
+        }
+
+        const createdOrder = await shopApi.placeOrder(checkoutRequest);
+
+        const orderId = createdOrder.id;
         if (!orderId) {
           throw new Error("Failed to create order. Please try again.");
         }
@@ -200,7 +206,7 @@ export const useCheckout = () => {
 
         navigateToSuccess(orderId);
       } catch (err) {
-        setError(getErrorMessage(err, "Checkout failed. Please try again."));
+        setError(getApiErrorMessage(err, "Checkout failed. Please try again."));
       } finally {
         setLoading(false);
       }

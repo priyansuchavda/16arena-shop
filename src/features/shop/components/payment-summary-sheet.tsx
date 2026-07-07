@@ -135,7 +135,7 @@ export function PaymentSummarySheet({
   });
 
   const onPay = () => {
-    if (disabledReason || previewLoading) return;
+    if (disabledReason || previewLoading || previewError) return;
     handleCheckout({
       skuId: sku.id,
       quantity,

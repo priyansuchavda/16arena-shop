@@ -11,8 +11,14 @@ export function getApiServerUrl(): string {
 
 /**
  * REST client base URL resolver.
+ * Browser requests use same-origin `/api` so HttpOnly refresh cookies work
+ * through the Next.js rewrite proxy.
  */
 export function getApiBaseUrl(): string {
+  if (typeof window !== "undefined") {
+    return "/api";
+  }
+
   const serverUrl = getApiServerUrl();
   return serverUrl ? `${serverUrl}/api` : "/api";
 }

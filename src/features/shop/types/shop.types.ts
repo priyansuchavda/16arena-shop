@@ -237,17 +237,84 @@ export type ShopProductDetail = {
 export type CheckoutPreview = {
   subtotal: number;
   totalDiscount: number;
+  discountAmount?: number;
   coinsDiscount: number;
   coinsSpent: number;
   walletUsed: number;
+  walletBalance?: number;
   totalPayable: number;
   totalPayableInCoins: number;
   savingsPercent?: number;
   effectiveCashbackPercent?: number;
+  cashbackEarned?: number;
+  cashbackCoinsEarned?: number;
   coinsBalance: number;
   unitPrice?: number;
   originalUnitPrice?: number;
+  couponCode?: string;
   paymentRules?: SkuPaymentRules;
+  lines?: Array<{
+    skuLabel?: string;
+    quantity?: number;
+    lineTotalPayable?: number;
+    paymentRules?: SkuPaymentRules;
+  }>;
+};
+
+export type CheckoutRequest = {
+  cartItemIds: string[] | null;
+  coinsToRedeem: number;
+  useWalletCredits: boolean;
+  walletCreditsToUse: number;
+  couponCode: string | null;
+  isSquad: boolean;
+  allowHybridInrPayment: boolean;
+};
+
+export type CheckoutPreviewRequest = {
+  skuId: string;
+  quantity: number;
+  coinsToRedeem: number;
+  useWalletCredits?: boolean;
+  walletCreditsToUse?: number;
+  couponCode?: string | null;
+  isSquad?: boolean;
+  allowHybridInrPayment: boolean;
+  customVoucherAmount?: number | null;
+};
+
+export type AddCartItemRequest = {
+  skuId: string;
+  quantity: number;
+  customVoucherAmount?: number | null;
+  deliveryInfo?: Record<string, string>;
+  giftRecipientUserId?: string | null;
+};
+
+export type UpdateCartItemRequest = {
+  quantity?: number;
+  deliveryInfo?: Record<string, string>;
+  giftRecipientUserId?: string | null;
+};
+
+export type MyCoupon = {
+  id?: string;
+  code: string;
+  discountType?: string;
+  discountValue?: number;
+  maxDiscount?: number | null;
+  minOrderValue?: number | null;
+  validUntil?: string | null;
+  isActive?: boolean;
+};
+
+export type CouponValidateResult = {
+  valid: boolean;
+  code?: string;
+  discount?: number;
+  message?: string;
+  extraCashbackPercent?: number;
+  isAffiliate?: boolean;
 };
 
 export type ShopVoucher = {
@@ -279,6 +346,7 @@ export type ShopOrderItem = {
   fulfillmentType?: string;
   fulfillmentMessage?: string;
   voucherCode?: string;
+  giftCardDelivery?: Record<string, unknown> | null;
   vouchers: ShopVoucher[];
   voucherDetails: VoucherDetailField[];
 };
@@ -308,6 +376,8 @@ export type CartItem = {
   productName: string;
   skuLabel: string;
   unitPrice: number;
+  lineTotal?: number;
+  inStock?: boolean;
   heroImageUrl?: string | null;
   productImageUrl?: string | null;
   deliveryInfo?: Record<string, unknown> | null;
@@ -316,6 +386,7 @@ export type CartItem = {
 export type CartData = {
   id: string;
   itemCount: number;
+  subtotal?: number;
   items: CartItem[];
 };
 

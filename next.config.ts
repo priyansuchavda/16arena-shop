@@ -1,5 +1,16 @@
 import type { NextConfig } from "next";
 
+function getRewriteDestination(): string | null {
+  const raw = (
+    process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_SHOP_API_BASE
+  )?.trim();
+
+  if (!raw) return null;
+
+  const origin = raw.replace(/\/+$/, "").replace(/\/api$/, "");
+  return `${origin}/api/:path*`;
+}
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
@@ -16,6 +27,17 @@ const nextConfig: NextConfig = {
         hostname: "assets.myhubble.money",
       },
     ],
+  },
+  async rewrites() {
+    const destination = getRewriteDestination();
+    if (!destination) return [];
+
+    return [
+      {
+        source: "/api/:path*",
+        destination,
+      },
+    ];
   },
   async headers() {
     return [

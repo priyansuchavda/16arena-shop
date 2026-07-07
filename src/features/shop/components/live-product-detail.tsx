@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
-import { AlertCircle, ChevronDown, ChevronUp, Copy, Check, Info, Loader2, Tag as TagIcon, ArrowRight } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, Copy, Check, Info, Loader2, Sparkles, Tag as TagIcon, ArrowRight } from "lucide-react";
 import coinImg from "@/assets/png/coin.png";
 import { HudPanel } from "./hud";
 import { ScrollRow } from "./scroll-row";
@@ -85,6 +85,8 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   // Coupon
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponValidating, setCouponValidating] = useState(false);
 
   // Coins settings
   const [applyCoins, setApplyCoins] = useState(true);
@@ -276,14 +278,57 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     setPaymentSheetOpen(true);
   };
 
-  const handleApplyCoupon = () => {
-    if (!couponCode.trim()) return;
-    setAppliedCoupon(couponCode.trim());
+  const handleApplyCoupon = async () => {
+    const code = couponCode.trim();
+    if (!code || !isAuthenticated || !selectedSku) return;
+
+    setCouponValidating(true);
+    setCouponError(null);
+
+    try {
+      let serverSubtotal = checkoutPreview?.subtotal;
+      if (serverSubtotal == null) {
+        const basePreview = await shopApi.checkoutPreview({
+          skuId: selectedSku.id,
+          quantity: qty,
+          coinsToRedeem,
+          couponCode: null,
+          customVoucherAmount: isFlexibleSelection ? customAmount : null,
+          allowHybridInrPayment,
+        });
+        serverSubtotal = basePreview?.subtotal;
+      }
+
+      if (serverSubtotal == null) {
+        setCouponError("Load price before applying a coupon.");
+        return;
+      }
+
+      const result = await shopApi.validateCoupon(code, serverSubtotal);
+      if (result.valid) {
+        setAppliedCoupon(result.code ?? code.toUpperCase());
+        setCouponError(null);
+      } else {
+        setAppliedCoupon(null);
+        setCouponError(result.message ?? "Invalid coupon code.");
+      }
+    } catch (err: unknown) {
+      setAppliedCoupon(null);
+      setCouponError(
+        err instanceof Error
+          ? err.message
+          : (err as { response?: { data?: { message?: string } } })?.response?.data
+              ?.message ?? "Could not validate coupon."
+      );
+    } finally {
+      setCouponValidating(false);
+    }
   };
 
   const handleRemoveCoupon = () => {
     setCouponCode("");
     setAppliedCoupon(null);
+    setCouponError(null);
   };
 
   // Pricing display resolvers
@@ -527,15 +572,22 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                         <button
                           type="button"
                           onClick={handleApplyCoupon}
-                          className="h-11 px-4 bg-white/5 border border-white/10 text-white text-xs font-bold rounded-xl hover:bg-white/10 active:scale-95 transition"
+                          disabled={couponValidating || !couponCode.trim()}
+                          className="h-11 px-4 bg-white/5 border border-white/10 text-white text-xs font-bold rounded-xl hover:bg-white/10 active:scale-95 transition disabled:opacity-40"
                         >
-                          Apply
+                          {couponValidating ? "Checking…" : "Apply"}
                         </button>
                       )}
                     </div>
-                    {appliedCoupon && (
+                    {appliedCoupon && !couponError && (
                       <p className="text-[10px] font-bold text-[var(--win)] mt-1.5 flex items-center gap-1">
-                        ✓ Code &apos;{appliedCoupon}&apos; validation scheduled
+                        ✓ Code &apos;{appliedCoupon}&apos; applied
+                      </p>
+                    )}
+                    {couponError && (
+                      <p className="text-[10px] font-bold text-red-400 mt-1.5 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {couponError}
                       </p>
                     )}
                   </div>

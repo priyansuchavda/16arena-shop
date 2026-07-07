@@ -1,4 +1,5 @@
 // Components
+export * from "./components/AuthInitializer";
 export * from "./components/AuthGuard";
 export * from "./components/LoginForm";
 export * from "./components/VerifyOtpForm";

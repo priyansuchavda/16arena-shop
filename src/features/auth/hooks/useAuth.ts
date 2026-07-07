@@ -9,36 +9,20 @@ export const useGoogleLogin = () => {
 
   return useMutation({
     mutationFn: async (fcmToken?: string) => {
-      console.log("Starting Google Sign-In popup...");
       const userCredential = await signInWithPopup(auth, googleProvider);
-      console.log("Firebase popup authentication succeeded. User:", userCredential.user);
-
       const credential = GoogleAuthProvider.credentialFromResult(userCredential);
       const idToken = credential?.idToken;
 
       if (!idToken) {
         throw new Error("Failed to retrieve Google ID token from credential");
       }
-      console.log("Retrieved Google ID token successfully. Sending to backend...");
 
-      const response = await authApi.googleLogin(idToken, fcmToken);
-      console.log("Backend response received:", response);
-      return response;
+      return authApi.googleLogin(idToken, fcmToken);
     },
     onSuccess: (response) => {
-      const data = response.data || response;
-      console.log("Handling successful login data:", data);
-      if (data.accessToken) {
-        setAuth(data.user || {}, data.accessToken, data.refreshToken);
-        console.log("Set auth state succeeded.");
-      } else {
-        console.error("No accessToken found in the login response:", data);
-      }
-    },
-    onError: (error: any) => {
-      console.error("Google Sign-In Mutation failed:", error);
-      if (error.response) {
-        console.error("Backend error response:", error.response.status, error.response.data);
+      const session = authApi.parseSessionResponse(response);
+      if (session) {
+        setAuth(session.user, session.accessToken);
       }
     },
   });
@@ -70,9 +54,9 @@ export const useVerifyOtp = () => {
       fcmToken?: string;
     }) => authApi.verifyOtp(otpToken, otp, fcmToken),
     onSuccess: (response) => {
-      const data = response.data || response;
-      if (data.accessToken) {
-        setAuth(data.user || {}, data.accessToken, data.refreshToken);
+      const session = authApi.parseSessionResponse(response);
+      if (session) {
+        setAuth(session.user, session.accessToken);
       }
     },
   });

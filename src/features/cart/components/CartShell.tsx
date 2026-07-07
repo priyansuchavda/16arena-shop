@@ -174,10 +174,12 @@ export function CartShell() {
     handleCheckout({
       isCartCheckout: true,
       cartItemIds: cart.items.map((item) => item.id),
+      skuId: primaryItem.skuId,
       quantity: primaryItem.quantity,
       coinsToRedeem,
       allowHybridInrPayment,
       productName: primaryItem.productName,
+      customVoucherAmount: parseCustomVoucherAmount(primaryItem.deliveryInfo),
     });
   };
 
@@ -301,6 +303,10 @@ export function CartShell() {
                 </button>
               </div>
 
+              {item.inStock === false && (
+                <p className="mt-2 text-xs font-semibold text-amber-300">Out of stock</p>
+              )}
+
               <div className="mt-4 flex items-center justify-between">
                 <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-3 py-2">
                   <button
@@ -322,7 +328,8 @@ export function CartShell() {
                   </button>
                 </div>
                 <span className="text-sm font-bold">
-                  Line total {formatInr(item.unitPrice * item.quantity)}
+                  Line total{" "}
+                  {formatInr(item.lineTotal ?? item.unitPrice * item.quantity)}
                 </span>
               </div>
             </div>

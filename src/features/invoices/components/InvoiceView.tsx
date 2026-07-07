@@ -32,7 +32,7 @@ export function InvoiceView({ orderId, token, showChrome = false }: InvoiceViewP
 
   useEffect(() => {
     if (token && !accessToken) {
-      setAuth({ displayName: "Guest" }, token, "");
+      setAuth({ displayName: "Guest" }, token);
     }
   }, [token, accessToken, setAuth]);
 

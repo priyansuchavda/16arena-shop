@@ -31,7 +31,7 @@ export const RegisterForm = ({
 } = {}) => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setUser, isAuthenticated, _hasHydrated, closeRegisterModal } = useAuthStore();
+  const { setUser, isAuthenticated, _sessionInitialized, closeRegisterModal } = useAuthStore();
   const { data: userSummary } = useUserSummary();
   const profile = userSummary?.userProfile || userSummary || useAuthStore.getState().user;
   const isProfileComplete = profile?.isProfileComplete ?? false;
@@ -114,12 +114,12 @@ export const RegisterForm = ({
 
   // Auth guard
   useEffect(() => {
-    if (_hasHydrated && !isAuthenticated) {
+    if (_sessionInitialized && !isAuthenticated) {
       closeRegisterModal();
       onClose?.();
       router.replace(`/login?returnUrl=${encodeURIComponent(returnUrl)}`);
     }
-  }, [_hasHydrated, isAuthenticated, router, returnUrl, closeRegisterModal, onClose]);
+  }, [_sessionInitialized, isAuthenticated, router, returnUrl, closeRegisterModal, onClose]);
 
   // Autofill dynamic profile data
   useEffect(() => {
@@ -580,7 +580,7 @@ export const RegisterForm = ({
       leaveRegisterFlow();
   };
 
-  if (!_hasHydrated || !isAuthenticated) {
+  if (!_sessionInitialized || !isAuthenticated) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="w-8 h-8 text-[var(--flame)] animate-spin" />

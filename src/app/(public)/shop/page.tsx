@@ -2,11 +2,7 @@ import { ArenaLogo } from "@/shared/components/arena-logo";
 import {
   ShopShell,
   ShopUnavailable,
-  getCachedCategories,
-  getCachedProducts,
-  getCachedFeaturedProducts,
-  getCachedShopSections,
-  getCachedShopVisibility,
+  shopApi,
   categories as staticCategories,
   productToCard,
   products as staticProducts,
@@ -24,8 +20,6 @@ import {
 } from "@/features/shop/utils/mappers";
 import { sectionsFromCards } from "@/features/shop/utils/shop-catalog";
 import type { ApiProduct } from "@/features/shop/types/shop.types";
-
-export const revalidate = 300; // Cache page for 5 minutes at edge
 
 function staticHeroSlides(): HeroSlide[] {
   const picks = staticProducts.filter((p) =>
@@ -69,11 +63,11 @@ export default async function Home() {
 
   try {
     const [visibility, cats, featuredProds, sections, allProds] = await Promise.all([
-      getCachedShopVisibility(),
-      getCachedCategories(),
-      getCachedFeaturedProducts(),
-      getCachedShopSections(),
-      getCachedProducts(undefined, 1, 150).catch(() => [] as ApiProduct[]),
+      shopApi.checkShopVisibility(),
+      shopApi.fetchCategories(),
+      shopApi.fetchFeaturedProducts(),
+      shopApi.fetchShopSections(),
+      shopApi.fetchProducts(undefined, 1, 150).catch(() => [] as ApiProduct[]),
     ]);
 
     shopVisible = visibility.visible;

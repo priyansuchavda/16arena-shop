@@ -12,7 +12,6 @@ export * from "./api";
 
 // Services
 export * from "./services/product.service";
-export * from "./services/shop-cache";
 
 // Types
 export * from "./types/shop.types";

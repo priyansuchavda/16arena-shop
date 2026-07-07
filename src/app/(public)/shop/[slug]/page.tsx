@@ -10,9 +10,7 @@ import {
   products as staticProducts,
   categories as staticCategories,
   productToCard,
-  getCachedCategories,
-  getCachedProducts,
-  getCachedProductDetail,
+  shopApi,
   type CategoryItem,
   type CardModel,
   type ApiCategory,
@@ -27,8 +25,6 @@ import {
   withActiveCategory,
 } from "@/features/shop/utils/shop-catalog";
 
-export const revalidate = 300; // Cache category/product pages for 5 minutes at edge
-
 export async function generateMetadata({
   params,
 }: {
@@ -37,7 +33,7 @@ export async function generateMetadata({
   const { slug } = await params;
 
   try {
-    const liveCats = await getCachedCategories();
+    const liveCats = await shopApi.fetchCategories();
     const activeCategory = liveCats.find((c) => c.slug === slug);
     if (activeCategory) {
       return {
@@ -46,7 +42,7 @@ export async function generateMetadata({
       };
     }
 
-    const item = await getCachedProductDetail(slug);
+    const item = await shopApi.fetchProductDetail(slug);
     if (item) {
       return {
         title: `Buy ${item.brandName || item.name} Gift Cards - 16arenashop`,
@@ -80,7 +76,7 @@ export default async function ShopSlugPage({
   let liveCats: ApiCategory[] = [];
 
   try {
-    liveCats = await getCachedCategories();
+    liveCats = await shopApi.fetchCategories();
     categoryItems = topCategories(liveCats);
   } catch {
     categoryItems = staticCategories.map((c) => ({
@@ -100,7 +96,7 @@ export default async function ShopSlugPage({
     try {
       const matchingLiveCat = liveCats.find((c) => c.slug === slug);
       if (matchingLiveCat) {
-        const liveProducts = await getCachedProducts(matchingLiveCat.id);
+        const liveProducts = await shopApi.fetchProducts(matchingLiveCat.id);
         allCards = liveProducts.filter((p) => p.isActive !== false).map((p) => apiToCard(p, slugs));
       } else {
         allCards = staticProducts.map(productToCard);
@@ -159,9 +155,9 @@ export default async function ShopSlugPage({
   const slugs = categorySlugMap(liveCats);
 
   try {
-    item = await getCachedProductDetail(slug);
+    item = await shopApi.fetchProductDetail(slug);
     if (item) {
-      const relatedProds = await getCachedProducts(item.categoryId).catch(() => []);
+      const relatedProds = await shopApi.fetchProducts(item.categoryId).catch(() => []);
       related = relatedProds
         .filter((p) => p.slug !== item!.slug)
         .slice(0, 4)

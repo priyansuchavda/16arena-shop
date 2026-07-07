@@ -157,12 +157,13 @@ export const shopApi = {
     return data.data;
   },
 
-  fetchProducts: async (categoryId?: string): Promise<ApiProduct[]> => {
+  fetchProducts: async (categoryId?: string, page = 1, pageSize = 20): Promise<ApiProduct[]> => {
     const path = categoryId
-      ? `/v1/shop/products?categoryId=${categoryId}&page=1&pageSize=20`
-      : "/v1/shop/products";
+      ? `/v1/shop/products?categoryId=${categoryId}&page=${page}&pageSize=${pageSize}`
+      : `/v1/shop/products?page=${page}&pageSize=${pageSize}`;
     const { data } = await apiClient.get<{ data: { items: ApiProduct[] } }>(path);
-    return data.data.items ?? [];
+    const items = data.data?.items ?? (data.data as any);
+    return Array.isArray(items) ? items : [];
   },
 
   fetchProductBySlug: async (slug: string): Promise<ApiProduct | null> => {

@@ -520,13 +520,14 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
               {/* Dynamic Input (for custom voucher values) */}
               {isFlexibleSelection && amountRestrictions && (
                 <div className="animate-in slide-in-from-top-2 duration-150 p-4 rounded-xl border border-white/5 bg-black/30">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] flex justify-between mb-2">
+                  <label htmlFor="custom-voucher-amount" className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] flex justify-between mb-2">
                     <span>Enter Custom Amount</span>
                     <span className="text-[var(--flame)]">Min: ₹{amountRestrictions.minVoucherAmount} - Max: ₹{amountRestrictions.maxVoucherAmount}</span>
                   </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-white text-base">₹</span>
                     <input
+                      id="custom-voucher-amount"
                       type="text"
                       value={customAmountText}
                       onChange={handleCustomAmountChange}
@@ -546,11 +547,12 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
               {/* Coupon Validate */}
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] block mb-2">
+                <label htmlFor="live-coupon-code" className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] block mb-2">
                   Coupon Code
                 </label>
                 <div className="flex gap-2">
                   <input
+                    id="live-coupon-code"
                     type="text"
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value)}

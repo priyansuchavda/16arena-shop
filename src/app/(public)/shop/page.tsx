@@ -2,7 +2,11 @@ import { ArenaLogo } from "@/shared/components/arena-logo";
 import {
   ShopShell,
   ShopUnavailable,
-  shopApi,
+  getCachedCategories,
+  getCachedProducts,
+  getCachedFeaturedProducts,
+  getCachedShopSections,
+  getCachedShopVisibility,
   categories as staticCategories,
   productToCard,
   products as staticProducts,
@@ -21,7 +25,7 @@ import {
 import { sectionsFromCards } from "@/features/shop/utils/shop-catalog";
 import type { ApiProduct } from "@/features/shop/types/shop.types";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300; // Cache page for 5 minutes at edge
 
 function staticHeroSlides(): HeroSlide[] {
   const picks = staticProducts.filter((p) =>
@@ -57,7 +61,6 @@ export default async function Home() {
   let allCards: CardModel[] = [];
   let featuredCards: CardModel[] = [];
   let slides: HeroSlide[] = [];
-  let walletBalance = 0;
   
   // Dynamic layout structures
   let layoutSections: any[] = [];
@@ -65,44 +68,32 @@ export default async function Home() {
   let categoriesData: any[] = [];
 
   try {
-    const [visibility, cats, featuredProds, sections, wallet] = await Promise.all([
-      shopApi.checkShopVisibility(),
-      shopApi.fetchCategories(),
-      shopApi.fetchFeaturedProducts(),
-      shopApi.fetchShopSections(),
-      shopApi.fetchWalletBalance().catch(() => 0),
+    const [visibility, cats, featuredProds, sections, allProds] = await Promise.all([
+      getCachedShopVisibility(),
+      getCachedCategories(),
+      getCachedFeaturedProducts(),
+      getCachedShopSections(),
+      getCachedProducts(undefined, 1, 150).catch(() => [] as ApiProduct[]),
     ]);
 
     shopVisible = visibility.visible;
-    walletBalance = wallet;
     categoriesData = cats;
 
     if (shopVisible) {
       const activeTopCats = cats.filter((c) => c.parentId === null && c.isActive);
       if (!activeTopCats.length) throw new Error("no categories");
 
-      // Parallel fetch for flattened categories list
       const flatCats = flattenCategories(cats);
-      const categoryProductsEntries = await Promise.all(
-        flatCats.map(async (cat) => {
-          try {
-            const products = await shopApi.fetchProducts(cat.id);
-            return { id: cat.id, products };
-          } catch {
-            return { id: cat.id, products: [] };
-          }
-        })
-      );
       
-      categoryProductsMap = categoryProductsEntries.reduce((acc, curr) => {
-        acc[curr.id] = curr.products;
+      // Group products in-memory to populate category rails
+      categoryProductsMap = flatCats.reduce((acc, cat) => {
+        acc[cat.id] = allProds.filter((p) => p.categoryId === cat.id);
         return acc;
       }, {} as Record<string, ApiProduct[]>);
 
       const slugs = categorySlugMap(cats);
       categoryItems = topCategories(cats);
 
-      const allProds = Object.values(categoryProductsMap).flat();
       if (!allProds.length) throw new Error("no products");
 
       allCards = allProds.filter((p) => p.isActive !== false).map((p) => apiToCard(p, slugs));
@@ -149,7 +140,7 @@ export default async function Home() {
       sections={layoutSections}
       categoryProductsMap={categoryProductsMap}
       slides={slides}
-      walletBalance={walletBalance}
+      walletBalance={0}
     />
   );
 }

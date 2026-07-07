@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import {
   ProductDetail,
   LiveProductDetail,
@@ -9,7 +10,9 @@ import {
   products as staticProducts,
   categories as staticCategories,
   productToCard,
-  shopApi,
+  getCachedCategories,
+  getCachedProducts,
+  getCachedProductDetail,
   type CategoryItem,
   type CardModel,
   type ApiCategory,
@@ -24,7 +27,47 @@ import {
   withActiveCategory,
 } from "@/features/shop/utils/shop-catalog";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300; // Cache category/product pages for 5 minutes at edge
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+
+  try {
+    const liveCats = await getCachedCategories();
+    const activeCategory = liveCats.find((c) => c.slug === slug);
+    if (activeCategory) {
+      return {
+        title: `Buy ${activeCategory.name} Gift Cards & Vouchers | 16arenashop`,
+        description: `Get instant digital delivery on ${activeCategory.name} gift cards, codes, and vouchers. Earn Arena Coins cashback on every purchase!`,
+      };
+    }
+
+    const item = await getCachedProductDetail(slug);
+    if (item) {
+      return {
+        title: `Buy ${item.brandName || item.name} Gift Cards - 16arenashop`,
+        description: item.description || `Purchase ${item.brandName || item.name} digital gift vouchers and gaming top-ups. Instant code delivery with Arena Coins cashback.`,
+      };
+    }
+  } catch {}
+
+  const sample = getProductBySlug(slug);
+  if (sample) {
+    return {
+      title: `Buy ${sample.brand} Gift Cards - 16arenashop`,
+      description: sample.description || `Get ${sample.brand} gift cards instantly with digital delivery.`,
+    };
+  }
+
+  return {
+    title: "16arenashop - Gift Cards & Vouchers",
+    description: "Buy gift cards, coupons, and gaming top-ups instantly.",
+  };
+}
 
 export default async function ShopSlugPage({
   params,
@@ -33,14 +76,11 @@ export default async function ShopSlugPage({
 }) {
   const { slug } = await params;
 
-  // 1. Fetch categories and common layout data
   let categoryItems: CategoryItem[] = [];
-  let walletBalance = 1000;
   let liveCats: ApiCategory[] = [];
 
   try {
-    liveCats = await shopApi.fetchCategories();
-    walletBalance = await shopApi.fetchWalletBalance().catch(() => 1000);
+    liveCats = await getCachedCategories();
     categoryItems = topCategories(liveCats);
   } catch {
     categoryItems = staticCategories.map((c) => ({
@@ -51,22 +91,18 @@ export default async function ShopSlugPage({
     }));
   }
 
-  // Check if it's a category slug
   const activeCategory = categoryItems.find((c) => c.slug === slug);
 
   if (activeCategory) {
-    // ---- CATEGORY VIEW DISPATCH ----
     let allCards: CardModel[] = [];
     const slugs = categorySlugMap(liveCats);
 
     try {
-      // Find the corresponding live category ID
       const matchingLiveCat = liveCats.find((c) => c.slug === slug);
       if (matchingLiveCat) {
-        const liveProducts = await shopApi.fetchProducts(matchingLiveCat.id);
+        const liveProducts = await getCachedProducts(matchingLiveCat.id);
         allCards = liveProducts.filter((p) => p.isActive !== false).map((p) => apiToCard(p, slugs));
       } else {
-        // Fall back to static cards
         allCards = staticProducts.map(productToCard);
       }
     } catch {
@@ -79,7 +115,7 @@ export default async function ShopSlugPage({
     return (
       <ShopLayout
         categories={visibleCategories}
-        walletBalance={walletBalance}
+        walletBalance={0}
         categoryMode={true}
       >
         <ShopCategoryView category={activeCategory} cards={filteredCards} />
@@ -87,15 +123,32 @@ export default async function ShopSlugPage({
     );
   }
 
-  // ---- PRODUCT DETAIL VIEW DISPATCH ----
   const sample = getProductBySlug(slug);
   if (sample) {
+    const staticJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "name": sample.brand,
+      "description": sample.description || `Get ${sample.brand} gift cards instantly.`,
+      "offers": {
+        "@type": "AggregateOffer",
+        "priceCurrency": "INR",
+        "lowPrice": 250,
+        "highPrice": 5000,
+        "offerCount": 4,
+      }
+    };
+
     return (
       <ShopLayout
         categories={categoryItems}
-        walletBalance={walletBalance}
+        walletBalance={0}
         hideSidebar={true}
       >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(staticJsonLd) }}
+        />
         <ProductDetail product={sample} related={getRelated(slug).map(productToCard)} />
       </ShopLayout>
     );
@@ -106,9 +159,9 @@ export default async function ShopSlugPage({
   const slugs = categorySlugMap(liveCats);
 
   try {
-    item = await shopApi.fetchProductDetail(slug);
+    item = await getCachedProductDetail(slug);
     if (item) {
-      const relatedProds = await shopApi.fetchProducts(item.categoryId).catch(() => []);
+      const relatedProds = await getCachedProducts(item.categoryId).catch(() => []);
       related = relatedProds
         .filter((p) => p.slug !== item!.slug)
         .slice(0, 4)
@@ -120,12 +173,30 @@ export default async function ShopSlugPage({
 
   if (!item) notFound();
 
+  const dynamicJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": item.brandName || item.name,
+    "description": item.description || item.about || "",
+    "image": item.logoUrl || item.heroImageUrl || "",
+    "offers": {
+      "@type": "AggregateOffer",
+      "priceCurrency": "INR",
+      "lowPrice": item.skus?.[0]?.retailPrice || 0,
+      "offerCount": item.skus?.length || 1,
+    }
+  };
+
   return (
     <ShopLayout
       categories={categoryItems}
-      walletBalance={walletBalance}
+      walletBalance={0}
       hideSidebar={true}
     >
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(dynamicJsonLd) }}
+      />
       <LiveProductDetail product={item} related={related} />
     </ShopLayout>
   );

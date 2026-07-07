@@ -198,10 +198,11 @@ export function ProductDetail({
               {/* Conditional UID input for Gaming */}
               {isGaming && (
                 <div className="mb-4">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] block mb-2">
+                  <label htmlFor="player-uid" className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] block mb-2">
                     Add User ID (UID)
                   </label>
                   <input
+                    id="player-uid"
                     type="text"
                     placeholder="Enter your Player ID / UID"
                     className="w-full h-11 bg-black/40 border border-white/10 rounded-[10px] px-4 text-sm text-white placeholder:text-white/30 outline-none focus:border-[var(--flame)]/60 transition-colors"
@@ -211,11 +212,12 @@ export function ProductDetail({
 
               {/* Coupon Code Input */}
               <div className="mb-6">
-                <label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] block mb-2">
+                <label htmlFor="coupon-code" className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] block mb-2">
                   Coupon Code
                 </label>
                 <div className="flex gap-2">
                   <input
+                    id="coupon-code"
                     type="text"
                     placeholder="Have a voucher code?"
                     className="flex-1 h-11 bg-black/40 border border-white/10 rounded-[10px] px-4 text-sm text-white placeholder:text-white/30 outline-none focus:border-[var(--flame)]/60 transition-colors"

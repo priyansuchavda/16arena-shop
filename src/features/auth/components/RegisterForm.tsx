@@ -687,7 +687,10 @@ export const RegisterForm = ({
         {isProfileComplete && (
           <button
             type="button"
-            onClick={() => leaveRegisterFlow()}
+            onClick={() => {
+              closeRegisterModal();
+              onClose?.();
+            }}
             className="flex items-center justify-center text-white hover:opacity-80 transition duration-200"
             aria-label="Close"
           >

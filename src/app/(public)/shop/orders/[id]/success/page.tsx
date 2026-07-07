@@ -48,10 +48,11 @@ export default function OrderSuccessPage() {
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const startedAt = Date.now();
+    const abortController = new AbortController();
 
     const fetchOrder = async () => {
       try {
-        const orderData = await shopApi.getOrder(orderId);
+        const orderData = await shopApi.getOrder(orderId, { signal: abortController.signal });
         if (cancelled) return;
 
         if (orderData) {
@@ -71,8 +72,14 @@ export default function OrderSuccessPage() {
           setError("Failed to locate order details.");
           setLoading(false);
         }
-      } catch {
+      } catch (err: unknown) {
         if (cancelled) return;
+
+        // Skip handling for aborted/canceled requests
+        if (err instanceof Error && (err.name === "CanceledError" || err.name === "AbortError")) {
+          return;
+        }
+
         if (Date.now() - startedAt < ORDER_POLL_MAX_WAIT_MS) {
           timeoutId = setTimeout(fetchOrder, ORDER_POLL_INTERVAL_MS);
         } else {
@@ -86,6 +93,7 @@ export default function OrderSuccessPage() {
 
     return () => {
       cancelled = true;
+      abortController.abort();
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [orderId]);

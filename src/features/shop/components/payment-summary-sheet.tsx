@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { AlertCircle, Loader2, X } from "lucide-react";
 import coinImg from "@/assets/png/coin.png";
@@ -55,19 +55,32 @@ export function PaymentSummarySheet({
   const [coinsToRedeem, setCoinsToRedeem] = useState(initialCoinsToRedeem);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cartSyncedRef = useRef(false);
+  const isFirstLoadRef = useRef(true);
 
   const isFlexible = isFlexibleSkuSelection(sku);
+
+  const fallbackSubtotal = useMemo(() => {
+    if (isFlexible && customVoucherAmount) {
+      return computeFlexibleSubtotal(product, sku, customVoucherAmount) * quantity;
+    }
+    return resolveSkuRetailPrice(sku) * quantity;
+  }, [product, sku, quantity, isFlexible, customVoucherAmount]);
 
   const allowHybridInrPayment = useMemo(() => {
     const rules = preview?.paymentRules ?? sku.paymentRules;
     const maxCoins = rules?.maxCoinsAllowedEstimate ?? coinsToRedeem;
+    const coinRate = rules?.coinToInrRate ?? product.coinRules?.coinToInrRate ?? 0.01;
+    const estimatedPayable =
+      preview?.totalPayable ??
+      Math.max(0, fallbackSubtotal - coinsToRedeem * coinRate);
+
     return resolveAllowHybridInrPayment({
       coinsToRedeem,
       maxCoinsAllowed: maxCoins,
-      totalPayable: preview?.totalPayable,
+      totalPayable: estimatedPayable,
       paymentRules: rules,
     });
-  }, [preview, sku, coinsToRedeem]);
+  }, [preview, sku, product, coinsToRedeem, fallbackSubtotal]);
 
   useEffect(() => {
     if (!open) {
@@ -82,11 +95,11 @@ export function PaymentSummarySheet({
     }
   }, [open, initialCoinsToRedeem, initialPreview, cartItemIds, isCartCheckout]);
 
-  const runPreview = async (syncCart: boolean) => {
+  const runPreview = useCallback(async () => {
     setPreviewLoading(true);
     setPreviewError(null);
     try {
-      if (syncCart && !isCartCheckout && !cartSyncedRef.current) {
+      if (!isCartCheckout && !cartSyncedRef.current) {
         await shopApi.addToCart(
           sku.id,
           quantity,
@@ -120,38 +133,41 @@ export function PaymentSummarySheet({
     } finally {
       setPreviewLoading(false);
     }
-  };
+  }, [
+    sku.id,
+    quantity,
+    isFlexible,
+    customVoucherAmount,
+    isCartCheckout,
+    cartItemIds,
+    coinsToRedeem,
+    couponCode,
+    allowHybridInrPayment,
+  ]);
 
   useEffect(() => {
-    if (!open) return;
-
-    debounceRef.current = setTimeout(() => {
-      void runPreview(true);
-    }, 300);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [open, sku.id, quantity, customVoucherAmount, isFlexible, isCartCheckout, cartItemIds]);
-
-  useEffect(() => {
-    if (!open || !cartSyncedRef.current) return;
-
-    debounceRef.current = setTimeout(() => {
-      void runPreview(false);
-    }, 300);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [coinsToRedeem, couponCode, allowHybridInrPayment]);
-
-  const fallbackSubtotal = useMemo(() => {
-    if (isFlexible && customVoucherAmount) {
-      return computeFlexibleSubtotal(product, sku, customVoucherAmount) * quantity;
+    if (!open) {
+      isFirstLoadRef.current = true;
+      return;
     }
-    return resolveSkuRetailPrice(sku) * quantity;
-  }, [product, sku, quantity, isFlexible, customVoucherAmount]);
+
+    if (isFirstLoadRef.current) {
+      isFirstLoadRef.current = false;
+      if (initialPreview) {
+        return;
+      }
+    }
+
+    debounceRef.current = setTimeout(() => {
+      void runPreview();
+    }, 300);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [open, runPreview, initialPreview]);
+
+
 
   const totalPayable = preview?.totalPayable ?? fallbackSubtotal;
   const payLabel = payButtonLabel(totalPayable);

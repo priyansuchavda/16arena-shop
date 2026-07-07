@@ -4,9 +4,9 @@ import { assertEnvelopeSuccess, type ApiEnvelope, unwrapData } from "./shop-api-
 import { mapOrder, mapOrderInvoiceFromOrder } from "./shop-mappers";
 
 export const shopOrdersService = {
-  getOrder: async (id: string): Promise<ShopOrder | null> => {
+  getOrder: async (id: string, config?: any): Promise<ShopOrder | null> => {
     try {
-      const { data } = await apiClient.get<ApiEnvelope<unknown>>(`/v1/shop/orders/${id}`);
+      const { data } = await apiClient.get<ApiEnvelope<unknown>>(`/v1/shop/orders/${id}`, config);
       return mapOrder(data);
     } catch {
       return null;

@@ -143,6 +143,53 @@ export default async function ShopSlugPage({
     );
   }
 
+  let item: any = null;
+  let related: ReturnType<typeof apiToCard>[] = [];
+  const slugs = categorySlugMap(liveCats);
+
+  try {
+    item = await shopApi.fetchProductDetail(slug);
+    if (item) {
+      const relatedProds = await shopApi.fetchProducts(item.categoryId).catch(() => []);
+      related = relatedProds
+        .filter((p) => p.slug !== item!.slug)
+        .slice(0, 4)
+        .map((p) => apiToCard(p, slugs));
+    }
+  } catch {
+    // API unreachable
+  }
+
+  if (item) {
+    const dynamicJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "name": item.brandName || item.name,
+      "description": item.description || item.about || "",
+      "image": item.logoUrl || item.heroImageUrl || "",
+      "offers": {
+        "@type": "AggregateOffer",
+        "priceCurrency": "INR",
+        "lowPrice": item.skus?.[0]?.retailPrice || 0,
+        "offerCount": item.skus?.length || 1,
+      }
+    };
+
+    return (
+      <ShopLayout
+        categories={categoryItems}
+        walletBalance={0}
+        hideSidebar={true}
+      >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(dynamicJsonLd) }}
+        />
+        <LiveProductDetail product={item} related={related} />
+      </ShopLayout>
+    );
+  }
+
   const sample = getProductBySlug(slug);
   if (sample) {
     const staticJsonLd = {
@@ -174,50 +221,5 @@ export default async function ShopSlugPage({
     );
   }
 
-  let item: any = null;
-  let related: ReturnType<typeof apiToCard>[] = [];
-  const slugs = categorySlugMap(liveCats);
-
-  try {
-    item = await shopApi.fetchProductDetail(slug);
-    if (item) {
-      const relatedProds = await shopApi.fetchProducts(item.categoryId).catch(() => []);
-      related = relatedProds
-        .filter((p) => p.slug !== item!.slug)
-        .slice(0, 4)
-        .map((p) => apiToCard(p, slugs));
-    }
-  } catch {
-    // API unreachable
-  }
-
-  if (!item) notFound();
-
-  const dynamicJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    "name": item.brandName || item.name,
-    "description": item.description || item.about || "",
-    "image": item.logoUrl || item.heroImageUrl || "",
-    "offers": {
-      "@type": "AggregateOffer",
-      "priceCurrency": "INR",
-      "lowPrice": item.skus?.[0]?.retailPrice || 0,
-      "offerCount": item.skus?.length || 1,
-    }
-  };
-
-  return (
-    <ShopLayout
-      categories={categoryItems}
-      walletBalance={0}
-      hideSidebar={true}
-    >
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(dynamicJsonLd) }}
-      />
-      <LiveProductDetail product={item} related={related} />
-    </ShopLayout>
-  );
+  notFound();
 }

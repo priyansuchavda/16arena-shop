@@ -198,9 +198,9 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   const getCartSyncKey = () =>
     `${selectedSku?.id ?? ""}:${qty}:${isFlexibleSelection ? customAmount : "fixed"}`;
 
-  const buildPreviewRequest = () =>
+  const buildPreviewRequest = (overrideCartItemIds?: string[] | null) =>
     buildCheckoutRequest({
-      cartItemIds: null,
+      cartItemIds: overrideCartItemIds !== undefined ? overrideCartItemIds : cartItemIds,
       coinsToRedeem,
       couponCode: appliedCoupon,
       allowHybridInrPayment,
@@ -208,15 +208,15 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
       isSquad: qty >= 5,
     });
 
-  const syncCartForSelection = async () => {
-    if (!selectedSku) return false;
+  const syncCartForSelection = async (): Promise<string[] | null> => {
+    if (!selectedSku) return null;
     const cart = await shopApi.addToCart(
       selectedSku.id,
       qty,
       isFlexibleSelection ? customAmount : null,
       buildDeliveryInfo()
     );
-    if (!cart) return false;
+    if (!cart) return null;
 
     const ids =
       cart.items.map((item) => item.id).filter(Boolean).length > 0
@@ -227,11 +227,11 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     }
     cartSyncKeyRef.current = getCartSyncKey();
     cartSyncedRef.current = true;
-    return true;
+    return ids;
   };
 
-  const fetchCheckoutPreview = async (): Promise<CheckoutPreview | null> => {
-    const preview = await shopApi.checkoutPreview(buildPreviewRequest());
+  const fetchCheckoutPreview = async (overrideCartItemIds?: string[] | null): Promise<CheckoutPreview | null> => {
+    const preview = await shopApi.checkoutPreview(buildPreviewRequest(overrideCartItemIds));
     if (!preview) {
       setPreviewError("Failed to resolve checkout price preview.");
       return null;
@@ -268,15 +268,17 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
     try {
       const shouldSyncCart = syncCart || cartSyncKeyRef.current !== getCartSyncKey();
+      let activeCartItemIds = cartItemIds;
       if (shouldSyncCart) {
-        const synced = await syncCartForSelection();
-        if (!synced) {
+        const syncedIds = await syncCartForSelection();
+        if (!syncedIds) {
           setPreviewError("Could not update cart for this selection.");
           return null;
         }
+        activeCartItemIds = syncedIds;
       }
 
-      return await fetchCheckoutPreview();
+      return await fetchCheckoutPreview(activeCartItemIds);
     } catch (err: unknown) {
       const message =
         err instanceof Error

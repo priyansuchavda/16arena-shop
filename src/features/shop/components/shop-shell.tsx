@@ -40,11 +40,54 @@ export function ShopShell({
   featuredCards,
   sections,
   categoryProductsMap,
-  slides,
+  slides: initialSlides,
   walletBalance,
 }: ShopShellProps) {
   const [activeSlug, setActiveSlug] = useState(ALL_CATEGORY_SLUG);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const slides = useMemo(() => {
+    // Static customizable slide 1 (Gaming)
+    const staticSlide1: HeroSlide = {
+      id: "static-promo-banner-1",
+      slug: "bgmi-uc",
+      eyebrow: "16ARENA TRUSTED STORE",
+      title: "ASDASD",
+      subtitle: "Get flat 15% off on gaming credits instantly.",
+      cta: "TOP UP NOW",
+      accent: "#FF973C",
+      accent2: "#FF973C",
+      imageUrl: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1800&q=80",
+    };
+
+    // Static customizable slide 2 (Food/Swiggy)
+    const staticSlide2: HeroSlide = {
+      id: "static-promo-banner-2",
+      slug: "swiggy",
+      eyebrow: "16ARENA TRUSTED STORE",
+      title: "SWIGGY DEALS",
+      subtitle: "Get flat 15% off on food orders instantly.",
+      cta: "ORDER NOW",
+      accent: "#FC8019",
+      accent2: "#FC8019",
+      imageUrl: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1800&q=80",
+    };
+
+    // Static customizable slide 3 (Music/Spotify)
+    const staticSlide3: HeroSlide = {
+      id: "static-promo-banner-3",
+      slug: "spotify",
+      eyebrow: "16ARENA TRUSTED STORE",
+      title: "SPOTIFY PREMIUM",
+      subtitle: "Get flat 15% off on music streaming subscriptions instantly.",
+      cta: "LISTEN NOW",
+      accent: "#1DB954",
+      accent2: "#1DB954",
+      imageUrl: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&w=1800&q=80",
+    };
+
+    return [staticSlide2, staticSlide3, staticSlide1];
+  }, []);
 
   const visibleCategories = useMemo(
     () => withActiveCategory(categoryItems, activeSlug),
@@ -80,6 +123,30 @@ export function ShopShell({
     return forYouFromCards(allCards);
   }, [featuredCards, allCards]);
 
+  const travelCards = useMemo(() => {
+    const travelSlugs = ["makemytrip", "booking", "goibibo"];
+    const found = allCards.filter((card) => travelSlugs.includes(card.slug));
+    return [...found].sort((a, b) => travelSlugs.indexOf(a.slug) - travelSlugs.indexOf(b.slug));
+  }, [allCards]);
+
+  const foodCards = useMemo(() => {
+    const foodSlugs = ["swiggy", "zomato", "bigbasket"];
+    const found = allCards.filter((card) => foodSlugs.includes(card.slug));
+    return [...found].sort((a, b) => foodSlugs.indexOf(a.slug) - foodSlugs.indexOf(b.slug));
+  }, [allCards]);
+
+  const shoppingCards = useMemo(() => {
+    const shoppingSlugs = ["amazon", "flipkart", "ikea"];
+    const found = allCards.filter((card) => shoppingSlugs.includes(card.slug));
+    return [...found].sort((a, b) => shoppingSlugs.indexOf(a.slug) - shoppingSlugs.indexOf(b.slug));
+  }, [allCards]);
+
+  const musicCards = useMemo(() => {
+    const musicSlugs = ["spotify", "apple-music", "gaana"];
+    const found = allCards.filter((card) => musicSlugs.includes(card.slug));
+    return [...found].sort((a, b) => musicSlugs.indexOf(a.slug) - musicSlugs.indexOf(b.slug));
+  }, [allCards]);
+
   const slugs = useMemo(() => categorySlugMap(categories), [categories]);
 
   // Search filter results
@@ -113,14 +180,14 @@ export function ShopShell({
 
       if (name === "shop_banner") {
         list.push(
-          <div key={sec.id || `banner-${idx}`} className="mb-5">
+          <div key={sec.id || `banner-${idx}`}>
             <HeroCarousel slides={slides} />
           </div>
         );
       } else if (name === "featured_card") {
         if (forYou.length > 0) {
           list.push(
-            <div key={sec.id || `foryou-${idx}`} className="mb-5 animate-fade-in">
+            <div key={sec.id || `foryou-${idx}`} className="animate-fade-in">
               <ScrollRow title="For You" items={forYou} card="forYou" />
             </div>
           );
@@ -140,7 +207,7 @@ export function ShopShell({
             if (cards.length > 0) {
               renderedCategoryIds.add(cat.id);
               list.push(
-                <div key={cat.id} className="mb-5 animate-fade-in">
+                <div key={cat.id} className="animate-fade-in">
                   <ScrollRow
                     title={cat.name}
                     items={cards}
@@ -164,7 +231,7 @@ export function ShopShell({
             if (cards.length > 0) {
               renderedCategoryIds.add(targetCategory.id);
               list.push(
-                <div key={targetCategory.id} className="mb-5 animate-fade-in">
+                <div key={targetCategory.id} className="animate-fade-in">
                   <ScrollRow
                     title={targetCategory.name}
                     items={cards}
@@ -223,19 +290,41 @@ export function ShopShell({
         </div>
       ) : isHome ? (
         <div className="flex flex-col gap-4">
-          <ShopCategoryCards
-            categories={chipCategories}
-            selectedSlug={selectedChipSlug}
-            onCategoryTap={(slug) => {
-              if (slug === "hot-deals") {
-                setActiveSlug(ALL_CATEGORY_SLUG);
-              } else {
-                setActiveSlug(slug);
-              }
-              setSearchQuery("");
-            }}
-          />
-          {renderDynamicSections()}
+          <div className="mb-6">
+            <ShopCategoryCards
+              categories={chipCategories}
+              selectedSlug={selectedChipSlug}
+              onCategoryTap={(slug) => {
+                if (slug === "hot-deals") {
+                  setActiveSlug(ALL_CATEGORY_SLUG);
+                } else {
+                  setActiveSlug(slug);
+                }
+                setSearchQuery("");
+              }}
+            />
+          </div>
+           {renderDynamicSections()}
+          {travelCards.length > 0 && (
+            <div className="animate-fade-in">
+              <ScrollRow title="Travel & Hotels" items={travelCards} card="travelHotel" />
+            </div>
+          )}
+          {foodCards.length > 0 && (
+            <div className="animate-fade-in">
+              <ScrollRow title="Food & Beverages" items={foodCards} card="travelHotel" />
+            </div>
+          )}
+          {shoppingCards.length > 0 && (
+            <div className="animate-fade-in">
+              <ScrollRow title="Shopping" items={shoppingCards} card="travelHotel" />
+            </div>
+          )}
+          {musicCards.length > 0 && (
+            <div className="animate-fade-in">
+              <ScrollRow title="Music" items={musicCards} card="travelHotel" />
+            </div>
+          )}
         </div>
       ) : activeCategory ? (
         <ShopCategoryView category={activeCategory} cards={filtered} />

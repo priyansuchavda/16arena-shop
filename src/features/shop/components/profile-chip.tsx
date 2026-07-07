@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { LogOut, Edit2, User, ChevronDown, ClipboardList, Bell } from "lucide-react";
+import { LogOut, User, ChevronDown, ClipboardList, Bell } from "lucide-react";
 import { useAuthStore, useUserSummary, useLogout } from "@/features/auth";
 
 const DEFAULT_AVATAR_URL =
@@ -87,16 +87,9 @@ export function ProfileChip() {
 
       {isOpen && (
         <div className="absolute right-0 mt-2 w-56 overflow-hidden rounded-[20px] border border-[var(--line)] bg-[#0c0c0c] shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-          <div className="p-4 border-b border-[var(--line)] bg-[#141414] text-center">
-            <div className="relative w-14 h-14 mx-auto mb-2">
+          <div className="p-4 pb-3.5 border-b border-[var(--line)] bg-[#141414] text-center">
+            <div className="w-10 h-10 mx-auto mb-1.5">
               <ProfileAvatar src={avatarUrl} />
-              <button
-                type="button"
-                onClick={handleEditProfile}
-                className="absolute bottom-0 right-0 bg-[var(--flame)] p-1.5 rounded-full cursor-pointer hover:brightness-110 transition shadow-lg flex items-center justify-center w-6 h-6 border border-[#0c0c0c]"
-              >
-                <Edit2 className="w-2.5 h-2.5 text-[#0c0c0c]" />
-              </button>
             </div>
             <p className="text-sm font-bold text-white truncate">{displayName}</p>
             <p className="text-[10px] text-[var(--muted)] truncate font-mono mt-0.5">

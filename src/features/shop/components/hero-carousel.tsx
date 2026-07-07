@@ -56,10 +56,18 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
   const imageSrc = slide.imageUrl || GAMING_BANNER_FALLBACK;
 
   const navBtn =
-    "flex h-8 w-10 items-center justify-center rounded-full bg-[var(--surface)] text-white transition-colors duration-200 hover:bg-white/14";
+    "flex h-8 w-10 items-center justify-center rounded-full bg-transparent text-white transition-all duration-200 group-hover:bg-[var(--surface)] hover:!bg-white/14";
 
   return (
-    <section className="group relative overflow-hidden rounded-[14px] border border-[#FF973C]">
+    <section
+      className="group relative overflow-hidden rounded-[14px]"
+      style={{
+        border: "1px solid transparent",
+        backgroundImage: "linear-gradient(135deg, #D35300 3%, #411B03 100%)",
+        backgroundOrigin: "border-box",
+        backgroundClip: "border-box",
+      }}
+    >
       <div className="relative min-h-[300px] overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -73,7 +81,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
               type="button"
               aria-label="Previous banner"
               onClick={prev}
-              className={`absolute left-3 top-1/2 z-10 -translate-y-1/2 ${navBtn}`}
+              className={`absolute left-3 top-1/2 z-30 -translate-y-1/2 ${navBtn}`}
             >
               <ChevronLeftIcon size={15} />
             </button>
@@ -81,7 +89,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
               type="button"
               aria-label="Next banner"
               onClick={next}
-              className={`absolute right-3 top-1/2 z-10 -translate-y-1/2 ${navBtn}`}
+              className={`absolute right-3 top-1/2 z-30 -translate-y-1/2 ${navBtn}`}
             >
               <ChevronRightIcon size={15} />
             </button>
@@ -113,7 +121,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
       </div>
 
       {count > 1 && (
-        <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 gap-1.5">
           {slides.map((s, i) => (
             <button
               key={`${s.id}-${i}`}

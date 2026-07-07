@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { SwagCard } from "./swag-card";
 import { FOR_YOU_CARD_WIDTH, ShopForYouCard } from "./shop-for-you-card";
 import { SECTION_CARD_WIDTH, ShopCategorySectionCard } from "./shop-category-section-card";
+import { TRAVEL_HOTEL_CARD_WIDTH, TravelHotelForYouCard } from "./travel-hotel-for-you-card";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/shared/components/icons";
 import { CardModel } from "@/features/shop/types/shop.types";
 
-export type ScrollRowCard = "swag" | "forYou" | "section";
+export type ScrollRowCard = "swag" | "forYou" | "section" | "travelHotel";
 
 const FOR_YOU_CARD_GAP = 18;
 const SECTION_CARD_GAP = 14;
@@ -19,6 +20,7 @@ type AlignedRowConfig = {
 
 function getAlignedRowConfig(card: ScrollRowCard): AlignedRowConfig | null {
   if (card === "forYou") return { cardWidth: FOR_YOU_CARD_WIDTH, cardGap: FOR_YOU_CARD_GAP };
+  if (card === "travelHotel") return { cardWidth: TRAVEL_HOTEL_CARD_WIDTH, cardGap: FOR_YOU_CARD_GAP };
   if (card === "section") return { cardWidth: SECTION_CARD_WIDTH, cardGap: SECTION_CARD_GAP };
   return null;
 }
@@ -83,7 +85,13 @@ export function ScrollRow({
   if (!items.length) return null;
 
   const Card =
-    card === "section" ? ShopCategorySectionCard : card === "forYou" ? ShopForYouCard : SwagCard;
+    card === "section"
+      ? ShopCategorySectionCard
+      : card === "forYou"
+        ? ShopForYouCard
+        : card === "travelHotel"
+          ? TravelHotelForYouCard
+          : SwagCard;
 
   const navBtn =
     "flex h-8 w-10 items-center justify-center rounded-full bg-[var(--surface)] transition-colors duration-200";
@@ -127,13 +135,13 @@ export function ScrollRow({
         {items.map((p, i) =>
           alignedRow ? (
             <div
-              key={p.id}
+              key={`${p.id}-${i}`}
               className={`shrink-0 ${i === items.length - 1 ? "snap-end" : "snap-start"}`}
             >
               <Card product={p} />
             </div>
           ) : (
-            <Card key={p.id} product={p} />
+            <Card key={`${p.id}-${i}`} product={p} />
           ),
         )}
       </div>
@@ -141,7 +149,7 @@ export function ScrollRow({
   );
 
   return (
-    <section id={id} className="mt-9 scroll-mt-24">
+    <section id={id} className="mt-6 lg:mt-8 scroll-mt-24">
       {boxed ? (
         <div className="rounded-[22px] bg-[var(--surface)]/60 px-5 py-5">{inner}</div>
       ) : (

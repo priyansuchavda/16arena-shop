@@ -122,8 +122,8 @@ export const RegisterForm = ({
   useEffect(() => {
     const profile = userSummary?.userProfile || userSummary || useAuthStore.getState().user;
     if (profile) {
-      // Only autofill valid displayNames (letters & spaces only)
-      if (profile.displayName && /^[A-Za-z\s]+$/.test(profile.displayName)) {
+      // Only autofill valid displayNames (letters & spaces only) if profile is already complete
+      if (profile.isProfileComplete && profile.displayName && /^[A-Za-z\s]+$/.test(profile.displayName)) {
         setDisplayName(profile.displayName);
       } else {
         setDisplayName("");
@@ -133,7 +133,8 @@ export const RegisterForm = ({
       if (profile.username || profile.userName) {
         const u = profile.username || profile.userName || "";
         const isTempUsername = u.toLowerCase().startsWith("user_");
-        if (!isTempUsername) {
+        // Only autofill username if profile is complete and not a temporary username
+        if (profile.isProfileComplete && !isTempUsername) {
           setUserName(u);
         } else {
           setUserName("");

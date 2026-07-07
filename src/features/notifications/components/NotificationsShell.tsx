@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Bell,
-  Calendar,
-  Megaphone,
   CheckCircle2,
   Wallet,
   Trophy,
@@ -99,7 +97,6 @@ export function NotificationsShell() {
   const router = useRouter();
   const resetUnreadCount = useNotificationStore((state) => state.resetUnreadCount);
 
-  const [activeTab, setActiveTab] = useState<"events" | "announcements">("events");
   const [page, setPage] = useState(1);
   const [allNotifications, setAllNotifications] = useState<NotificationModel[]>([]);
 
@@ -169,10 +166,7 @@ export function NotificationsShell() {
     }
   };
 
-  const filteredNotifications = allNotifications.filter((n) => {
-    const isAnnouncement = n.notificationType?.toLowerCase().includes("announcement");
-    return activeTab === "announcements" ? isAnnouncement : !isAnnouncement;
-  });
+  const filteredNotifications = allNotifications;
 
   const { today, yesterday, older } = groupNotifications(filteredNotifications);
   const hasMore = data ? page < data.totalPages : false;
@@ -261,43 +255,6 @@ export function NotificationsShell() {
             Mark all read
           </button>
         )}
-      </div>
-
-      <div className="mb-8 flex w-fit gap-2 rounded-xl bg-[var(--surface)] p-1">
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab("events");
-            setPage(1);
-          }}
-          className={`rounded-lg px-5 py-2 text-sm font-bold transition-all ${
-            activeTab === "events"
-              ? "bg-gradient-to-r from-[#ff973c] to-[#ff6a00] text-black shadow-lg shadow-[var(--flame)]/10"
-              : "text-[var(--muted)] hover:text-white"
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            All Events
-          </div>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab("announcements");
-            setPage(1);
-          }}
-          className={`rounded-lg px-5 py-2 text-sm font-bold transition-all ${
-            activeTab === "announcements"
-              ? "bg-gradient-to-r from-[#ff973c] to-[#ff6a00] text-black shadow-lg shadow-[var(--flame)]/10"
-              : "text-[var(--muted)] hover:text-white"
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <Megaphone className="h-4 w-4" />
-            Announcements
-          </div>
-        </button>
       </div>
 
       {isLoading && page === 1 ? (

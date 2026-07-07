@@ -84,6 +84,10 @@ function ShopTopBar({
 
   // Debounced search logic for live & static products
   useEffect(() => {
+    if (onSearchChange) {
+      return;
+    }
+
     const trimmed = localQuery.trim();
     if (!trimmed) {
       setSearchResults([]);
@@ -250,7 +254,7 @@ function ShopTopBar({
           </form>
 
           {/* Autocomplete Dropdown */}
-          {isDropdownVisible && localQuery.trim().length >= 1 && (
+          {!onSearchChange && isDropdownVisible && localQuery.trim().length >= 1 && (
             <div className="absolute top-[56px] left-0 w-full bg-[#121212] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 max-h-[360px] overflow-y-auto backdrop-blur-md animate-fade-in">
               {searchLoading && searchResults.length === 0 ? (
                 <div className="p-4 text-center text-sm text-white/40 flex items-center justify-center gap-2">

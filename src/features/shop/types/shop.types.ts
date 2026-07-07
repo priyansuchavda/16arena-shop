@@ -159,8 +159,9 @@ export type SkuPaymentRules = {
   allowInrPayment: boolean;
   isCoinOnly: boolean;
   maxCoinsAllowedEstimate: number;
-  maxCoinDiscountEstimate?: number;
+  maxCoins?: number;
   minRequiredCoins?: number;
+  maxCoinDiscountEstimate?: number;
   effectiveMinRequiredCoins?: number;
   coinToInrRate?: number;
   maxCoinCoveragePercent?: number;
@@ -191,6 +192,8 @@ export type ShopSku = {
   allowInrPayment: boolean;
   isCoinOnly: boolean;
   coinPriceEstimate?: number;
+  maxQuantity?: number;
+  isActive?: boolean;
   amountRestrictions?: ShopAmountRestrictions;
   paymentRules?: SkuPaymentRules;
 };

@@ -23,11 +23,20 @@ import {
   resolveFlexibleSku,
   isFlexibleSkuSelection,
   resolveSkuAmountRestrictions,
-  computeOptimalCoinsToRedeem,
   shouldShowCoinEditor,
   computeFlexibleSubtotal,
 } from "../services/product.service";
-import { resolveAllowHybridInrPayment, buyDisabledReason } from "../utils/checkout.utils";
+import {
+  activePaymentRules,
+  buyDisabledReason,
+  capCoinsToRedeem,
+  cartQuantityForSku,
+  previewCheckoutWithHybridRetry,
+  previewCoinCap,
+  resolveAllowHybridInrPayment,
+  resolveBuyButtonLabel,
+  resolveRuleCoinCap,
+} from "../utils/checkout.utils";
 import { resolveSkuRetailPrice } from "../utils/normalize-product";
 
 function rgba(hex: string, opacity: number) {
@@ -143,16 +152,24 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     return (resolveSkuRetailPrice(selectedSku)) * qty;
   }, [product, selectedSku, isFlexibleSelection, customAmount, qty]);
 
-  const optimalCoins = useMemo(() => {
+  const cartQuantity = cartQuantityForSku(selectedSku, qty);
+  const paymentRules = activePaymentRules(checkoutPreview, selectedSku);
+
+  const ruleCoinCap = useMemo(() => {
     if (!selectedSku) return 0;
-    return computeOptimalCoinsToRedeem({
-      rules: product.coinRules,
-      coinsBalance,
-      subtotal,
+    return resolveRuleCoinCap({
+      preview: checkoutPreview,
       paymentRules: selectedSku.paymentRules,
       sku: selectedSku,
+      coinRules: product.coinRules,
+      coinsBalance,
+      subtotal,
     });
-  }, [product, selectedSku, coinsBalance, subtotal]);
+  }, [selectedSku, checkoutPreview, product.coinRules, coinsBalance, subtotal]);
+
+  const optimalCoins = useMemo(() => {
+    return previewCoinCap(coinsBalance, ruleCoinCap);
+  }, [coinsBalance, ruleCoinCap]);
 
   const coinsToRedeem = useMemo(() => {
     if (!applyCoins) return 0;
@@ -162,31 +179,21 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     return optimalCoins;
   }, [applyCoins, customCoins, optimalCoins]);
 
-  const allowHybridInrPayment = useMemo(() => {
-    const rules = checkoutPreview?.paymentRules ?? selectedSku?.paymentRules;
-    const maxCoins =
-      rules?.maxCoinsAllowedEstimate ??
-      checkoutPreview?.paymentRules?.maxCoinsAllowedEstimate ??
-      optimalCoins;
-    const coinRate =
-      rules?.coinToInrRate ?? product.coinRules?.coinToInrRate ?? 0.01;
-    const estimatedPayable =
-      checkoutPreview?.totalPayable ??
-      Math.max(0, subtotal - coinsToRedeem * coinRate);
-    return resolveAllowHybridInrPayment({
-      coinsToRedeem,
-      maxCoinsAllowed: maxCoins,
-      totalPayable: estimatedPayable,
-      paymentRules: rules,
+  const cappedCoinsToRedeem = useMemo(() => {
+    return capCoinsToRedeem({
+      requested: coinsToRedeem,
+      coinsBalance,
+      maxCoinsAllowed: ruleCoinCap,
     });
-  }, [
-    selectedSku,
-    checkoutPreview,
-    coinsToRedeem,
-    optimalCoins,
-    subtotal,
-    product.coinRules?.coinToInrRate,
-  ]);
+  }, [coinsToRedeem, coinsBalance, ruleCoinCap]);
+
+  const allowHybridInrPayment = useMemo(() => {
+    return resolveAllowHybridInrPayment({
+      coinsToRedeem: cappedCoinsToRedeem,
+      maxCoinsAllowed: ruleCoinCap,
+      paymentRules,
+    });
+  }, [cappedCoinsToRedeem, ruleCoinCap, paymentRules]);
 
   const buildDeliveryInfo = () => {
     if (!isFlexibleSelection || !customAmount) return undefined;
@@ -198,30 +205,27 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   const getCartSyncKey = () =>
     `${selectedSku?.id ?? ""}:${qty}:${isFlexibleSelection ? customAmount : "fixed"}`;
 
-  const buildPreviewRequest = (overrideCartItemIds?: string[] | null) =>
+  const buildPreviewRequest = () =>
     buildCheckoutRequest({
-      cartItemIds: overrideCartItemIds !== undefined ? overrideCartItemIds : cartItemIds,
-      coinsToRedeem,
+      cartItemIds: null,
+      coinsToRedeem: cappedCoinsToRedeem,
       couponCode: appliedCoupon,
       allowHybridInrPayment,
-      quantity: qty,
-      isSquad: qty >= 5,
+      quantity: cartQuantity,
+      isSquad: cartQuantity >= 5,
     });
 
   const syncCartForSelection = async (): Promise<string[] | null> => {
     if (!selectedSku) return null;
     const cart = await shopApi.addToCart(
       selectedSku.id,
-      qty,
+      cartQuantity,
       isFlexibleSelection ? customAmount : null,
       buildDeliveryInfo()
     );
     if (!cart) return null;
 
-    const ids =
-      cart.items.map((item) => item.id).filter(Boolean).length > 0
-        ? cart.items.map((item) => item.id).filter(Boolean)
-        : [];
+    const ids = cart.items.map((item) => item.id).filter(Boolean);
     if (ids.length > 0) {
       setCartItemIds(ids);
     }
@@ -230,22 +234,41 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     return ids;
   };
 
-  const fetchCheckoutPreview = async (overrideCartItemIds?: string[] | null): Promise<CheckoutPreview | null> => {
-    const preview = await shopApi.checkoutPreview(buildPreviewRequest(overrideCartItemIds));
-    if (!preview) {
-      setPreviewError("Failed to resolve checkout price preview.");
-      return null;
+  const fetchCheckoutPreview = async (): Promise<CheckoutPreview | null> => {
+    const preview = await previewCheckoutWithHybridRetry(
+      buildPreviewRequest(),
+      (request) => shopApi.checkoutPreview(request)
+    );
+
+    const nextRuleCap = resolveRuleCoinCap({
+      preview,
+      paymentRules: selectedSku?.paymentRules,
+      sku: selectedSku ?? undefined,
+      coinRules: product.coinRules,
+      coinsBalance: preview.coinsBalance,
+      subtotal: preview.subtotal,
+    });
+    const maxAllowed = previewCoinCap(preview.coinsBalance, nextRuleCap);
+    const nextCoins = capCoinsToRedeem({
+      requested: preview.coinsSpent > 0 ? preview.coinsSpent : cappedCoinsToRedeem,
+      coinsBalance: preview.coinsBalance,
+      maxCoinsAllowed: maxAllowed,
+    });
+    if (paymentRules?.isCoinOnly || selectedSku?.isCoinOnly) {
+      setCustomCoins(maxAllowed);
+      setApplyCoins(true);
+    } else if (nextCoins !== customCoins) {
+      setCustomCoins(nextCoins);
+      setApplyCoins(nextCoins > 0);
     }
 
     setCheckoutPreview(preview);
-    if (!cartItemIds?.length) {
-      const lineIds =
-        preview.lines
-          ?.map((line) => line.cartItemId)
-          .filter((id): id is string => Boolean(id)) ?? [];
-      if (lineIds.length > 0) {
-        setCartItemIds(lineIds);
-      }
+    const lineIds =
+      preview.lines
+        ?.map((line) => line.cartItemId)
+        .filter((id): id is string => Boolean(id)) ?? [];
+    if (lineIds.length > 0) {
+      setCartItemIds(lineIds);
     }
     setPreviewError(null);
     return preview;
@@ -268,17 +291,15 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
     try {
       const shouldSyncCart = syncCart || cartSyncKeyRef.current !== getCartSyncKey();
-      let activeCartItemIds = cartItemIds;
       if (shouldSyncCart) {
         const syncedIds = await syncCartForSelection();
-        if (!syncedIds) {
+        if (!syncedIds?.length) {
           setPreviewError("Could not update cart for this selection.");
           return null;
         }
-        activeCartItemIds = syncedIds;
       }
 
-      return await fetchCheckoutPreview(activeCartItemIds);
+      return await fetchCheckoutPreview();
     } catch (err: unknown) {
       const message =
         err instanceof Error
@@ -315,12 +336,15 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
       buyDisabledReason({
         sku: selectedSku,
         coinsBalance,
-        paymentRules: checkoutPreview?.paymentRules ?? selectedSku?.paymentRules,
+        paymentRules,
         preview: checkoutPreview,
         amountError: isFlexibleSelection ? amountError : null,
       }),
-    [selectedSku, coinsBalance, checkoutPreview, amountError, isFlexibleSelection]
+    [selectedSku, coinsBalance, paymentRules, checkoutPreview, amountError, isFlexibleSelection]
   );
+
+  const buyButtonLabel = resolveBuyButtonLabel(checkoutPreview);
+  const displayCoinsSpent = checkoutPreview?.coinsSpent ?? cappedCoinsToRedeem;
 
   const triggerBuy = async () => {
     if (!selectedSku || buyWarning) return;
@@ -644,7 +668,8 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                   </div>
 
                   {/* Arena Coins coverage selector */}
-                  {optimalCoins > 0 && (
+                  {shouldShowCoinEditor({ paymentRules, sku: selectedSku }) &&
+                    optimalCoins > 0 && (
                     <div className="p-4 rounded-xl border border-white/5 bg-black/25">
                       <div className="flex justify-between items-center mb-3">
                         <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)]">Redeem Arena Coins</span>
@@ -669,13 +694,13 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                         <div className="flex flex-col gap-2">
                           <div className="flex justify-between text-[10px] text-white/50 font-bold uppercase">
                             <span>Coins to Spend</span>
-                            <span className="text-[var(--coin)]">{coinsToRedeem.toLocaleString()}</span>
+                            <span className="text-[var(--coin)]">{cappedCoinsToRedeem.toLocaleString()}</span>
                           </div>
                           <input
                             type="range"
                             min="0"
                             max={optimalCoins}
-                            value={coinsToRedeem}
+                            value={cappedCoinsToRedeem}
                             onChange={(e) => setCustomCoins(parseInt(e.target.value, 10))}
                             className="w-full accent-[var(--flame)] cursor-pointer h-1 rounded-lg bg-white/10 outline-none" />
                           <div className="flex justify-between text-[9px] text-white/30">
@@ -701,13 +726,13 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                       <span className="text-3xl font-black text-white tabular-nums leading-none">
                         ₹{displayPrice.toLocaleString()}
                       </span>
-                      {coinsToRedeem > 0 && (
+                      {displayCoinsSpent > 0 && (
                         <>
                           <span className="text-xl text-white/30 font-light leading-none">+</span>
                           <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg border border-white/5 leading-none">
                             <Image src={coinImg} alt="Coins" width={14} height={14} />
                             <span className="text-xs font-bold text-[var(--coin)] tabular-nums">
-                              {coinsToRedeem.toLocaleString()}
+                              {displayCoinsSpent.toLocaleString()}
                             </span>
                           </div>
                         </>
@@ -750,8 +775,9 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                       </span>
                       <button
                         type="button"
-                        onClick={() => setQty((q) => q + 1)}
-                        className="w-10 h-full hover:bg-white/5 text-white/60 font-bold active:scale-90 transition"
+                        onClick={() => setQty((q) => Math.min((selectedSku?.maxQuantity ?? 10), q + 1))}
+                        disabled={qty >= (selectedSku?.maxQuantity ?? 10)}
+                        className="w-10 h-full hover:bg-white/5 text-white/60 font-bold active:scale-90 transition disabled:opacity-30"
                       >
                         +
                       </button>
@@ -760,11 +786,31 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                     <button
                       type="button"
                       onClick={triggerBuy}
-                      disabled={!selectedSku || !!buyWarning}
+                      disabled={!selectedSku || !!buyWarning || previewLoading}
                       className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--flame)] via-[var(--flame-deep)] to-[var(--flame)] text-sm font-extrabold uppercase tracking-wider text-black shadow-[0_12px_24px_-10px_rgba(255,68,0,0.4)] transition hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      <span>{isAuthenticated ? "Buy Now" : "Sign in to Buy"}</span>
-                      <ArrowRight className="h-4 w-4 text-black" />
+                      {previewLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : !isAuthenticated ? (
+                        <span>Sign in to Buy</span>
+                      ) : buyButtonLabel.kind === "coins_only" ? (
+                        <span className="inline-flex items-center gap-1">
+                          Buy with
+                          <Image src={coinImg} alt="" width={16} height={16} />
+                          {buyButtonLabel.coinsSpent.toLocaleString()}
+                        </span>
+                      ) : buyButtonLabel.kind === "hybrid" ? (
+                        <span className="inline-flex items-center gap-1">
+                          Buy at ₹{buyButtonLabel.totalPayable.toLocaleString("en-IN")} +
+                          <Image src={coinImg} alt="" width={16} height={16} />
+                          {buyButtonLabel.coinsSpent.toLocaleString()}
+                        </span>
+                      ) : buyButtonLabel.kind === "inr_only" ? (
+                        <span>Buy at ₹{buyButtonLabel.totalPayable.toLocaleString("en-IN")}</span>
+                      ) : (
+                        <span>Buy Now</span>
+                      )}
+                      {!previewLoading && <ArrowRight className="h-4 w-4 text-black" />}
                     </button>
                   </div>
 
@@ -842,9 +888,9 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           onClose={() => setPaymentSheetOpen(false)}
           product={product}
           sku={selectedSku}
-          quantity={qty}
+          quantity={cartQuantity}
           coinsBalance={coinsBalance}
-          initialCoinsToRedeem={coinsToRedeem}
+          initialCoinsToRedeem={checkoutPreview?.coinsSpent ?? cappedCoinsToRedeem}
           couponCode={appliedCoupon}
           customVoucherAmount={isFlexibleSelection ? customAmount : null}
           initialPreview={checkoutPreview}

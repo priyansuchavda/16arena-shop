@@ -21,18 +21,33 @@ function readBool(value: unknown, fallback = false): boolean {
   return fallback;
 }
 
+/** API often sends payment rules as flat SKU fields (see Valorant product response). */
+export function buildSkuPaymentRulesFromRaw(
+  raw: Record<string, unknown>
+): SkuPaymentRules {
+  const maxEstimate = readNumber(raw.maxCoinsAllowedEstimate);
+  const maxCoins = readNumber(raw.maxCoins, maxEstimate);
+  const minRequired = readNumber(
+    raw.minRequiredCoins ?? raw.minCoinsRequired,
+    maxCoins
+  );
+
+  return {
+    allowCoinRedemption: raw.allowCoinRedemption !== false,
+    allowInrPayment: raw.allowInrPayment !== false,
+    isCoinOnly: readBool(raw.isCoinOnly),
+    maxCoinsAllowedEstimate: maxEstimate,
+    maxCoins,
+    minRequiredCoins: minRequired,
+    maxCoinDiscountEstimate: readNumber(raw.maxCoinDiscountEstimate),
+    coinToInrRate: readNumber(raw.coinToInrRate, 0.01),
+    maxCoinCoveragePercent: readNumber(raw.maxCoinCoveragePercent, 50),
+  };
+}
+
 function mapPaymentRules(raw: unknown): SkuPaymentRules | undefined {
   if (!raw || typeof raw !== "object") return undefined;
-  const row = raw as Record<string, unknown>;
-  return {
-    allowCoinRedemption: row.allowCoinRedemption !== false,
-    allowInrPayment: row.allowInrPayment !== false,
-    isCoinOnly: readBool(row.isCoinOnly),
-    maxCoinsAllowedEstimate: readNumber(row.maxCoinsAllowedEstimate),
-    maxCoinDiscountEstimate: readNumber(row.maxCoinDiscountEstimate),
-    coinToInrRate: readNumber(row.coinToInrRate, 0.1),
-    maxCoinCoveragePercent: readNumber(row.maxCoinCoveragePercent, 50),
-  };
+  return buildSkuPaymentRulesFromRaw(raw as Record<string, unknown>);
 }
 
 export function normalizeShopSku(raw: Record<string, unknown>): ShopSku {
@@ -40,6 +55,7 @@ export function normalizeShopSku(raw: Record<string, unknown>): ShopSku {
   const effectivePrice = raw.effectivePrice != null ? readNumber(raw.effectivePrice) : undefined;
   const retailPrice = effectivePrice ?? price;
   const stockStatus = String(raw.stockStatus ?? "available");
+  const flatPaymentRules = buildSkuPaymentRulesFromRaw(raw);
 
   return {
     id: String(raw.id ?? ""),
@@ -51,7 +67,7 @@ export function normalizeShopSku(raw: Record<string, unknown>): ShopSku {
     originalPrice: raw.originalPrice != null ? readNumber(raw.originalPrice) : undefined,
     unitAmount: readNumber(raw.unitAmount ?? raw.faceValue ?? retailPrice),
     faceValue: raw.faceValue != null ? readNumber(raw.faceValue) : undefined,
-    currency: String(raw.currency ?? "INR"),
+    currency: String(raw.currencyUnit ?? raw.currency ?? "INR"),
     isAvailable: stockStatus === "available",
     stockStatus,
     isPopular: readBool(raw.isPopular),
@@ -66,14 +82,16 @@ export function normalizeShopSku(raw: Record<string, unknown>): ShopSku {
     maxCoinCoveragePercent:
       raw.maxCoinCoveragePercent != null
         ? readNumber(raw.maxCoinCoveragePercent)
-        : undefined,
-    allowCoinRedemption: raw.allowCoinRedemption !== false,
-    allowInrPayment: raw.allowInrPayment !== false,
-    isCoinOnly: readBool(raw.isCoinOnly),
+        : flatPaymentRules.maxCoinCoveragePercent,
+    allowCoinRedemption: flatPaymentRules.allowCoinRedemption,
+    allowInrPayment: flatPaymentRules.allowInrPayment,
+    isCoinOnly: flatPaymentRules.isCoinOnly,
     coinPriceEstimate:
       raw.coinPriceEstimate != null ? readNumber(raw.coinPriceEstimate) : undefined,
+    maxQuantity: readNumber(raw.maxQuantity, 10),
+    isActive: raw.isActive !== false,
     amountRestrictions: raw.amountRestrictions as ShopSku["amountRestrictions"],
-    paymentRules: mapPaymentRules(raw.paymentRules),
+    paymentRules: mapPaymentRules(raw.paymentRules) ?? flatPaymentRules,
   };
 }
 
@@ -83,11 +101,17 @@ export function normalizeShopProductDetail(raw: Record<string, unknown>): ShopPr
     .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
     .map(normalizeShopSku);
 
+  const firstSku = skus[0];
   const coinRulesRaw = (raw.coinRules as Record<string, unknown> | undefined) ?? {};
   const coinRules: ShopCoinRules = {
-    coinToInrRate: readNumber(coinRulesRaw.coinToInrRate, 0.1),
+    coinToInrRate: readNumber(
+      coinRulesRaw.coinToInrRate ?? firstSku?.paymentRules?.coinToInrRate,
+      0.01
+    ),
     maxCoveragePercent: readNumber(
-      coinRulesRaw.maxCoveragePercent ?? coinRulesRaw.maxCoinCoveragePercent,
+      coinRulesRaw.maxCoveragePercent ??
+        coinRulesRaw.maxCoinCoveragePercent ??
+        firstSku?.maxCoinCoveragePercent,
       50
     ),
   };

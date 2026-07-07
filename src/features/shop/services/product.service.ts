@@ -8,6 +8,7 @@ import {
   Tone,
   Tag,
   CardBadge,
+  ShopSku,
 } from "../types/shop.types";
 import { categorySlugFromSub } from "../utils/shop-catalog";
 
@@ -160,21 +161,23 @@ export const categories: Category[] = [
   { label: "Travel", slug: "travel", color: "#38bdf8" },
 ];
 
-export function splitFixedSkus(product: any): any[] {
+export function splitFixedSkus(product: { skus?: ShopSku[] }): ShopSku[] {
   if (!product?.skus) return [];
   return product.skus
     .filter(
-      (s: { isDynamicDenomination?: boolean; stockStatus?: string; isAvailable?: boolean }) =>
+      (s) =>
         !s.isDynamicDenomination &&
         s.stockStatus !== "out_of_stock" &&
-        s.isAvailable !== false
+        s.isActive !== false
     )
-    .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 }
 
-export function resolveFlexibleSku(product: any): any | null {
+export function resolveFlexibleSku(product: { skus?: ShopSku[] }): ShopSku | null {
   if (!product?.skus) return null;
-  return product.skus.find((s: any) => s.isDynamicDenomination && s.isActive) || null;
+  return (
+    product.skus.find((s) => s.isDynamicDenomination && s.isActive !== false) ?? null
+  );
 }
 
 export function isFlexibleSkuSelection(sku: any | null): boolean {

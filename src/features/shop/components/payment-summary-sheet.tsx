@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { AlertCircle, Loader2, X } from "lucide-react";
 import coinImg from "@/assets/png/coin.png";
@@ -8,13 +8,16 @@ import { shopApi, buildCheckoutRequest } from "../api";
 import { useCheckout } from "../hooks/useCheckout";
 import type { CheckoutPreview, ShopProductDetail, ShopSku } from "../types/shop.types";
 import {
+  activePaymentRules,
   buyDisabledReason,
+  needsHybridForPartialCoins,
   payButtonLabel,
+  previewCheckoutWithHybridRetry,
   resolveAllowHybridInrPayment,
+  resolveRuleCoinCap,
 } from "../utils/checkout.utils";
 import { resolveSkuRetailPrice } from "../utils/normalize-product";
 import {
-  computeOptimalCoinsToRedeem,
   computeFlexibleSubtotal,
   isFlexibleSkuSelection,
 } from "../services/product.service";
@@ -40,7 +43,7 @@ export function PaymentSummarySheet({
   product,
   sku,
   quantity,
-  coinsBalance,
+  coinsBalance: initialCoinsBalance,
   initialCoinsToRedeem,
   couponCode,
   customVoucherAmount,
@@ -52,12 +55,14 @@ export function PaymentSummarySheet({
   const [preview, setPreview] = useState<CheckoutPreview | null>(initialPreview ?? null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
-  const [coinsToRedeem, setCoinsToRedeem] = useState(initialCoinsToRedeem);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cartSyncedRef = useRef(false);
-  const isFirstLoadRef = useRef(true);
+  const previewFetchedRef = useRef(false);
 
   const isFlexible = isFlexibleSkuSelection(sku);
+  const paymentRules = activePaymentRules(preview, sku);
+  const coinsBalance = preview?.coinsBalance ?? initialCoinsBalance;
+
+  // Coins are chosen on the product page — fixed for this sheet session.
+  const coinsToRedeem = initialCoinsToRedeem;
 
   const fallbackSubtotal = useMemo(() => {
     if (isFlexible && customVoucherAmount) {
@@ -66,121 +71,142 @@ export function PaymentSummarySheet({
     return resolveSkuRetailPrice(sku) * quantity;
   }, [product, sku, quantity, isFlexible, customVoucherAmount]);
 
-  const allowHybridInrPayment = useMemo(() => {
-    const rules = preview?.paymentRules ?? sku.paymentRules;
-    const maxCoins = rules?.maxCoinsAllowedEstimate ?? coinsToRedeem;
-    const coinRate = rules?.coinToInrRate ?? product.coinRules?.coinToInrRate ?? 0.01;
-    const estimatedPayable =
-      preview?.totalPayable ??
-      Math.max(0, fallbackSubtotal - coinsToRedeem * coinRate);
-
-    return resolveAllowHybridInrPayment({
-      coinsToRedeem,
-      maxCoinsAllowed: maxCoins,
-      totalPayable: estimatedPayable,
-      paymentRules: rules,
+  const ruleCoinCap = useMemo(() => {
+    return resolveRuleCoinCap({
+      preview,
+      paymentRules: sku.paymentRules,
+      sku,
+      coinRules: product.coinRules,
+      coinsBalance,
+      subtotal: preview?.subtotal ?? fallbackSubtotal,
     });
-  }, [preview, sku, product, coinsToRedeem, fallbackSubtotal]);
+  }, [preview, sku, product.coinRules, coinsBalance, fallbackSubtotal]);
+
+  const allowHybridInrPayment = useMemo(
+    () =>
+      resolveAllowHybridInrPayment({
+        coinsToRedeem,
+        maxCoinsAllowed: ruleCoinCap,
+        paymentRules,
+      }),
+    [coinsToRedeem, ruleCoinCap, paymentRules]
+  );
+
+  const hybridBlocked =
+    needsHybridForPartialCoins({
+      coinsToRedeem,
+      maxCoinsAllowed: ruleCoinCap,
+      totalPayable: preview?.totalPayable,
+    }) &&
+    (preview?.totalPayable ?? 0) > 0 &&
+    paymentRules?.allowInrPayment === false;
 
   useEffect(() => {
     if (!open) {
-      cartSyncedRef.current = false;
+      previewFetchedRef.current = false;
       return;
     }
-    setCoinsToRedeem(initialCoinsToRedeem);
     setPreview(initialPreview ?? null);
     setPreviewError(null);
-    if (initialPreview || cartItemIds?.length || isCartCheckout) {
-      cartSyncedRef.current = true;
+    // Product buy flow already synced cart + preview on Buy Now.
+    if (initialPreview) {
+      previewFetchedRef.current = true;
     }
-  }, [open, initialCoinsToRedeem, initialPreview, cartItemIds, isCartCheckout]);
+  }, [open, initialPreview]);
 
-  const runPreview = useCallback(async () => {
-    setPreviewLoading(true);
-    setPreviewError(null);
-    try {
-      if (!isCartCheckout && !cartSyncedRef.current) {
-        await shopApi.addToCart(
-          sku.id,
-          quantity,
-          isFlexible ? customVoucherAmount : null
-        );
-        cartSyncedRef.current = true;
-      }
+  useEffect(() => {
+    if (!open || initialPreview || previewFetchedRef.current) return;
 
-      const nextPreview = await shopApi.checkoutPreview(
-        buildCheckoutRequest({
-          cartItemIds: isCartCheckout ? null : cartItemIds,
+    previewFetchedRef.current = true;
+    let cancelled = false;
+
+    const hybridForFetch = resolveAllowHybridInrPayment({
+      coinsToRedeem,
+      maxCoinsAllowed: resolveRuleCoinCap({
+        paymentRules: sku.paymentRules,
+        sku,
+        coinRules: product.coinRules,
+        coinsBalance: initialCoinsBalance,
+        subtotal: fallbackSubtotal,
+      }),
+      paymentRules: sku.paymentRules,
+    });
+
+    const loadPreview = async () => {
+      setPreviewLoading(true);
+      setPreviewError(null);
+      try {
+        if (!isCartCheckout) {
+          await shopApi.addToCart(
+            sku.id,
+            quantity,
+            isFlexible ? customVoucherAmount : null
+          );
+        }
+
+        const request = buildCheckoutRequest({
+          cartItemIds: null,
           coinsToRedeem,
           couponCode,
-          allowHybridInrPayment,
+          allowHybridInrPayment: hybridForFetch,
           quantity,
           isSquad: quantity >= 5,
-        })
-      );
-      if (nextPreview) {
-        setPreview(nextPreview);
-      } else {
-        setPreviewError("Could not load price for this order.");
+        });
+
+        const nextPreview = await previewCheckoutWithHybridRetry(
+          request,
+          (req) => shopApi.checkoutPreview(req)
+        );
+        if (!cancelled) setPreview(nextPreview);
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const message =
+            err instanceof Error
+              ? err.message
+              : (err as { response?: { data?: { message?: string } } })?.response?.data
+                  ?.message ?? "Failed to load checkout preview.";
+          setPreviewError(message);
+        }
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
       }
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : (err as { response?: { data?: { message?: string } } })?.response?.data
-              ?.message ?? "Failed to load checkout preview.";
-      setPreviewError(message);
-    } finally {
-      setPreviewLoading(false);
-    }
+    };
+
+    void loadPreview();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
-    sku.id,
+    open,
+    initialPreview,
+    isCartCheckout,
+    sku,
+    product.coinRules,
     quantity,
     isFlexible,
     customVoucherAmount,
-    isCartCheckout,
-    cartItemIds,
     coinsToRedeem,
     couponCode,
-    allowHybridInrPayment,
+    initialCoinsBalance,
+    fallbackSubtotal,
   ]);
-
-  useEffect(() => {
-    if (!open) {
-      isFirstLoadRef.current = true;
-      return;
-    }
-
-    if (isFirstLoadRef.current) {
-      isFirstLoadRef.current = false;
-      if (initialPreview) {
-        return;
-      }
-    }
-
-    debounceRef.current = setTimeout(() => {
-      void runPreview();
-    }, 300);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [open, runPreview, initialPreview]);
-
-
 
   const totalPayable = preview?.totalPayable ?? fallbackSubtotal;
   const payLabel = payButtonLabel(totalPayable);
+  const displayCoinsSpent = preview?.coinsSpent ?? coinsToRedeem;
 
-  const disabledReason = buyDisabledReason({
-    sku,
-    coinsBalance: preview?.coinsBalance ?? coinsBalance,
-    paymentRules: preview?.paymentRules ?? sku.paymentRules,
-    preview,
-  });
+  const disabledReason =
+    buyDisabledReason({
+      sku,
+      coinsBalance,
+      paymentRules,
+      preview,
+    }) ??
+    (hybridBlocked ? "Partial coin payment is not available for this item." : null);
 
   const onPay = () => {
-    if (disabledReason || previewLoading || previewError) return;
+    if (disabledReason || previewLoading || previewError || !preview) return;
     handleCheckout({
       skuId: sku.id,
       quantity,
@@ -254,12 +280,12 @@ export function PaymentSummarySheet({
                 accent="text-[#FFA000]"
               />
             )}
-            {(preview?.coinsSpent ?? coinsToRedeem) > 0 && (
+            {displayCoinsSpent > 0 && (
               <div className="flex items-center justify-between text-[#FFA000]">
                 <span>Coins spent</span>
                 <span className="inline-flex items-center gap-1 font-bold">
                   <Image src={coinImg} alt="" width={14} height={14} />
-                  {(preview?.coinsSpent ?? coinsToRedeem).toLocaleString()}
+                  {displayCoinsSpent.toLocaleString()}
                 </span>
               </div>
             )}
@@ -286,7 +312,7 @@ export function PaymentSummarySheet({
           <button
             type="button"
             onClick={onPay}
-            disabled={loading || previewLoading || !!disabledReason || !!previewError}
+            disabled={loading || previewLoading || !!disabledReason || !!previewError || !preview}
             className="flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-[var(--flame)] to-[var(--flame-deep)] text-sm font-extrabold uppercase tracking-wider text-black transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {loading ? (

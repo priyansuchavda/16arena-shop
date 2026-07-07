@@ -17,15 +17,15 @@ import { buttonVariants } from "@/shared/components/ui/button";
 import { shopApi, buildCheckoutRequest } from "@/features/shop/api";
 import { useCheckout } from "@/features/shop/hooks/useCheckout";
 import { useAuthStore, useUserSummary } from "@/features/auth";
-import {
-  computeOptimalCoinsToRedeem,
-  shouldShowCoinEditor,
-} from "@/features/shop/services/product.service";
+import { shouldShowCoinEditor } from "@/features/shop/services/product.service";
 import type { CartData, CartItem, CheckoutPreview } from "@/features/shop/types/shop.types";
 import {
   parseCustomVoucherAmount,
   payButtonLabel,
+  previewCheckoutWithHybridRetry,
+  previewCoinCap,
   resolveAllowHybridInrPayment,
+  resolveRuleCoinCap,
 } from "@/features/shop/utils/checkout.utils";
 
 function formatInr(amount: number) {
@@ -79,15 +79,17 @@ export function CartShell() {
     return primaryItem.unitPrice * primaryItem.quantity;
   }, [primaryItem]);
 
-  const optimalCoins = useMemo(() => {
-    if (!primaryItem || !preview?.paymentRules) return 0;
-    return computeOptimalCoinsToRedeem({
-      rules: { coinToInrRate: 0.1, maxCoveragePercent: 50 },
+  const ruleCoinCap = useMemo(() => {
+    return resolveRuleCoinCap({
+      preview,
       coinsBalance,
       subtotal,
-      paymentRules: preview.paymentRules,
     });
-  }, [primaryItem, preview, coinsBalance, subtotal]);
+  }, [preview, coinsBalance, subtotal]);
+
+  const optimalCoins = useMemo(() => {
+    return previewCoinCap(coinsBalance, ruleCoinCap);
+  }, [coinsBalance, ruleCoinCap]);
 
   const coinsToRedeem = useMemo(() => {
     if (!applyCoins) return 0;
@@ -98,11 +100,10 @@ export function CartShell() {
   const allowHybridInrPayment = useMemo(() => {
     return resolveAllowHybridInrPayment({
       coinsToRedeem,
-      maxCoinsAllowed: preview?.paymentRules?.maxCoinsAllowedEstimate ?? optimalCoins,
-      totalPayable: preview?.totalPayable,
+      maxCoinsAllowed: ruleCoinCap,
       paymentRules: preview?.paymentRules,
     });
-  }, [coinsToRedeem, preview, optimalCoins]);
+  }, [coinsToRedeem, ruleCoinCap, preview?.paymentRules]);
 
   useEffect(() => {
     if (!cart?.items.length || !isAuthenticated) {
@@ -115,13 +116,15 @@ export function CartShell() {
       setPreviewLoading(true);
       setPreviewError(null);
       try {
-        const nextPreview = await shopApi.checkoutPreview(
-          buildCheckoutRequest({
-            cartItemIds: null,
-            coinsToRedeem,
-            allowHybridInrPayment,
-            quantity: primaryItem?.quantity ?? 1,
-          })
+        const request = buildCheckoutRequest({
+          cartItemIds: null,
+          coinsToRedeem,
+          allowHybridInrPayment,
+          quantity: primaryItem?.quantity ?? 1,
+        });
+        const nextPreview = await previewCheckoutWithHybridRetry(
+          request,
+          (req) => shopApi.checkoutPreview(req)
         );
         if (!cancelled) setPreview(nextPreview);
       } catch (err) {

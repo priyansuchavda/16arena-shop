@@ -344,7 +344,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   );
 
   const buyButtonLabel = resolveBuyButtonLabel(checkoutPreview);
-  const displayCoinsSpent = checkoutPreview?.coinsSpent ?? cappedCoinsToRedeem;
+  const displayCoinsSpent = cappedCoinsToRedeem;
 
   const triggerBuy = async () => {
     if (!selectedSku || buyWarning) return;
@@ -399,9 +399,12 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   };
 
   // Pricing display resolvers
-  const displayPrice =
-    checkoutPreview?.totalPayable ??
-    (isFlexibleSelection ? customAmount : resolveSkuRetailPrice(selectedSku)) * qty;
+  const coinRate = product.coinRules?.coinToInrRate ?? 0.05;
+  const coinDiscount = cappedCoinsToRedeem * coinRate;
+  const basePrice = checkoutPreview
+    ? (checkoutPreview.subtotal - (checkoutPreview.discountAmount ?? 0))
+    : subtotal;
+  const displayPrice = Math.max(0, basePrice - coinDiscount);
   const displayOriginal = isFlexibleSelection
     ? customAmount * qty
     : (selectedSku?.originalPrice ?? resolveSkuRetailPrice(selectedSku)) * qty;

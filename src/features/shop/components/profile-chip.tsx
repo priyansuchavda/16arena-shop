@@ -96,7 +96,7 @@ export function ProfileChip() {
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FE8321] text-white">
           <LoginIcon className="w-[11px] h-[16px]" />
         </span>
-        <span className="ml-2.5 max-w-[8rem] truncate text-[14px] font-bold leading-none text-white">
+        <span className="ml-2.5 max-w-[8rem] truncate text-[14px] font-semibold leading-none text-white">
           Login
         </span>
       </button>
@@ -113,7 +113,7 @@ export function ProfileChip() {
         className="shop-pill group inline-flex h-[42px] shrink-0 items-center border border-white/10 bg-white/[0.03] py-0 pl-1 pr-3.5 transition hover:brightness-110 focus:outline-none"
       >
         <ProfileAvatar src={avatarUrl} />
-        <span className="ml-2.5 max-w-[8rem] truncate text-[14px] font-bold leading-none text-white">
+        <span className="ml-2.5 max-w-[8rem] truncate text-[14px] font-semibold leading-none text-white">
           {displayName}
         </span>
         <ChevronDown className="w-3.5 h-3.5 text-white/50 ml-1.5 transition-transform group-hover:text-white hidden sm:inline" />

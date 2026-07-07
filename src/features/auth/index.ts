@@ -2,6 +2,7 @@
 export * from "./components/AuthInitializer";
 export * from "./components/AuthGuard";
 export * from "./components/LoginForm";
+export * from "./components/auth-card";
 export * from "./components/VerifyOtpForm";
 export * from "./components/RegisterForm";
 

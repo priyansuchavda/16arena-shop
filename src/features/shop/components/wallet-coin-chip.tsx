@@ -13,7 +13,7 @@ export function WalletCoinChip({ balance }: { balance: number }) {
           className="relative h-[28px] w-[28px] object-contain"
         />
       </span>
-      <span className="font-data text-[14px] font-bold leading-none tabular-nums text-white">
+      <span className="font-data text-[14px] font-semibold leading-none tabular-nums text-white">
         {balance.toLocaleString("en-IN")}
       </span>
     </div>

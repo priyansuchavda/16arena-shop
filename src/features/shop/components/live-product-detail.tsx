@@ -458,14 +458,17 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
             <div className="lg:col-span-7 order-1 flex flex-col gap-6">
 
               {/* Brand Premium Card Design */}
-              <div className="relative w-full max-w-[560px] aspect-[1.85/1] rounded-[24px] overflow-hidden border border-white/10 p-6 flex flex-col justify-between shadow-2xl transition hover:scale-[1.01]"
+              <div className="relative w-full max-w-[560px] aspect-[1.85/1] rounded-[14px] overflow-hidden border border-white/10 p-6 flex flex-col justify-between shadow-2xl transition hover:scale-[1.01]"
                 style={{
                   background: `linear-gradient(135deg, ${g.accent} 0%, ${g.accent2} 100%)`,
                   boxShadow: `0 20px 50px -15px ${rgba(g.accent, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.15)`
                 }}>
+                {(selectedSku?.savingsPercent ?? product.savingsPercent ?? 5) > 0 && (
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-[#25C26E] text-white text-[12.5px] font-extrabold px-6 py-2 rounded-b-[6px] shadow-sm z-10 whitespace-nowrap">
+                    {selectedSku?.savingsPercent ?? product.savingsPercent ?? 5}% off with Arena Coins
+                  </div>
+                )}
                 <div className="flex justify-between items-start">
-                  <span className="text-[10px] font-bold tracking-[0.15em] uppercase text-white/60">Digital Gift Voucher</span>
-                  <Sparkles className="w-5 h-5 text-white/50" />
                 </div>
 
                 <div className="flex flex-col gap-1 items-start">

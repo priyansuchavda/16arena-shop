@@ -14,7 +14,7 @@ export function NotificationBell() {
   return (
     <Link
       href="/notifications"
-      className="relative flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full border border-[#a67c52]/65 bg-[#6b4423] text-white/80 shadow-[inset_0_1px_0_rgba(255,200,120,0.08)] transition hover:brightness-110"
+      className="relative flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-white transition hover:brightness-110"
       aria-label="Notifications"
     >
       <Bell className="h-[18px] w-[18px]" />

@@ -41,18 +41,24 @@ export function ShopCategoryCards({
               type="button"
               onClick={() => onCategoryTap(category.slug)}
               className={[
-                "group relative flex h-[72px] w-[73px] shrink-0 flex-col justify-between overflow-hidden rounded-[9px] border text-center transition-all duration-200 active:scale-95",
+                "group relative flex h-[80px] w-[81px] shrink-0 flex-col justify-between overflow-hidden rounded-[9px] text-center transition-all duration-200 active:scale-95",
                 isSelected
-                  ? "border-[#FF973C] shadow-[0_4px_12px_rgba(255,151,60,0.15)]"
-                  : "border-white/20 bg-white/[0.03] hover:border-white/40",
+                  ? "shadow-[0_4px_12px_rgba(255,151,60,0.15)]"
+                  : "hover:brightness-110",
               ].join(" ")}
               style={
                 isSelected
                   ? {
+                      border: "1.28px solid #FF973C",
                       background:
                         "radial-gradient(105% 105% at 50% 68%, rgba(255, 106, 0, 0.6) 0%, #6B3018 52%, #3A1A0A 100%)",
                     }
-                  : undefined
+                  : {
+                      border: "1.28px solid transparent",
+                      backgroundImage: "linear-gradient(rgba(255,255,255,0.03), rgba(255,255,255,0.03)), linear-gradient(to top right, rgba(255, 255, 255, 0.19), rgba(255, 255, 255, 0.04))",
+                      backgroundOrigin: "border-box",
+                      backgroundClip: "padding-box, border-box",
+                    }
               }
             >
               <div className="relative flex flex-1 items-center justify-center">
@@ -86,48 +92,40 @@ export function ShopCategoryCards({
                 )}
               </div>
 
-              <div
-                className={[
-                  "w-full border-t border-white/5 py-0.5 text-[9px] font-semibold tracking-wide text-white",
-                  isSelected ? "bg-transparent" : "bg-white/[0.03]",
-                ].join(" ")}
-              >
+              <div className="w-full py-1 text-[9px] font-semibold tracking-wide text-white bg-black/40">
                 {category.label}
               </div>
             </button>
           );
         })}
 
-        {/* View All Card */}
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="group relative flex h-[72px] w-[73px] shrink-0 flex-col justify-between overflow-hidden rounded-[9px] border text-center transition-all duration-200 active:scale-95 border-white/20 bg-white/[0.03] hover:border-white/40"
+          className="group relative flex h-[80px] w-[81px] shrink-0 flex-col justify-between overflow-hidden rounded-[9px] text-center transition-all duration-200 active:scale-95 hover:brightness-110"
+          style={{
+            border: "1.28px solid transparent",
+            backgroundImage: "linear-gradient(rgba(255,255,255,0.03), rgba(255,255,255,0.03)), linear-gradient(to top right, rgba(255, 255, 255, 0.19), rgba(255, 255, 255, 0.04))",
+            backgroundOrigin: "border-box",
+            backgroundClip: "padding-box, border-box",
+          }}
         >
-          <div className="relative flex flex-1 items-center justify-center">
-            <div
-              className="pointer-events-none absolute bottom-1 h-[12px] w-[40px] rounded-full opacity-80 mix-blend-screen transition-all duration-200 bg-[#D9D9D9] blur-[12px]"
-              aria-hidden
-            />
-            <div
-              className="pointer-events-none absolute bottom-1 h-[3px] w-[40px] rounded-full mix-blend-screen transition-all duration-200 bg-[#D9D9D9] blur-[3px]"
-              aria-hidden
-            />
-            <span className="relative z-10 flex h-[42px] w-[42px] items-center justify-center transition-transform group-hover:scale-105 text-white/70">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="3" y="3" width="4" height="4" rx="1.5" fill="currentColor"/>
-                <rect x="10" y="3" width="4" height="4" rx="1.5" fill="currentColor"/>
-                <rect x="17" y="3" width="4" height="4" rx="1.5" fill="currentColor"/>
-                <rect x="3" y="10" width="4" height="4" rx="1.5" fill="currentColor"/>
-                <rect x="10" y="10" width="4" height="4" rx="1.5" fill="currentColor"/>
-                <rect x="17" y="10" width="4" height="4" rx="1.5" fill="currentColor"/>
-                <rect x="3" y="17" width="4" height="4" rx="1.5" fill="currentColor"/>
-                <rect x="10" y="17" width="4" height="4" rx="1.5" fill="currentColor"/>
-                <rect x="17" y="17" width="4" height="4" rx="1.5" fill="currentColor"/>
+          <div className="relative flex flex-1 items-center justify-center pt-1.5">
+            <span className="relative z-10 flex h-[23px] w-[26.5px] items-center justify-center transition-transform group-hover:scale-105 text-[#D9D9D9]">
+              <svg width="24" height="21" viewBox="0 0 46 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 0 5.75977)" fill="currentColor"/>
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 19.793 5.75977)" fill="currentColor"/>
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 39.5859 5.75977)" fill="currentColor"/>
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 0 22.7461)" fill="currentColor"/>
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 19.793 22.7461)" fill="currentColor"/>
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 39.5859 22.7461)" fill="currentColor"/>
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 0 39.7324)" fill="currentColor"/>
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 19.793 39.7324)" fill="currentColor"/>
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 39.5859 39.7324)" fill="currentColor"/>
               </svg>
             </span>
           </div>
-          <div className="w-full border-t border-white/5 py-0.5 text-[9px] font-semibold tracking-wide text-white bg-white/[0.03]">
+          <div className="w-full py-1 text-[11px] font-bold tracking-wide text-white bg-transparent">
             View All
           </div>
         </button>

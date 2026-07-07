@@ -4,18 +4,22 @@ import { unwrapData, type ApiEnvelope } from "./shop-api-client";
 
 export const shopCouponsService = {
   getMyCoupons: async (): Promise<MyCoupon[]> => {
-    const { data } = await apiClient.get<ApiEnvelope<MyCoupon[]>>("/v1/shop/coupons");
+    const { data } = await apiClient.get<ApiEnvelope<MyCoupon[]>>("/v1/shop/coupons/mine");
     const coupons = unwrapData<MyCoupon[]>(data);
     return Array.isArray(coupons) ? coupons : [];
   },
 
   validateCoupon: async (
     code: string,
-    serverSubtotal: number
+    options?: { subtotal?: number; cartItemIds?: string[] | null }
   ): Promise<CouponValidateResult> => {
     const { data } = await apiClient.post<ApiEnvelope<CouponValidateResult>>(
       "/v1/shop/coupons/validate",
-      { code: code.trim(), subtotal: serverSubtotal }
+      {
+        code: code.trim(),
+        ...(options?.subtotal != null ? { subtotal: options.subtotal } : {}),
+        cartItemIds: options?.cartItemIds ?? null,
+      }
     );
 
     const result = unwrapData<CouponValidateResult>(data);

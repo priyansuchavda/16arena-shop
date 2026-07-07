@@ -11,6 +11,7 @@ import {
   ShopSku,
 } from "../types/shop.types";
 import { categorySlugFromSub } from "../utils/shop-catalog";
+import { resolveMaxCoinCoveragePercent } from "../utils/checkout.utils";
 
 
 /** Available voucher face values, in ₹. */
@@ -232,8 +233,13 @@ export function computeOptimalCoinsToRedeem({
     return Math.min(coinsBalance, paymentRules.maxCoinsAllowedEstimate);
   }
 
-  const maxCoverage = sku?.maxCoinCoveragePercent ?? rules?.maxCoveragePercent ?? 50;
-  const coinToInrRate = rules?.coinToInrRate ?? 0.10;
+  const maxCoverage = resolveMaxCoinCoveragePercent({
+    sku,
+    productCoinRules: rules,
+    paymentRules,
+  });
+  if (maxCoverage == null || maxCoverage <= 0) return 0;
+  const coinToInrRate = rules?.coinToInrRate ?? 0.01;
   const maxAllowedValue = subtotal * (maxCoverage / 100.0);
   const maxCoinsNeeded = Math.floor(maxAllowedValue / coinToInrRate);
   return Math.min(coinsBalance, maxCoinsNeeded);

@@ -43,14 +43,96 @@ export function effectiveMinRequiredCoins(
   return maxCoinsAllowed ?? effectiveMaxCoins(rules);
 }
 
-/** Preview payment rules win; flexible SKU catalog rules are stale until preview. */
+/** Preview payment rules win; flexible uses catalog rules when no preview yet. */
 export function activePaymentRules(
   preview?: CheckoutPreview | null,
   sku?: ShopSku | null
 ): SkuPaymentRules | null | undefined {
   if (preview?.paymentRules) return preview.paymentRules;
-  if (sku?.isDynamicDenomination) return null;
   return sku?.paymentRules ?? null;
+}
+
+export function resolveCoinToInrRate({
+  preview,
+  sku,
+  productCoinRules,
+}: {
+  preview?: CheckoutPreview | null;
+  sku?: ShopSku | null;
+  productCoinRules?: ShopCoinRules | null;
+}): number {
+  const skuRate = sku?.paymentRules?.coinToInrRate;
+  if (skuRate != null && skuRate > 0) return skuRate;
+
+  if (productCoinRules?.coinToInrRate != null && productCoinRules.coinToInrRate > 0) {
+    return productCoinRules.coinToInrRate;
+  }
+  if (preview?.paymentRules?.coinToInrRate != null && preview.paymentRules.coinToInrRate > 0) {
+    return preview.paymentRules.coinToInrRate;
+  }
+  return 0.01;
+}
+
+/** Matches mobile ShopService.formatPercent. */
+export function formatPercent(value: number): string {
+  if (Number.isInteger(value)) return String(value);
+  let text = value.toFixed(2);
+  while (text.includes(".") && text.endsWith("0")) {
+    text = text.slice(0, -1);
+  }
+  if (text.endsWith(".")) text = text.slice(0, -1);
+  return text;
+}
+
+/** Matches mobile _maxCoinCoveragePercentFor — SKU/preview driven, no hardcoded %. */
+export function resolveMaxCoinCoveragePercent({
+  preview,
+  sku,
+  productCoinRules,
+  paymentRules,
+}: {
+  preview?: CheckoutPreview | null;
+  sku?: ShopSku | null;
+  productCoinRules?: ShopCoinRules | null;
+  paymentRules?: SkuPaymentRules | null;
+}): number | undefined {
+  const rules = paymentRules ?? activePaymentRules(preview, sku);
+  const fromRules = rules?.maxCoinCoveragePercent;
+  if (fromRules != null && fromRules > 0) return fromRules;
+
+  const fromSku = sku?.maxCoinCoveragePercent;
+  if (fromSku != null && fromSku > 0) return fromSku;
+
+  const fromProduct = productCoinRules?.maxCoveragePercent;
+  if (fromProduct != null && fromProduct > 0) return fromProduct;
+
+  return undefined;
+}
+
+/** Max redeemable coins for flexible denomination from face value × maxCoinCoveragePercent. */
+export function maxCoinsForDynamicDenomination({
+  sku,
+  coinRules,
+  voucherFaceValue,
+  paymentRules,
+}: {
+  sku: ShopSku;
+  coinRules: ShopCoinRules;
+  voucherFaceValue: number;
+  paymentRules?: SkuPaymentRules | null;
+}): number {
+  if (!sku.isDynamicDenomination || voucherFaceValue <= 0) return 0;
+
+  const maxCoverage = resolveMaxCoinCoveragePercent({
+    sku,
+    productCoinRules: coinRules,
+    paymentRules,
+  });
+  const coinToInrRate = resolveCoinToInrRate({ sku, productCoinRules: coinRules });
+  if (maxCoverage == null || maxCoverage <= 0 || coinToInrRate <= 0) return 0;
+
+  const maxInrCoverage = voucherFaceValue * (maxCoverage / 100);
+  return Math.floor(maxInrCoverage / coinToInrRate);
 }
 
 export function resolveRuleCoinCap({
@@ -60,6 +142,7 @@ export function resolveRuleCoinCap({
   coinRules,
   coinsBalance = 0,
   subtotal = 0,
+  voucherFaceValue,
 }: {
   preview?: CheckoutPreview | null;
   paymentRules?: SkuPaymentRules | null;
@@ -67,8 +150,25 @@ export function resolveRuleCoinCap({
   coinRules?: ShopCoinRules | null;
   coinsBalance?: number;
   subtotal?: number;
+  voucherFaceValue?: number | null;
 }): number {
   const rules = paymentRules ?? preview?.paymentRules;
+  const resolvedCoinRules = coinRules;
+
+  if (
+    sku?.isDynamicDenomination &&
+    voucherFaceValue != null &&
+    voucherFaceValue > 0 &&
+    resolvedCoinRules
+  ) {
+    return maxCoinsForDynamicDenomination({
+      sku,
+      coinRules: resolvedCoinRules,
+      voucherFaceValue,
+      paymentRules: rules ?? sku.paymentRules,
+    });
+  }
+
   if (rules) return effectiveMaxCoins(rules);
 
   const lineRules = preview?.lines?.[0]?.paymentRules;
@@ -78,14 +178,56 @@ export function resolveRuleCoinCap({
     return effectiveMaxCoins(sku.paymentRules) || sku.coinPriceEstimate || 0;
   }
 
-  if (coinRules && subtotal > 0) {
-    const maxCoverage = coinRules.maxCoveragePercent ?? 50;
-    const rate = coinRules.coinToInrRate ?? 0.1;
+  if (resolvedCoinRules && subtotal > 0) {
+    const maxCoverage = resolveMaxCoinCoveragePercent({
+      sku,
+      productCoinRules: resolvedCoinRules,
+      paymentRules: rules,
+    });
+    if (maxCoverage == null || maxCoverage <= 0) return 0;
+    const rate = resolveCoinToInrRate({ sku, productCoinRules: resolvedCoinRules });
     const maxAllowedValue = subtotal * (maxCoverage / 100);
     return Math.min(coinsBalance, Math.floor(maxAllowedValue / rate));
   }
 
   return 0;
+}
+
+/** Matches mobile _maxCoinsAllowedForSelection. */
+export function resolveMaxCoinsAllowedForSelection({
+  product,
+  sku,
+  preview,
+  coinsBalance,
+  subtotal,
+  voucherFaceValue,
+}: {
+  product: { coinRules: ShopCoinRules };
+  sku: ShopSku;
+  preview?: CheckoutPreview | null;
+  coinsBalance: number;
+  subtotal: number;
+  voucherFaceValue?: number | null;
+}): number {
+  const paymentRules = activePaymentRules(preview, sku);
+
+  if (sku.isDynamicDenomination && voucherFaceValue != null && voucherFaceValue > 0) {
+    return maxCoinsForDynamicDenomination({
+      sku,
+      coinRules: product.coinRules,
+      voucherFaceValue,
+      paymentRules: paymentRules ?? sku.paymentRules,
+    });
+  }
+
+  return resolveRuleCoinCap({
+    preview,
+    paymentRules: paymentRules ?? sku.paymentRules,
+    sku,
+    coinRules: product.coinRules,
+    coinsBalance,
+    subtotal,
+  });
 }
 
 export function previewCoinCap(

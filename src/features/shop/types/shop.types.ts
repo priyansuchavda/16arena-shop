@@ -308,14 +308,17 @@ export type UpdateCartItemRequest = {
 };
 
 export type MyCoupon = {
-  id?: string;
   code: string;
   discountType?: string;
   discountValue?: number;
   maxDiscount?: number | null;
   minOrderValue?: number | null;
+  validFrom?: string | null;
   validUntil?: string | null;
-  isActive?: boolean;
+  audienceMode?: string | null;
+  grantSource?: string | null;
+  grantedAt?: string | null;
+  grantExpiresAt?: string | null;
 };
 
 export type CouponValidateResult = {

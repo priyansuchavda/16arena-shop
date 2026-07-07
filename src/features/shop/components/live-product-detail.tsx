@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Image from "next/image";
 import { AlertCircle, ChevronDown, ChevronUp, Copy, Check, Info, Loader2, Sparkles, Tag as TagIcon, ArrowRight } from "lucide-react";
 import coinImg from "@/assets/png/coin.png";
@@ -11,12 +11,14 @@ import { gradientFor, apiToCard } from "@/features/shop/utils/mappers";
 import { useAuthStore, useUserSummary } from "@/features/auth";
 import { shopApi, buildCheckoutRequest } from "../api";
 import { PaymentSummarySheet } from "./payment-summary-sheet";
+import { CouponSuggestionsList } from "./coupon-suggestions-list";
 import {
   ShopProductDetail,
   ShopSku,
   CheckoutPreview,
   ShopAmountRestrictions,
   CardModel,
+  MyCoupon,
 } from "../types/shop.types";
 import {
   splitFixedSkus,
@@ -30,12 +32,14 @@ import {
   activePaymentRules,
   buyDisabledReason,
   capCoinsToRedeem,
-  cartQuantityForSku,
   previewCheckoutWithHybridRetry,
   previewCoinCap,
   resolveAllowHybridInrPayment,
   resolveBuyButtonLabel,
-  resolveRuleCoinCap,
+  resolveMaxCoinsAllowedForSelection,
+  resolveMaxCoinCoveragePercent,
+  formatPercent,
+  formatDeliveryVoucherAmount,
 } from "../utils/checkout.utils";
 import { resolveSkuRetailPrice } from "../utils/normalize-product";
 
@@ -88,14 +92,19 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   });
   const [amountError, setAmountError] = useState<string | null>(null);
 
-  // Quantity
-  const [qty, setQty] = useState(1);
+  // Mobile product detail always checks out quantity 1.
+  const cartQuantity = 1;
 
   // Coupon
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponValidating, setCouponValidating] = useState(false);
+  const [showCouponList, setShowCouponList] = useState(false);
+  const [myCoupons, setMyCoupons] = useState<MyCoupon[]>([]);
+  const [couponsLoading, setCouponsLoading] = useState(false);
+  const [couponsError, setCouponsError] = useState<string | null>(null);
+  const couponFieldRef = useRef<HTMLDivElement>(null);
 
   // Coins settings
   const [applyCoins, setApplyCoins] = useState(true);
@@ -117,6 +126,9 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
   const cartSyncKeyRef = useRef<string>("");
   const cartSyncedRef = useRef(false);
+  const previewDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const voucherFaceValue = isFlexibleSelection && customAmount > 0 ? customAmount : null;
 
   // Handle custom amount input validation
   const handleCustomAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -147,25 +159,24 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   const subtotal = useMemo(() => {
     if (!selectedSku) return 0;
     if (isFlexibleSelection) {
-      return computeFlexibleSubtotal(product, selectedSku, customAmount) * qty;
+      return computeFlexibleSubtotal(product, selectedSku, customAmount) * cartQuantity;
     }
-    return (resolveSkuRetailPrice(selectedSku)) * qty;
-  }, [product, selectedSku, isFlexibleSelection, customAmount, qty]);
+    return resolveSkuRetailPrice(selectedSku) * cartQuantity;
+  }, [product, selectedSku, isFlexibleSelection, customAmount, cartQuantity]);
 
-  const cartQuantity = cartQuantityForSku(selectedSku, qty);
   const paymentRules = activePaymentRules(checkoutPreview, selectedSku);
 
   const ruleCoinCap = useMemo(() => {
     if (!selectedSku) return 0;
-    return resolveRuleCoinCap({
-      preview: checkoutPreview,
-      paymentRules: selectedSku.paymentRules,
+    return resolveMaxCoinsAllowedForSelection({
+      product,
       sku: selectedSku,
-      coinRules: product.coinRules,
+      preview: checkoutPreview,
       coinsBalance,
       subtotal,
+      voucherFaceValue,
     });
-  }, [selectedSku, checkoutPreview, product.coinRules, coinsBalance, subtotal]);
+  }, [selectedSku, checkoutPreview, product, coinsBalance, subtotal, voucherFaceValue]);
 
   const optimalCoins = useMemo(() => {
     return previewCoinCap(coinsBalance, ruleCoinCap);
@@ -198,70 +209,30 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   const buildDeliveryInfo = () => {
     if (!isFlexibleSelection || !customAmount) return undefined;
     return {
-      customVoucherAmount: String(customAmount),
+      customVoucherAmount: formatDeliveryVoucherAmount(customAmount),
     };
   };
 
   const getCartSyncKey = () =>
-    `${selectedSku?.id ?? ""}:${qty}:${isFlexibleSelection ? customAmount : "fixed"}`;
+    `${selectedSku?.id ?? ""}:${cartQuantity}:${isFlexibleSelection ? customAmount : "fixed"}`;
 
-  const buildPreviewRequest = () =>
+  const canFetchCheckoutPreview = () => {
+    if (!selectedSku || !isAuthenticated) return false;
+    if (isFlexibleSelection && (!customAmount || amountError)) return false;
+    return true;
+  };
+
+  const buildPreviewRequest = (couponCodeOverride?: string | null) =>
     buildCheckoutRequest({
       cartItemIds: null,
       coinsToRedeem: cappedCoinsToRedeem,
-      couponCode: appliedCoupon,
+      couponCode: couponCodeOverride !== undefined ? couponCodeOverride : appliedCoupon,
       allowHybridInrPayment,
       quantity: cartQuantity,
       isSquad: cartQuantity >= 5,
     });
 
-  const syncCartForSelection = async (): Promise<string[] | null> => {
-    if (!selectedSku) return null;
-    const cart = await shopApi.addToCart(
-      selectedSku.id,
-      cartQuantity,
-      isFlexibleSelection ? customAmount : null,
-      buildDeliveryInfo()
-    );
-    if (!cart) return null;
-
-    const ids = cart.items.map((item) => item.id).filter(Boolean);
-    if (ids.length > 0) {
-      setCartItemIds(ids);
-    }
-    cartSyncKeyRef.current = getCartSyncKey();
-    cartSyncedRef.current = true;
-    return ids;
-  };
-
-  const fetchCheckoutPreview = async (): Promise<CheckoutPreview | null> => {
-    const preview = await previewCheckoutWithHybridRetry(
-      buildPreviewRequest(),
-      (request) => shopApi.checkoutPreview(request)
-    );
-
-    const nextRuleCap = resolveRuleCoinCap({
-      preview,
-      paymentRules: selectedSku?.paymentRules,
-      sku: selectedSku ?? undefined,
-      coinRules: product.coinRules,
-      coinsBalance: preview.coinsBalance,
-      subtotal: preview.subtotal,
-    });
-    const maxAllowed = previewCoinCap(preview.coinsBalance, nextRuleCap);
-    const nextCoins = capCoinsToRedeem({
-      requested: preview.coinsSpent > 0 ? preview.coinsSpent : cappedCoinsToRedeem,
-      coinsBalance: preview.coinsBalance,
-      maxCoinsAllowed: maxAllowed,
-    });
-    if (paymentRules?.isCoinOnly || selectedSku?.isCoinOnly) {
-      setCustomCoins(maxAllowed);
-      setApplyCoins(true);
-    } else if (nextCoins !== customCoins) {
-      setCustomCoins(nextCoins);
-      setApplyCoins(nextCoins > 0);
-    }
-
+  const applyPreviewResult = (preview: CheckoutPreview) => {
     setCheckoutPreview(preview);
     const lineIds =
       preview.lines
@@ -271,35 +242,54 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
       setCartItemIds(lineIds);
     }
     setPreviewError(null);
+  };
+
+  const requestCheckoutPreview = async (
+    couponCodeOverride?: string | null
+  ): Promise<CheckoutPreview | null> => {
+    const preview = await previewCheckoutWithHybridRetry(
+      buildPreviewRequest(couponCodeOverride),
+      (request) => shopApi.checkoutPreview(request)
+    );
+    applyPreviewResult(preview);
     return preview;
   };
 
-  const loadPreview = async ({
-    syncCart = false,
-  }: { syncCart?: boolean } = {}): Promise<CheckoutPreview | null> => {
-    if (!selectedSku || !isAuthenticated) {
-      setPreviewLoading(false);
-      return null;
+  const revalidateCouponIfNeeded = async () => {
+    if (!appliedCoupon) return;
+    const result = await shopApi.validateCoupon(appliedCoupon, { cartItemIds: null });
+    if (!result.valid) {
+      setAppliedCoupon(null);
+      setCouponError(result.message ?? "Coupon is no longer valid");
     }
-    if (isFlexibleSelection && (!customAmount || amountError)) {
-      setPreviewLoading(false);
-      return null;
-    }
+  };
+
+  const syncCartAndPreview = async (): Promise<CheckoutPreview | null> => {
+    if (!canFetchCheckoutPreview() || !selectedSku) return null;
 
     setPreviewLoading(true);
     setPreviewError(null);
 
     try {
-      const shouldSyncCart = syncCart || cartSyncKeyRef.current !== getCartSyncKey();
-      if (shouldSyncCart) {
-        const syncedIds = await syncCartForSelection();
-        if (!syncedIds?.length) {
-          setPreviewError("Could not update cart for this selection.");
-          return null;
-        }
+      const cart = await shopApi.addToCart(
+        selectedSku.id,
+        cartQuantity,
+        isFlexibleSelection ? customAmount : null,
+        buildDeliveryInfo()
+      );
+      if (!cart) {
+        setPreviewError("Could not update cart for this selection.");
+        return null;
       }
 
-      return await fetchCheckoutPreview();
+      const ids = cart.items.map((item) => item.id).filter(Boolean);
+      if (ids.length > 0) setCartItemIds(ids);
+      cartSyncKeyRef.current = getCartSyncKey();
+      cartSyncedRef.current = true;
+
+      await revalidateCouponIfNeeded();
+
+      return await requestCheckoutPreview();
     } catch (err: unknown) {
       const message =
         err instanceof Error
@@ -313,14 +303,94 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     }
   };
 
-  // Reset server preview when selection changes — preview runs on Buy Now only.
+  const previewCheckoutOnly = async (): Promise<CheckoutPreview | null> => {
+    if (!canFetchCheckoutPreview() || !cartSyncedRef.current) return null;
+
+    setPreviewLoading(true);
+    setPreviewError(null);
+
+    try {
+      return await requestCheckoutPreview();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : (err as { response?: { data?: { message?: string } } })?.response?.data
+              ?.message ?? "Error validating order calculations.";
+      setPreviewError(message);
+      return null;
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const previewCheckoutWithCoupon = async (code: string): Promise<CheckoutPreview> => {
+    if (!canFetchCheckoutPreview()) {
+      throw new Error("Could not preview checkout for this item.");
+    }
+    if (!cartSyncedRef.current) {
+      await syncCartAndPreview();
+    }
+    const preview = await requestCheckoutPreview(code.trim());
+    if (!preview) {
+      throw new Error("Could not apply coupon for this order.");
+    }
+    return preview;
+  };
+
+  const scheduleSyncPreview = () => {
+    if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
+    previewDebounceRef.current = setTimeout(() => {
+      void syncCartAndPreview();
+    }, 300);
+  };
+
+  const schedulePreviewOnly = () => {
+    if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
+    previewDebounceRef.current = setTimeout(() => {
+      void previewCheckoutOnly();
+    }, 300);
+  };
+
+  const loadPreview = async ({
+    syncCart = false,
+  }: { syncCart?: boolean } = {}): Promise<CheckoutPreview | null> => {
+    if (syncCart || !cartSyncedRef.current) {
+      return syncCartAndPreview();
+    }
+    return previewCheckoutOnly();
+  };
+
+  // Reset cart sync when selection changes; debounced sync+preview (mobile _schedulePreview).
   useEffect(() => {
     setCheckoutPreview(null);
     setPreviewError(null);
     setCartItemIds(null);
     cartSyncedRef.current = false;
     cartSyncKeyRef.current = "";
-  }, [selectedSku?.id, qty, customAmount, isFlexibleSelection]);
+    setCustomCoins(null);
+
+    if (!isAuthenticated || !selectedSku) return;
+    if (isFlexibleSelection && (!customAmount || amountError)) return;
+
+    scheduleSyncPreview();
+
+    return () => {
+      if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
+    };
+  }, [selectedSku?.id, customAmount, isFlexibleSelection, isAuthenticated]);
+
+  // Preview-only refresh when coins/coupon/hybrid change (mobile _schedulePreviewOnly).
+  useEffect(() => {
+    if (!isAuthenticated || !cartSyncedRef.current) return;
+    if (isFlexibleSelection && (!customAmount || amountError)) return;
+
+    schedulePreviewOnly();
+
+    return () => {
+      if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
+    };
+  }, [cappedCoinsToRedeem, appliedCoupon, isAuthenticated]);
 
   // Set default flexible amount when selecting flexible SKU
   useEffect(() => {
@@ -344,7 +414,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   );
 
   const buyButtonLabel = resolveBuyButtonLabel(checkoutPreview);
-  const displayCoinsSpent = cappedCoinsToRedeem;
+  const displayCoinsSpent = checkoutPreview?.coinsSpent ?? cappedCoinsToRedeem;
 
   const triggerBuy = async () => {
     if (!selectedSku || buyWarning) return;
@@ -355,37 +425,78 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
       return;
     }
 
-    const preview = await loadPreview({ syncCart: true });
+    const preview = checkoutPreview ?? (await loadPreview({ syncCart: true }));
     if (preview) {
       setPaymentSheetOpen(true);
     }
   };
 
   const handleApplyCoupon = async () => {
-    const code = couponCode.trim();
+    await applyCouponCode(couponCode);
+  };
+
+  const loadMyCoupons = useCallback(async () => {
+    if (!isAuthenticated) return;
+    setCouponsLoading(true);
+    setCouponsError(null);
+    try {
+      const coupons = await shopApi.getMyCoupons();
+      setMyCoupons(coupons);
+    } catch (err: unknown) {
+      setMyCoupons([]);
+      setCouponsError(
+        err instanceof Error ? err.message : "Could not load your coupons."
+      );
+    } finally {
+      setCouponsLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  const handleCouponInputFocus = () => {
+    if (!isAuthenticated) {
+      openAuthModal();
+      return;
+    }
+    if (appliedCoupon) return;
+    setShowCouponList(true);
+    void loadMyCoupons();
+  };
+
+  const handleSelectCoupon = (code: string) => {
+    setCouponCode(code);
+    void applyCouponCode(code);
+  };
+
+  const applyCouponCode = async (rawCode: string) => {
+    const code = rawCode.trim();
     if (!code || !isAuthenticated || !selectedSku) return;
 
     setCouponValidating(true);
     setCouponError(null);
+    setShowCouponList(false);
 
     try {
-      const serverSubtotal = checkoutPreview?.subtotal ?? subtotal;
+      const preview = await previewCheckoutWithCoupon(code);
+      const appliedCode = preview.couponCode?.trim();
+      const isApplied =
+        appliedCode != null && appliedCode.toUpperCase() === code.toUpperCase();
 
-      const result = await shopApi.validateCoupon(code, serverSubtotal);
-      if (result.valid) {
-        setAppliedCoupon(result.code ?? code.toUpperCase());
-        setCouponError(null);
-      } else {
+      if (!isApplied && (preview.discountAmount ?? preview.totalDiscount ?? 0) <= 0) {
         setAppliedCoupon(null);
-        setCouponError(result.message ?? "Invalid coupon code.");
+        setCouponError("This coupon could not be applied.");
+        return;
       }
+
+      setCouponCode(appliedCode ?? code.toUpperCase());
+      setAppliedCoupon(appliedCode ?? code.toUpperCase());
+      setCouponError(null);
     } catch (err: unknown) {
       setAppliedCoupon(null);
       setCouponError(
         err instanceof Error
           ? err.message
           : (err as { response?: { data?: { message?: string } } })?.response?.data
-              ?.message ?? "Could not validate coupon."
+              ?.message ?? "Could not apply coupon."
       );
     } finally {
       setCouponValidating(false);
@@ -396,18 +507,42 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     setCouponCode("");
     setAppliedCoupon(null);
     setCouponError(null);
+    setShowCouponList(false);
+    schedulePreviewOnly();
   };
 
-  // Pricing display resolvers
-  const coinRate = product.coinRules?.coinToInrRate ?? 0.05;
-  const coinDiscount = cappedCoinsToRedeem * coinRate;
-  const basePrice = checkoutPreview
-    ? (checkoutPreview.subtotal - (checkoutPreview.discountAmount ?? 0))
-    : subtotal;
-  const displayPrice = Math.max(0, basePrice - coinDiscount);
+  useEffect(() => {
+    if (!showCouponList) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        couponFieldRef.current &&
+        !couponFieldRef.current.contains(event.target as Node)
+      ) {
+        setShowCouponList(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showCouponList]);
+
+  // Pricing from server preview when available (mobile _buildPricingSection).
+  const displayPrice = checkoutPreview?.totalPayable ?? subtotal;
   const displayOriginal = isFlexibleSelection
-    ? customAmount * qty
-    : (selectedSku?.originalPrice ?? resolveSkuRetailPrice(selectedSku)) * qty;
+    ? customAmount * cartQuantity
+    : (checkoutPreview?.originalUnitPrice ??
+        selectedSku?.originalPrice ??
+        resolveSkuRetailPrice(selectedSku)) * cartQuantity;
+  const maxCoinCoveragePct = useMemo(
+    () =>
+      resolveMaxCoinCoveragePercent({
+        preview: checkoutPreview,
+        sku: selectedSku,
+        productCoinRules: product.coinRules,
+        paymentRules,
+      }),
+    [checkoutPreview, selectedSku, product.coinRules, paymentRules]
+  );
+
   const savingsPct = isFlexibleSelection
     ? 0
     : selectedSku?.savingsPercent ||
@@ -641,38 +776,60 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                     <label htmlFor="live-coupon-code" className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] block mb-2">
                       Coupon Code
                     </label>
-                    <div className="flex gap-2">
-                      <input
-                        id="live-coupon-code"
-                        type="text"
-                        value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value)}
-                        disabled={appliedCoupon !== null}
-                        placeholder="VOUCHER50"
-                        className="flex-1 h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs font-semibold text-white placeholder:text-white/20 outline-none focus:border-[var(--flame)] focus:ring-0 focus-visible:outline-none"
-                        style={{ outline: "none", boxShadow: "none" }} />
-                      {appliedCoupon ? (
-                        <button
-                          type="button"
-                          onClick={handleRemoveCoupon}
-                          className="h-11 px-4 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold rounded-xl active:scale-95 transition"
-                        >
-                          Remove
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={handleApplyCoupon}
-                          disabled={couponValidating || !couponCode.trim()}
-                          className="h-11 px-4 bg-white/5 border border-white/10 text-white text-xs font-bold rounded-xl hover:bg-white/10 active:scale-95 transition disabled:opacity-40"
-                        >
-                          {couponValidating ? "Checking…" : "Apply"}
-                        </button>
+                    <div className="relative" ref={couponFieldRef}>
+                      <div className="flex gap-2">
+                        <input
+                          id="live-coupon-code"
+                          type="text"
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value)}
+                          onFocus={handleCouponInputFocus}
+                          onClick={handleCouponInputFocus}
+                          disabled={appliedCoupon !== null}
+                          placeholder="VOUCHER50"
+                          autoComplete="off"
+                          className="flex-1 h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs font-semibold text-white placeholder:text-white/20 outline-none focus:border-[var(--flame)] focus:ring-0 focus-visible:outline-none"
+                          style={{ outline: "none", boxShadow: "none" }} />
+                        {appliedCoupon ? (
+                          <button
+                            type="button"
+                            onClick={handleRemoveCoupon}
+                            className="h-11 px-4 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold rounded-xl active:scale-95 transition"
+                          >
+                            Remove
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleApplyCoupon}
+                            disabled={couponValidating || !couponCode.trim()}
+                            className="h-11 px-4 bg-white/5 border border-white/10 text-white text-xs font-bold rounded-xl hover:bg-white/10 active:scale-95 transition disabled:opacity-40"
+                          >
+                            {couponValidating ? "Checking…" : "Apply"}
+                          </button>
+                        )}
+                      </div>
+                      {showCouponList && !appliedCoupon && (
+                        <CouponSuggestionsList
+                          coupons={myCoupons}
+                          loading={couponsLoading}
+                          error={couponsError}
+                          onSelect={handleSelectCoupon}
+                          onClose={() => setShowCouponList(false)}
+                        />
                       )}
                     </div>
                     {appliedCoupon && !couponError && (
                       <p className="text-[10px] font-bold text-[var(--win)] mt-1.5 flex items-center gap-1">
                         ✓ Code &apos;{appliedCoupon}&apos; applied
+                        {(checkoutPreview?.discountAmount ?? checkoutPreview?.totalDiscount ?? 0) > 0 && (
+                          <span className="text-white/60">
+                            — save ₹
+                            {(checkoutPreview!.discountAmount ?? checkoutPreview!.totalDiscount).toLocaleString(
+                              "en-IN"
+                            )}
+                          </span>
+                        )}
                       </p>
                     )}
                     {couponError && (
@@ -717,11 +874,19 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                             min="0"
                             max={optimalCoins}
                             value={cappedCoinsToRedeem}
-                            onChange={(e) => setCustomCoins(parseInt(e.target.value, 10))}
+                            onChange={(e) => {
+                              const next = parseInt(e.target.value, 10);
+                              setCustomCoins(next);
+                              setApplyCoins(next > 0);
+                            }}
                             className="w-full accent-[var(--flame)] cursor-pointer h-1 rounded-lg bg-white/10 outline-none" />
                           <div className="flex justify-between text-[9px] text-white/30">
                             <span>0</span>
-                            <span>Max Allowed: {optimalCoins.toLocaleString()}</span>
+                            <span>
+                              {maxCoinCoveragePct != null && maxCoinCoveragePct > 0
+                                ? `Max ${formatPercent(maxCoinCoveragePct)}% · ${optimalCoins.toLocaleString()} coins`
+                                : `Max: ${optimalCoins.toLocaleString()}`}
+                            </span>
                           </div>
                         </div>
                       )}
@@ -759,9 +924,9 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                       <p className="mt-2 text-[10px] font-semibold text-[var(--flame)]">
                         Sign in to checkout
                       </p>
-                    ) : !checkoutPreview ? (
+                    ) : previewLoading && !checkoutPreview ? (
                       <p className="mt-2 text-[10px] font-semibold text-white/40">
-                        Estimated price — tap Buy Now for final total
+                        Calculating price…
                       </p>
                     ) : null}
                     {previewError && (
@@ -776,34 +941,13 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                     </div>
                   </div>
 
-                  {/* Buy Action Box */}
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="flex items-center border border-white/10 bg-black/20 rounded-xl overflow-hidden h-12 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setQty((q) => Math.max(1, q - 1))}
-                        className="w-10 h-full hover:bg-white/5 text-white/60 font-bold active:scale-90 transition"
-                      >
-                        −
-                      </button>
-                      <span className="w-8 text-center text-xs font-bold text-white font-mono tabular-nums">
-                        {qty}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setQty((q) => Math.min((selectedSku?.maxQuantity ?? 10), q + 1))}
-                        disabled={qty >= (selectedSku?.maxQuantity ?? 10)}
-                        className="w-10 h-full hover:bg-white/5 text-white/60 font-bold active:scale-90 transition disabled:opacity-30"
-                      >
-                        +
-                      </button>
-                    </div>
-
+                  {/* Buy Action */}
+                  <div className="mt-1">
                     <button
                       type="button"
                       onClick={triggerBuy}
                       disabled={!selectedSku || !!buyWarning || previewLoading}
-                      className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--flame)] via-[var(--flame-deep)] to-[var(--flame)] text-sm font-extrabold uppercase tracking-wider text-black shadow-[0_12px_24px_-10px_rgba(255,68,0,0.4)] transition hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--flame)] via-[var(--flame-deep)] to-[var(--flame)] text-sm font-extrabold uppercase tracking-wider text-black shadow-[0_12px_24px_-10px_rgba(255,68,0,0.4)] transition hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {previewLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />

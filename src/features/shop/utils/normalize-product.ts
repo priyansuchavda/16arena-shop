@@ -41,7 +41,10 @@ export function buildSkuPaymentRulesFromRaw(
     minRequiredCoins: minRequired,
     maxCoinDiscountEstimate: readNumber(raw.maxCoinDiscountEstimate),
     coinToInrRate: readNumber(raw.coinToInrRate, 0.01),
-    maxCoinCoveragePercent: readNumber(raw.maxCoinCoveragePercent, 50),
+    maxCoinCoveragePercent:
+      raw.maxCoinCoveragePercent != null
+        ? readNumber(raw.maxCoinCoveragePercent)
+        : undefined,
   };
 }
 
@@ -111,8 +114,9 @@ export function normalizeShopProductDetail(raw: Record<string, unknown>): ShopPr
     maxCoveragePercent: readNumber(
       coinRulesRaw.maxCoveragePercent ??
         coinRulesRaw.maxCoinCoveragePercent ??
-        firstSku?.maxCoinCoveragePercent,
-      50
+        firstSku?.maxCoinCoveragePercent ??
+        firstSku?.paymentRules?.maxCoinCoveragePercent,
+      0
     ),
   };
 

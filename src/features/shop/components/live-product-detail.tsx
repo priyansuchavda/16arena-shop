@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { AlertCircle, ChevronDown, ChevronUp, Copy, Check, Info, Loader2, Sparkles, Tag as TagIcon, ArrowRight } from "lucide-react";
 import coinImg from "@/assets/png/coin.png";
 import { HudPanel } from "./hud";
@@ -10,8 +9,8 @@ import { ScrollRow } from "./scroll-row";
 import { CoinIcon, ZapIcon } from "@/shared/components/icons";
 import { gradientFor, apiToCard } from "@/features/shop/utils/mappers";
 import { useAuthStore, useUserSummary } from "@/features/auth";
-import { useCheckout } from "../hooks/useCheckout";
 import { shopApi } from "../api";
+import { PaymentSummarySheet } from "./payment-summary-sheet";
 import {
   ShopProductDetail,
   ShopSku,
@@ -19,7 +18,17 @@ import {
   ShopAmountRestrictions,
   CardModel,
 } from "../types/shop.types";
-import { splitFixedSkus, resolveFlexibleSku, isFlexibleSkuSelection, resolveSkuAmountRestrictions, computeOptimalCoinsToRedeem, shouldShowCoinEditor, computeFlexibleSubtotal } from "../services/product.service";
+import {
+  splitFixedSkus,
+  resolveFlexibleSku,
+  isFlexibleSkuSelection,
+  resolveSkuAmountRestrictions,
+  computeOptimalCoinsToRedeem,
+  shouldShowCoinEditor,
+  computeFlexibleSubtotal,
+} from "../services/product.service";
+import { shouldAllowHybridInrPayment, buyDisabledReason } from "../utils/checkout.utils";
+import { resolveSkuRetailPrice } from "../utils/normalize-product";
 
 function rgba(hex: string, opacity: number) {
   const cleanHex = hex.replace("#", "");
@@ -35,10 +44,10 @@ interface LiveProductDetailProps {
 }
 
 export function LiveProductDetail({ product, related = [] }: LiveProductDetailProps) {
-  const router = useRouter();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const openAuthModal = useAuthStore((state) => state.openAuthModal);
   const { data: userSummary } = useUserSummary();
-  const { handleCheckout, loading: checkoutLoading, error: checkoutError } = useCheckout();
+  const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
 
   // Extract color tokens
   const g = gradientFor(product.brandName ?? product.name);
@@ -78,7 +87,6 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
 
   // Coins settings
-  const coinsBalance = userSummary?.arenaCoins ?? 0;
   const [applyCoins, setApplyCoins] = useState(true);
   const [customCoins, setCustomCoins] = useState<number | null>(null);
 
@@ -92,6 +100,8 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   const [checkoutPreview, setCheckoutPreview] = useState<CheckoutPreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  const coinsBalance = checkoutPreview?.coinsBalance ?? userSummary?.arenaCoins ?? 0;
 
   const previewDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -126,7 +136,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     if (isFlexibleSelection) {
       return computeFlexibleSubtotal(product, selectedSku, customAmount) * qty;
     }
-    return (selectedSku.retailPrice ?? 0) * qty;
+    return (resolveSkuRetailPrice(selectedSku)) * qty;
   }, [product, selectedSku, isFlexibleSelection, customAmount, qty]);
 
   const optimalCoins = useMemo(() => {
@@ -149,16 +159,27 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   }, [applyCoins, customCoins, optimalCoins]);
 
   const allowHybridInrPayment = useMemo(() => {
-    const rules = selectedSku?.paymentRules;
-    if (rules?.isCoinOnly) return false;
-    if (rules?.allowInrPayment === false) return false;
-    return true;
-  }, [selectedSku]);
+    const rules = checkoutPreview?.paymentRules ?? selectedSku?.paymentRules;
+    const maxCoins =
+      rules?.maxCoinsAllowedEstimate ??
+      checkoutPreview?.paymentRules?.maxCoinsAllowedEstimate ??
+      optimalCoins;
+    return shouldAllowHybridInrPayment({
+      coinsToRedeem,
+      maxCoinsAllowed: maxCoins,
+      totalPayable: checkoutPreview?.totalPayable,
+      paymentRules: rules,
+    });
+  }, [selectedSku, checkoutPreview, coinsToRedeem, optimalCoins]);
 
-  // Load Checkout Preview
+  // Load Checkout Preview (auth required — matches mobile API)
   const loadPreview = async () => {
-    if (!selectedSku) return;
+    if (!selectedSku || !isAuthenticated) {
+      setPreviewLoading(false);
+      return;
+    }
     if (isFlexibleSelection && (!customAmount || amountError)) {
+      setPreviewLoading(false);
       return;
     }
 
@@ -180,8 +201,13 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
       } else {
         setPreviewError("Failed to resolve checkout price preview.");
       }
-    } catch (err: any) {
-      setPreviewError(err?.response?.data?.message || "Error validating order calculations.");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : (err as { response?: { data?: { message?: string } } })?.response?.data
+              ?.message ?? "Error validating order calculations.";
+      setPreviewError(message);
     } finally {
       setPreviewLoading(false);
     }
@@ -189,16 +215,33 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
   // Debounced preview trigger
   useEffect(() => {
+    if (!isAuthenticated) {
+      setCheckoutPreview(null);
+      setPreviewLoading(false);
+      setPreviewError(null);
+      return;
+    }
+
     if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
 
     previewDebounceRef.current = setTimeout(() => {
-      loadPreview();
+      void loadPreview();
     }, 400);
 
     return () => {
       if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
     };
-  }, [selectedSku, customAmount, qty, appliedCoupon, coinsToRedeem]);
+  }, [
+    isAuthenticated,
+    selectedSku,
+    customAmount,
+    qty,
+    appliedCoupon,
+    coinsToRedeem,
+    allowHybridInrPayment,
+    amountError,
+    isFlexibleSelection,
+  ]);
 
   // Set default flexible amount when selecting flexible SKU
   useEffect(() => {
@@ -209,24 +252,28 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     }
   }, [selectedSku, isFlexibleSelection, amountRestrictions]);
 
-  // Trigger Checkout
+  const buyWarning = useMemo(
+    () =>
+      buyDisabledReason({
+        sku: selectedSku,
+        coinsBalance,
+        paymentRules: checkoutPreview?.paymentRules ?? selectedSku?.paymentRules,
+        preview: checkoutPreview,
+        amountError: isFlexibleSelection ? amountError : null,
+      }),
+    [selectedSku, coinsBalance, checkoutPreview, amountError, isFlexibleSelection]
+  );
+
   const triggerBuy = () => {
-    if (!selectedSku) return;
-    if (!isAuthenticated) {
-      router.push(`/login?returnUrl=/shop/product/${product.slug}`);
-      return;
-    }
+    if (!selectedSku || buyWarning) return;
     if (isFlexibleSelection && amountError) return;
 
-    handleCheckout({
-      skuId: selectedSku.id,
-      quantity: qty,
-      coinsToRedeem,
-      couponCode: appliedCoupon,
-      customVoucherAmount: isFlexibleSelection ? customAmount : null,
-      allowHybridInrPayment,
-      productName: product.name,
-    });
+    if (!isAuthenticated) {
+      openAuthModal();
+      return;
+    }
+
+    setPaymentSheetOpen(true);
   };
 
   const handleApplyCoupon = () => {
@@ -240,13 +287,18 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   };
 
   // Pricing display resolvers
-  const displayPrice = checkoutPreview?.totalPayable ?? (isFlexibleSelection ? customAmount : selectedSku?.retailPrice ?? 0) * qty;
+  const displayPrice =
+    checkoutPreview?.totalPayable ??
+    (isFlexibleSelection ? customAmount : resolveSkuRetailPrice(selectedSku)) * qty;
   const displayOriginal = isFlexibleSelection
-    ? (customAmount * qty)
-    : (selectedSku?.originalPrice ?? selectedSku?.retailPrice ?? 0) * qty;
+    ? customAmount * qty
+    : (selectedSku?.originalPrice ?? resolveSkuRetailPrice(selectedSku)) * qty;
   const savingsPct = isFlexibleSelection
     ? 0
-    : selectedSku?.savingsPercent || Math.round((1 - (selectedSku?.retailPrice || 1) / (selectedSku?.originalPrice || 1)) * 100);
+    : selectedSku?.savingsPercent ||
+      Math.round(
+        (1 - resolveSkuRetailPrice(selectedSku) / (selectedSku?.originalPrice || 1)) * 100
+      );
 
   return (
     <div className="relative flex-1 pb-20">
@@ -434,7 +486,9 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                           : "border-white/5 bg-black/30 text-[var(--muted)] hover:border-white/20"
                           }`}
                       >
-                        <span className="text-sm font-extrabold text-white">₹{sku.retailPrice}</span>
+                        <span className="text-sm font-extrabold text-white">
+                          ₹{resolveSkuRetailPrice(sku).toLocaleString("en-IN")}
+                        </span>
                         {sku.savingsPercent ? (
                           <span className="text-[9px] text-[var(--win)] font-semibold mt-0.5">Save {sku.savingsPercent}%</span>
                         ) : (
@@ -602,9 +656,18 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                   )}
                 </div>
 
-                <div className="mt-3.5 flex justify-between items-center text-[10px] font-bold border-t border-white/5 pt-3 uppercase">
+                {!isAuthenticated && (
+                  <p className="mt-2 text-[10px] font-semibold text-[var(--flame)]">
+                    Sign in to see live pricing and checkout
+                  </p>
+                )}
+                {previewError && (
+                  <p className="mt-2 text-[10px] font-semibold text-red-400">{previewError}</p>
+                )}
+
+                <div className="mt-3.5 flex items-center justify-between border-t border-white/5 pt-3 text-[10px] font-bold uppercase">
                   <span className="text-[var(--muted)] tracking-wider">Estimated Savings:</span>
-                  <span className="text-[var(--win)] tracking-wider font-extrabold">
+                  <span className="font-extrabold tracking-wider text-[var(--win)]">
                     {savingsPct > 0 ? `SAVE ${savingsPct}%` : `BEST VALUE`}
                   </span>
                 </div>
@@ -635,27 +698,18 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                 <button
                   type="button"
                   onClick={triggerBuy}
-                  disabled={checkoutLoading || previewLoading || (isFlexibleSelection && !!amountError)}
-                  className="flex-1 h-12 bg-gradient-to-r from-[var(--flame)] via-[var(--flame-deep)] to-[var(--flame)] rounded-xl text-sm font-extrabold text-black hover:brightness-105 active:scale-[0.98] transition shadow-[0_12px_24px_-10px_rgba(255,68,0,0.4)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 uppercase tracking-wider"
+                  disabled={!selectedSku || !!buyWarning}
+                  className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--flame)] via-[var(--flame-deep)] to-[var(--flame)] text-sm font-extrabold uppercase tracking-wider text-black shadow-[0_12px_24px_-10px_rgba(255,68,0,0.4)] transition hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {checkoutLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin text-black" />
-                      <span>Checking Out...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Buy Now</span>
-                      <ArrowRight className="w-4 h-4 text-black" />
-                    </>
-                  )}
+                  <span>{isAuthenticated ? "Buy Now" : "Sign in to Buy"}</span>
+                  <ArrowRight className="h-4 w-4 text-black" />
                 </button>
               </div>
 
               {/* Warnings and Info flags */}
-              {checkoutError && (
-                <div className="text-xs font-semibold text-red-400 text-center mt-1 bg-red-500/10 p-2 rounded-lg border border-red-500/25">
-                  {checkoutError}
+              {buyWarning && (
+                <div className="mt-1 rounded-lg border border-amber-500/25 bg-amber-500/10 p-2 text-center text-xs font-semibold text-amber-300">
+                  {buyWarning}
                 </div>
               )}
 
@@ -673,6 +727,21 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
         <div className="mt-4 relative z-10">
           <ScrollRow title="You may also like" items={related} card="section" />
         </div>
+      )}
+
+      {selectedSku && (
+        <PaymentSummarySheet
+          open={paymentSheetOpen}
+          onClose={() => setPaymentSheetOpen(false)}
+          product={product}
+          sku={selectedSku}
+          quantity={qty}
+          coinsBalance={coinsBalance}
+          initialCoinsToRedeem={coinsToRedeem}
+          couponCode={appliedCoupon}
+          customVoucherAmount={isFlexibleSelection ? customAmount : null}
+          initialPreview={checkoutPreview}
+        />
       )}
     </div>
   );

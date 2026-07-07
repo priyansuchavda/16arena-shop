@@ -163,7 +163,12 @@ export const categories: Category[] = [
 export function splitFixedSkus(product: any): any[] {
   if (!product?.skus) return [];
   return product.skus
-    .filter((s: any) => !s.isDynamicDenomination && s.stockStatus !== "out_of_stock" && s.isActive !== false)
+    .filter(
+      (s: { isDynamicDenomination?: boolean; stockStatus?: string; isAvailable?: boolean }) =>
+        !s.isDynamicDenomination &&
+        s.stockStatus !== "out_of_stock" &&
+        s.isAvailable !== false
+    )
     .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 }
 

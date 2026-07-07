@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { buildInvoicePageUrl } from "@/features/invoices/utils/invoice-url";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -513,9 +514,13 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
 
         {/* ── Actions ── */}
         <SectionCard>
-          <ActionRow icon={Receipt} label="View Invoice" href={`/invoices?orderId=${order.id}`} />
+          <ActionRow
+            icon={Receipt}
+            label="View Invoice"
+            href={buildInvoicePageUrl(order.id, { chrome: true })}
+          />
           <SectionDivider />
-          <ActionRow icon={MessageSquare} label="Contact Support" href="/support" />
+          <ActionRow icon={MessageSquare} label="Contact Support" href="https://www.16arena.com/#contact" />
         </SectionCard>
       </div>
     </div>

@@ -158,6 +158,9 @@ export type SkuPaymentRules = {
   allowInrPayment: boolean;
   isCoinOnly: boolean;
   maxCoinsAllowedEstimate: number;
+  maxCoinDiscountEstimate?: number;
+  coinToInrRate?: number;
+  maxCoinCoveragePercent?: number;
 };
 
 export type ShopSku = {
@@ -301,10 +304,42 @@ export type CartItem = {
   id: string;
   skuId: string;
   quantity: number;
-  deliveryInfo?: any;
+  productName: string;
+  skuLabel: string;
+  unitPrice: number;
+  heroImageUrl?: string | null;
+  productImageUrl?: string | null;
+  deliveryInfo?: Record<string, unknown> | null;
 };
 
 export type CartData = {
   id: string;
+  itemCount: number;
   items: CartItem[];
+};
+
+export type OrderInvoice = {
+  orderId: string;
+  orderNumber: string;
+  status: string;
+  createdAt: string;
+  subtotal: number;
+  discountAmount: number;
+  coinsDiscount: number;
+  coinsSpent: number;
+  walletUsed: number;
+  totalPaid: number;
+  paymentMethod?: string;
+  couponCode?: string | null;
+  customerName?: string | null;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+  items?: Array<{
+    productName: string;
+    skuLabel: string;
+    quantity: number;
+    unitPrice: number;
+    faceValue?: number;
+  }>;
+  [key: string]: unknown;
 };

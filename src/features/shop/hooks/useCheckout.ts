@@ -1,9 +1,61 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { shopApi } from "../api";
 import { useAuthStore } from "@/features/auth";
+
+export type CheckoutParams = {
+  skuId?: string;
+  quantity: number;
+  coinsToRedeem: number;
+  couponCode?: string | null;
+  customVoucherAmount?: number | null;
+  allowHybridInrPayment: boolean;
+  productName: string;
+  cartItemIds?: string[];
+  isCartCheckout?: boolean;
+};
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => {
+      open: () => void;
+      on: (event: string, handler: (response: unknown) => void) => void;
+    };
+  }
+}
+
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === "object") {
+    const axiosErr = err as {
+      response?: { data?: { message?: string } };
+      message?: string;
+    };
+    return (
+      axiosErr.response?.data?.message ??
+      axiosErr.message ??
+      fallback
+    );
+  }
+  if (err instanceof Error) return err.message;
+  return fallback;
+}
 
 export const useCheckout = () => {
   const router = useRouter();
@@ -11,128 +63,155 @@ export const useCheckout = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadRazorpayScript = (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if ((window as any).Razorpay) {
-        resolve(true);
-        return;
+  const navigateToSuccess = useCallback(
+    (orderId: string) => {
+      router.push(`/shop/orders/${orderId}/success`);
+    },
+    [router]
+  );
+
+  const openRazorpayCheckout = useCallback(
+    async ({
+      orderId,
+      payment,
+      productName,
+    }: {
+      orderId: string;
+      payment: {
+        gatewayOrderId: string;
+        amount: number;
+        currency?: string;
+        orderNumber?: string;
+        razorpayKeyId?: string;
+        keyId?: string;
+      };
+      productName: string;
+    }) => {
+      const razorpayKeyId = payment.razorpayKeyId ?? payment.keyId;
+      if (!razorpayKeyId) {
+        throw new Error("Razorpay is not configured on the server.");
       }
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.async = true;
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
-  const handleCheckout = async ({
-    skuId,
-    quantity,
-    coinsToRedeem,
-    couponCode,
-    customVoucherAmount,
-    allowHybridInrPayment,
-    productName,
-  }: {
-    skuId: string;
-    quantity: number;
-    coinsToRedeem: number;
-    couponCode?: string | null;
-    customVoucherAmount?: number | null;
-    allowHybridInrPayment: boolean;
-    productName: string;
-  }) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // 1. Add item to cart
-      await shopApi.addToCart(skuId, quantity, customVoucherAmount);
-
-      // 2. Create order
-      const orderRes = await shopApi.createOrder({
-        coinsToRedeem,
-        couponCode,
-        allowHybridInrPayment,
-        quantity,
-      });
-
-      const order = orderRes?.data || orderRes;
-      if (!order || !order.id) {
-        throw new Error("Failed to create order. Please try again.");
+      if (!payment.gatewayOrderId) {
+        throw new Error("Payment gateway order id missing.");
       }
 
-      const orderId = order.id;
-      const totalPaid = order.totalPaid ?? 0;
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        throw new Error("Failed to load Razorpay payment SDK.");
+      }
 
-      // 3. Check if INR payment is required
-      if (totalPaid > 0) {
-        // Load Razorpay script
-        const scriptLoaded = await loadRazorpayScript();
-        if (!scriptLoaded) {
-          throw new Error("Failed to load Razorpay payment SDK.");
-        }
-
-        // Initiate payment gateway order details
-        const paymentRes = await shopApi.initiatePayment(orderId);
-        const payment = paymentRes?.data || paymentRes;
-
-        if (!payment || !payment.gatewayOrderId) {
-          throw new Error("Failed to initiate payment gateway.");
-        }
-
-        const options = {
-          key: payment.keyId,
-          amount: payment.amount,
-          currency: "INR",
-          name: "16Arena Shop",
-          description: productName,
+      return new Promise<void>((resolve, reject) => {
+        const options: Record<string, unknown> = {
+          key: razorpayKeyId,
+          amount: Math.round(payment.amount * 100),
+          currency: payment.currency ?? "INR",
           order_id: payment.gatewayOrderId,
-          handler: async function (response: any) {
+          name: "16Arena Shop",
+          description: payment.orderNumber ?? productName,
+          prefill: {
+            contact: user?.phoneNumber ?? "",
+            email: user?.email ?? "",
+          },
+          theme: { color: "#fe8321" },
+          handler: async (response: {
+            razorpay_order_id: string;
+            razorpay_payment_id: string;
+            razorpay_signature: string;
+          }) => {
             try {
-              setLoading(true);
               await shopApi.verifyPayment({
                 orderId,
                 razorpayOrderId: response.razorpay_order_id,
                 razorpayPaymentId: response.razorpay_payment_id,
                 razorpaySignature: response.razorpay_signature,
               });
-              router.push(`/shop/orders/${orderId}/success`);
-            } catch (err: any) {
-              setError(err?.response?.data?.message || "Payment verification failed.");
-              setLoading(false);
+              resolve();
+            } catch (verifyErr) {
+              reject(verifyErr);
             }
           },
-          prefill: {
-            contact: user?.phoneNumber || "",
-            email: user?.email || "",
-          },
-          theme: {
-            color: "#fe8321",
-          },
           modal: {
-            ondismiss: function () {
-              setLoading(false);
+            ondismiss: () => {
+              reject(new Error("Payment cancelled."));
             },
           },
         };
 
-        const rzp = new (window as any).Razorpay(options);
+        const RazorpayCtor = window.Razorpay;
+        if (!RazorpayCtor) {
+          reject(new Error("Razorpay SDK unavailable."));
+          return;
+        }
+
+        const rzp = new RazorpayCtor(options);
+        rzp.on("payment.failed", (response: unknown) => {
+          const failed = response as { error?: { description?: string } };
+          reject(
+            new Error(failed?.error?.description ?? "Payment failed. Please try again.")
+          );
+        });
         rzp.open();
-      } else {
-        // Fully paid with coins/credits - go directly to Success Page
-        router.push(`/shop/orders/${orderId}/success`);
+      });
+    },
+    [user]
+  );
+
+  const handleCheckout = useCallback(
+    async (params: CheckoutParams) => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        if (!params.isCartCheckout) {
+          if (!params.skuId) {
+            throw new Error("SKU is required for checkout.");
+          }
+          await shopApi.addToCart(
+            params.skuId,
+            params.quantity,
+            params.customVoucherAmount
+          );
+        }
+
+        const createdOrder = await shopApi.createOrder({
+          cartItemIds: params.isCartCheckout ? params.cartItemIds ?? null : null,
+          coinsToRedeem: params.coinsToRedeem,
+          couponCode: params.couponCode,
+          allowHybridInrPayment: params.allowHybridInrPayment,
+          quantity: params.quantity,
+        });
+
+        const orderId = createdOrder?.id;
+        if (!orderId) {
+          throw new Error("Failed to create order. Please try again.");
+        }
+
+        const order = await shopApi.getOrder(orderId);
+        const totalPaid = order?.totalPaid ?? createdOrder.totalPaid ?? 0;
+
+        if (totalPaid > 0) {
+          const payment = await shopApi.initiatePayment(orderId);
+          await openRazorpayCheckout({
+            orderId,
+            payment,
+            productName: params.productName,
+          });
+        }
+
+        navigateToSuccess(orderId);
+      } catch (err) {
+        setError(getErrorMessage(err, "Checkout failed. Please try again."));
+      } finally {
+        setLoading(false);
       }
-    } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || "Checkout failed. Please try again.");
-      setLoading(false);
-    }
-  };
+    },
+    [navigateToSuccess, openRazorpayCheckout]
+  );
 
   return {
     handleCheckout,
     loading,
     error,
+    setError,
   };
 };

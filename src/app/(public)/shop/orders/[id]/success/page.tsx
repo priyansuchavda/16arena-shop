@@ -3,15 +3,30 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useParams, useRouter } from "next/navigation";
-import { CheckCircle2, Copy, Check, Loader2, Sparkles, Receipt, HelpCircle, FileText, ChevronRight, AlertCircle } from "lucide-react";
+import { useParams } from "next/navigation";
+import {
+  CheckCircle2,
+  Copy,
+  Check,
+  Loader2,
+  Receipt,
+  FileText,
+  ChevronRight,
+  AlertCircle,
+} from "lucide-react";
 import { shopApi } from "@/features/shop";
+import { buildInvoicePageUrl } from "@/features/invoices/utils/invoice-url";
 import { ShopOrder } from "@/features/shop/types/shop.types";
-import coinImg from "@/assets/png/coin.png";
+import {
+  isOrderStatusPending,
+  isOrderStatusTerminal,
+  orderStatusMessage,
+  ORDER_POLL_INTERVAL_MS,
+  ORDER_POLL_MAX_WAIT_MS,
+} from "@/features/shop/utils/checkout.utils";
 
 export default function OrderSuccessPage() {
   const params = useParams();
-  const router = useRouter();
   const orderId = params.id as string;
 
   const [order, setOrder] = useState<ShopOrder | null>(null);
@@ -19,60 +34,49 @@ export default function OrderSuccessPage() {
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Status mapping logic
-  const isOrderStatusPending = (status: string) => {
-    const s = status.toLowerCase();
-    return ["pending", "payment_initiated", "payment_success", "processing"].includes(s);
-  };
-
-  const orderStatusMessage = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "pending":
-      case "payment_success":
-        return "Delivering your voucher code...";
-      case "payment_initiated":
-        return "Authorizing payment transaction...";
-      case "processing":
-        return "Generating your digital cards...";
-      case "fulfilled":
-        return "Voucher delivered successfully!";
-      case "failed":
-      case "payment_failed":
-        return "Fulfillment or payment failed.";
-      default:
-        return "Processing order...";
-    }
-  };
-
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const startedAt = Date.now();
 
     const fetchOrder = async () => {
       try {
         const orderData = await shopApi.getOrder(orderId);
+        if (cancelled) return;
+
         if (orderData) {
           setOrder(orderData);
           setLoading(false);
+          setError(null);
 
-          // If order is still in pending/processing, keep polling
-          if (isOrderStatusPending(orderData.status)) {
-            intervalId = setTimeout(fetchOrder, 3000);
+          if (
+            !isOrderStatusTerminal(orderData.status) &&
+            Date.now() - startedAt < ORDER_POLL_MAX_WAIT_MS
+          ) {
+            timeoutId = setTimeout(fetchOrder, ORDER_POLL_INTERVAL_MS);
           }
+        } else if (Date.now() - startedAt < ORDER_POLL_MAX_WAIT_MS) {
+          timeoutId = setTimeout(fetchOrder, ORDER_POLL_INTERVAL_MS);
         } else {
           setError("Failed to locate order details.");
           setLoading(false);
         }
-      } catch (err: any) {
-        setError("Error loading order. Retrying...");
-        setLoading(false);
-        intervalId = setTimeout(fetchOrder, 3000);
+      } catch {
+        if (cancelled) return;
+        if (Date.now() - startedAt < ORDER_POLL_MAX_WAIT_MS) {
+          timeoutId = setTimeout(fetchOrder, ORDER_POLL_INTERVAL_MS);
+        } else {
+          setError("Error loading order.");
+          setLoading(false);
+        }
       }
     };
 
     fetchOrder();
 
     return () => {
-      if (intervalId) clearTimeout(intervalId);
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, [orderId]);
 
@@ -84,20 +88,23 @@ export default function OrderSuccessPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--void)] text-white p-6">
-        <Loader2 className="w-8 h-8 text-[var(--flame)] animate-spin mb-4" />
-        <p className="text-sm text-[var(--muted)]">Resolving transaction details...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--void)] p-6 text-white">
+        <Loader2 className="mb-4 h-8 w-8 animate-spin text-[var(--flame)]" />
+        <p className="text-sm text-[var(--muted)]">Confirming your order…</p>
       </div>
     );
   }
 
   if (error && !order) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--void)] text-white p-6 text-center">
-        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-        <h2 className="font-heading text-lg font-bold text-white mb-2">Order Not Found</h2>
-        <p className="text-xs text-[var(--muted)] mb-6 max-w-sm">{error}</p>
-        <Link href="/shop" className="px-5 py-2.5 bg-gradient-to-r from-[#ff973c] to-[#ff6a00] text-black text-xs font-bold rounded-xl">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--void)] p-6 text-center text-white">
+        <AlertCircle className="mb-4 h-12 w-12 text-red-500" />
+        <h2 className="mb-2 font-heading text-lg font-bold text-white">Order Not Found</h2>
+        <p className="mb-6 max-w-sm text-xs text-[var(--muted)]">{error}</p>
+        <Link
+          href="/shop"
+          className="rounded-xl bg-gradient-to-r from-[#ff973c] to-[#ff6a00] px-5 py-2.5 text-xs font-bold text-black"
+        >
           Return to Store
         </Link>
       </div>
@@ -109,97 +116,119 @@ export default function OrderSuccessPage() {
   const isPending = isOrderStatusPending(status);
 
   return (
-    <div className="min-h-screen bg-[var(--void)] text-white pb-20 px-4 md:px-8 max-w-[580px] mx-auto pt-12">
-      
-      {/* Dynamic graphic glow */}
-      <div className="pointer-events-none absolute left-1/2 -top-24 h-96 w-96 -translate-x-1/2 rounded-full opacity-15 blur-[120px]"
-           style={{ background: isFulfilled ? "radial-gradient(circle, #2ec46e, transparent 75%)" : "radial-gradient(circle, #fe8321, transparent 75%)" }} />
+    <div className="relative mx-auto min-h-screen max-w-[580px] bg-[var(--void)] px-4 pb-20 pt-12 text-white md:px-8">
+      <div
+        className="pointer-events-none absolute left-1/2 -top-24 h-96 w-96 -translate-x-1/2 rounded-full opacity-15 blur-[120px]"
+        style={{
+          background: isFulfilled
+            ? "radial-gradient(circle, #2ec46e, transparent 75%)"
+            : "radial-gradient(circle, #fe8321, transparent 75%)",
+        }}
+      />
 
-      <div className="flex flex-col items-center text-center mb-8 relative z-10">
-        <div className={`w-16 h-16 rounded-full flex items-center justify-center border mb-5 ${
-          isFulfilled 
-            ? "bg-[rgba(37,194,110,0.1)] border-[var(--win)]/30 text-[var(--win)] shadow-[0_0_20px_rgba(46,196,110,0.2)]" 
-            : isPending
-              ? "bg-[var(--flame)]/10 border-[var(--flame)]/30 text-[var(--flame)] animate-pulse"
-              : "bg-red-500/10 border-red-500/30 text-red-400"
-        }`}>
+      <div className="relative z-10 mb-8 flex flex-col items-center text-center">
+        <div
+          className={`mb-5 flex h-16 w-16 items-center justify-center rounded-full border ${
+            isFulfilled
+              ? "border-[var(--win)]/30 bg-[rgba(37,194,110,0.1)] text-[var(--win)] shadow-[0_0_20px_rgba(46,196,110,0.2)]"
+              : isPending
+                ? "animate-pulse border-[var(--flame)]/30 bg-[var(--flame)]/10 text-[var(--flame)]"
+                : "border-red-500/30 bg-red-500/10 text-red-400"
+          }`}
+        >
           {isFulfilled ? (
-            <CheckCircle2 className="w-9 h-9" />
+            <CheckCircle2 className="h-9 w-9" />
           ) : isPending ? (
-            <Loader2 className="w-8 h-8 animate-spin" />
+            <Loader2 className="h-8 w-8 animate-spin" />
           ) : (
-            <AlertCircle className="w-9 h-9" />
+            <AlertCircle className="h-9 w-9" />
           )}
         </div>
 
         <h1 className="font-heading text-2xl font-black text-white">
-          {isFulfilled ? "Fulfillment Complete!" : isPending ? "Fulfillment in Progress" : "Fulfillment Failed"}
+          {isFulfilled
+            ? "Fulfillment Complete!"
+            : isPending
+              ? "Fulfillment in Progress"
+              : "Fulfillment Failed"}
         </h1>
-        
-        <p className="mt-2 text-sm text-[var(--muted)] font-semibold max-w-sm leading-relaxed">
+
+        <p className="mt-2 max-w-sm text-sm font-semibold leading-relaxed text-[var(--muted)]">
           {orderStatusMessage(status)}
         </p>
       </div>
 
       {order && (
-        <div className="flex flex-col gap-5 relative z-10">
-          
-          {/* Main items delivery card */}
+        <div className="relative z-10 flex flex-col gap-5">
           {order.items.map((item) => (
-            <div key={item.id} className="border border-white/5 bg-[#121212]/40 rounded-2xl p-5 flex flex-col gap-4 shadow-xl">
-              <div className="flex gap-4 items-center">
+            <div
+              key={item.id}
+              className="flex flex-col gap-4 rounded-2xl border border-white/5 bg-[#121212]/40 p-5 shadow-xl"
+            >
+              <div className="flex items-center gap-4">
                 {item.productImageUrl && (
-                  <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-white/10 shrink-0 bg-black/20">
+                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/20">
                     <Image src={item.productImageUrl} alt="" fill className="object-cover" />
                   </div>
                 )}
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-black text-white truncate leading-snug">{item.productName}</h3>
-                  <p className="text-[10px] text-[var(--muted)] font-bold uppercase tracking-wider mt-0.5">{item.skuLabel}</p>
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-base font-black leading-snug text-white">
+                    {item.productName}
+                  </h3>
+                  <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
+                    {item.skuLabel}
+                  </p>
                 </div>
               </div>
 
-              {/* Vouchers lists */}
               {isFulfilled && item.vouchers && item.vouchers.length > 0 ? (
-                <div className="flex flex-col gap-3 mt-1">
+                <div className="mt-1 flex flex-col gap-3">
                   {item.vouchers.map((voucher, idx) => (
-                    <div key={idx} className="flex flex-col gap-2.5 p-4 rounded-xl bg-black/35 border border-white/5">
-                      
-                      {/* Voucher Card Code */}
-                      <div className="flex justify-between items-center gap-3">
+                    <div
+                      key={idx}
+                      className="flex flex-col gap-2.5 rounded-xl border border-white/5 bg-black/35 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
                         <div className="flex flex-col">
-                          <span className="text-[9px] font-bold text-white/30 uppercase tracking-wider">Voucher Code</span>
-                          <span className="text-sm font-mono font-bold text-white mt-0.5 tracking-wide">{voucher.cardNumber}</span>
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-white/30">
+                            Voucher Code
+                          </span>
+                          <span className="mt-0.5 font-mono text-sm font-bold tracking-wide text-white">
+                            {voucher.cardNumber}
+                          </span>
                         </div>
                         <button
                           type="button"
                           onClick={() => handleCopy(voucher.cardNumber, `${item.id}-code-${idx}`)}
-                          className="p-2 bg-white/5 rounded-lg hover:bg-white/10 active:scale-95 transition border border-white/5"
+                          className="rounded-lg border border-white/5 bg-white/5 p-2 transition hover:bg-white/10 active:scale-95"
                         >
                           {copiedId === `${item.id}-code-${idx}` ? (
-                            <Check className="w-4 h-4 text-[var(--win)]" />
+                            <Check className="h-4 w-4 text-[var(--win)]" />
                           ) : (
-                            <Copy className="w-4 h-4 text-white/50" />
+                            <Copy className="h-4 w-4 text-white/50" />
                           )}
                         </button>
                       </div>
 
-                      {/* Voucher PIN */}
                       {voucher.cardPin && (
-                        <div className="flex justify-between items-center gap-3 pt-3 border-t border-white/5">
+                        <div className="flex items-center justify-between gap-3 border-t border-white/5 pt-3">
                           <div className="flex flex-col">
-                            <span className="text-[9px] font-bold text-white/30 uppercase tracking-wider">PIN Code</span>
-                            <span className="text-sm font-mono font-bold text-[#FFA000] mt-0.5 tracking-wide">{voucher.cardPin}</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-white/30">
+                              PIN Code
+                            </span>
+                            <span className="mt-0.5 font-mono text-sm font-bold tracking-wide text-[#FFA000]">
+                              {voucher.cardPin}
+                            </span>
                           </div>
                           <button
                             type="button"
                             onClick={() => handleCopy(voucher.cardPin!, `${item.id}-pin-${idx}`)}
-                            className="p-2 bg-white/5 rounded-lg hover:bg-white/10 active:scale-95 transition border border-white/5"
+                            className="rounded-lg border border-white/5 bg-white/5 p-2 transition hover:bg-white/10 active:scale-95"
                           >
                             {copiedId === `${item.id}-pin-${idx}` ? (
-                              <Check className="w-4 h-4 text-[var(--win)]" />
+                              <Check className="h-4 w-4 text-[var(--win)]" />
                             ) : (
-                              <Copy className="w-4 h-4 text-white/50" />
+                              <Copy className="h-4 w-4 text-white/50" />
                             )}
                           </button>
                         </div>
@@ -208,33 +237,36 @@ export default function OrderSuccessPage() {
                   ))}
                 </div>
               ) : isPending ? (
-                <div className="py-8 text-center flex flex-col items-center justify-center gap-3 border border-dashed border-white/10 rounded-xl bg-black/10">
-                  <Loader2 className="w-6 h-6 text-[var(--flame)] animate-spin" />
-                  <span className="text-xs text-[var(--muted)] font-semibold">Generating your unique codes...</span>
+                <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/10 bg-black/10 py-8 text-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-[var(--flame)]" />
+                  <span className="text-xs font-semibold text-[var(--muted)]">
+                    Generating your unique codes…
+                  </span>
                 </div>
               ) : (
-                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-center flex flex-col items-center gap-2">
-                  <AlertCircle className="w-8 h-8 text-red-400" />
-                  <p className="text-xs text-red-300 font-semibold">
-                    {item.fulfillmentMessage || "Fulfillment encountered an issue on order request."}
+                <div className="flex flex-col items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-center">
+                  <AlertCircle className="h-8 w-8 text-red-400" />
+                  <p className="text-xs font-semibold text-red-300">
+                    {item.fulfillmentMessage || "Fulfillment encountered an issue."}
                   </p>
                 </div>
               )}
             </div>
           ))}
 
-          {/* Pricing detail breakdown */}
-          <div className="border border-white/5 bg-[#121212]/30 rounded-2xl p-5 shadow-lg">
-            <h4 className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-3.5 flex items-center gap-2">
-              <Receipt className="w-3.5 h-3.5" /> Order payment Details
+          <div className="rounded-2xl border border-white/5 bg-[#121212]/30 p-5 shadow-lg">
+            <h4 className="mb-3.5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-white/30">
+              <Receipt className="h-3.5 w-3.5" /> Order payment details
             </h4>
-            
+
             <div className="flex flex-col gap-2.5 text-xs">
               <div className="flex justify-between">
                 <span className="text-white/50">Subtotal:</span>
-                <span className="text-white font-semibold">₹{order.subtotal.toLocaleString()}</span>
+                <span className="font-semibold text-white">
+                  ₹{order.subtotal.toLocaleString()}
+                </span>
               </div>
-              
+
               {order.discountAmount > 0 && (
                 <div className="flex justify-between text-[var(--win)]">
                   <span>Discount:</span>
@@ -244,33 +276,50 @@ export default function OrderSuccessPage() {
 
               {order.coinsSpent > 0 && (
                 <div className="flex justify-between text-[#FFA000]">
-                  <span>Coins Redeemed:</span>
-                  <span className="font-bold flex items-center gap-1">
-                    -{order.coinsSpent.toLocaleString()} Coins
-                  </span>
+                  <span>Coins redeemed:</span>
+                  <span className="font-bold">-{order.coinsSpent.toLocaleString()} coins</span>
                 </div>
               )}
 
-              <div className="border-t border-white/5 my-1.5" />
+              <div className="my-1.5 border-t border-white/5" />
 
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-white/50">Total Cash Paid:</span>
-                <span className="text-white font-black">₹{order.totalPaid.toLocaleString()}</span>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-white/50">Total cash paid:</span>
+                <span className="font-black text-white">₹{order.totalPaid.toLocaleString()}</span>
               </div>
             </div>
           </div>
 
-          {/* Core Support Accordions */}
           <div className="flex flex-col gap-2.5">
             <Link
-              href="/orders"
-              className="w-full flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5 text-xs text-white/60 hover:text-white hover:bg-white/[0.04] transition"
+              href={buildInvoicePageUrl(order.id, { chrome: true })}
+              className="flex w-full items-center justify-between rounded-xl border border-white/5 bg-white/[0.02] p-4 text-xs text-white/60 transition hover:bg-white/[0.04] hover:text-white"
             >
               <span className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-[var(--flame)]" />
-                View Order History Vouchers
+                <FileText className="h-4 w-4 text-[var(--flame)]" />
+                View Invoice
               </span>
-              <ChevronRight className="w-4 h-4 text-white/40" />
+              <ChevronRight className="h-4 w-4 text-white/40" />
+            </Link>
+            <Link
+              href={`/orders/${order.id}`}
+              className="flex w-full items-center justify-between rounded-xl border border-white/5 bg-white/[0.02] p-4 text-xs text-white/60 transition hover:bg-white/[0.04] hover:text-white"
+            >
+              <span className="flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-[var(--flame)]" />
+                View full order details
+              </span>
+              <ChevronRight className="h-4 w-4 text-white/40" />
+            </Link>
+            <Link
+              href="/orders"
+              className="flex w-full items-center justify-between rounded-xl border border-white/5 bg-white/[0.02] p-4 text-xs text-white/60 transition hover:bg-white/[0.04] hover:text-white"
+            >
+              <span className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-[var(--flame)]" />
+                Order history
+              </span>
+              <ChevronRight className="h-4 w-4 text-white/40" />
             </Link>
           </div>
         </div>

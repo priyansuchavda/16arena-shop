@@ -539,6 +539,19 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                   </span>
                 </div>
               </div>
+
+              {/* Terms & Conditions Text Button */}
+              {product.giftCardInfo?.termsAndConditions && (
+                <div className="mt-4 max-w-[560px]">
+                  <button
+                    type="button"
+                    onClick={() => setShowTerms(true)}
+                    className="text-xs font-semibold text-white hover:text-white/80 underline decoration-white underline-offset-4 transition"
+                  >
+                    View all T&Cs
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Block B: Buy & Denomination Panel */}
@@ -857,25 +870,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                 </div>
               )}
 
-              {/* Terms & Conditions Accordion */}
-              {product.giftCardInfo?.termsAndConditions && (
-                <div className="max-w-[560px] rounded-2xl border border-white/5 bg-[#121212]/30 overflow-hidden">
-                  <button
-                    onClick={() => setShowTerms(!showTerms)}
-                    className="w-full flex items-center justify-between p-4 font-bold text-sm text-white hover:bg-white/[0.02] transition"
-                  >
-                    <span className="flex items-center gap-2">📜 Terms & Conditions</span>
-                    {showTerms ? <ChevronUp className="w-4 h-4 text-white/50" /> : <ChevronDown className="w-4 h-4 text-white/50" />}
-                  </button>
-                  {showTerms && (
-                    <div className="p-4 pt-0 text-xs text-[var(--muted)] leading-relaxed border-t border-white/5 bg-black/10">
-                      <div className="whitespace-pre-line">
-                        {product.giftCardInfo.termsAndConditions}
-                      </div>
-                    </div>
-                  )}
-            </div>
-          )}
+
         </div>
       </div>
 
@@ -899,6 +894,43 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           initialPreview={checkoutPreview}
           cartItemIds={cartItemIds}
         />
+      )}
+      {/* Terms & Conditions Modal Dialog */}
+      {showTerms && product.giftCardInfo?.termsAndConditions && (
+        <div
+          className="fixed inset-0 z-[160] flex items-center justify-center bg-black/75 backdrop-blur-[4px] p-4 animate-in fade-in duration-200"
+          onClick={() => setShowTerms(false)}
+        >
+          <div
+            className="w-full max-w-[500px] bg-[#141414] border border-white/10 rounded-[24px] p-6 shadow-2xl animate-in slide-in-from-bottom-8 duration-300 flex flex-col max-h-[80vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white">Terms & Conditions</h3>
+              <button
+                type="button"
+                onClick={() => setShowTerms(false)}
+                className="text-white/50 hover:text-white transition"
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+            <div className="h-[1px] bg-white/10 w-full mb-4" />
+            <div className="overflow-y-auto pr-1 text-xs text-white/70 leading-relaxed font-sans">
+              {Array.isArray(product.giftCardInfo.termsAndConditions) ? (
+                <ul className="list-disc pl-4 space-y-2">
+                  {(product.giftCardInfo.termsAndConditions as any).map((term: string, index: number) => (
+                    <li key={index}>{term}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="whitespace-pre-wrap">{product.giftCardInfo.termsAndConditions}</p>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

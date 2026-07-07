@@ -5,6 +5,7 @@ import { MobileCategoryStrip } from "./mobile-category-strip";
 import { ArenaLogo } from "@/shared/components/arena-logo";
 import { WalletCoinChip } from "./wallet-coin-chip";
 import { ProfileChip } from "./profile-chip";
+import { NotificationBell } from "@/features/notifications";
 import { SearchIcon } from "@/shared/components/icons";
 import { CategoryItem } from "@/features/shop/types/shop.types";
 
@@ -40,6 +41,7 @@ function TopBar({
       <div className="hidden flex-1 lg:block" aria-hidden />
 
       <div className="flex shrink-0 items-center gap-2.5">
+        <NotificationBell />
         <WalletCoinChip balance={coins} />
         <ProfileChip />
       </div>

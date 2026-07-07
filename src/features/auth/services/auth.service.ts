@@ -42,7 +42,6 @@ export const authApi = {
         userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "NodeJS Server",
       }),
       ...(fcmToken && { fcmToken }),
-      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "",
     });
     return data;
   },

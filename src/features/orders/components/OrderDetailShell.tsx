@@ -23,6 +23,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { shopApi } from "@/features/shop";
+import { ShopAccountShell } from "@/features/shop/components/shop-account-shell";
 import { ShopOrder, ShopOrderItem } from "@/features/shop/types/shop.types";
 import coinImg from "@/assets/png/coin.png";
 
@@ -338,27 +339,29 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[var(--void)] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 text-[var(--flame)] animate-spin" />
+      <ShopAccountShell hideSidebar>
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--surface)] py-24">
+          <Loader2 className="mb-4 h-8 w-8 animate-spin text-[var(--flame)]" />
           <p className="text-sm text-[var(--muted)]">Loading order details…</p>
         </div>
-      </div>
+      </ShopAccountShell>
     );
   }
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-[var(--void)] flex flex-col items-center justify-center gap-4 p-6">
-        <AlertCircle className="w-12 h-12 text-red-500" />
-        <p className="text-sm text-white/60 text-center">Failed to load order details.</p>
-        <button
-          onClick={() => router.back()}
-          className="text-xs text-[var(--flame)] font-bold px-5 py-2.5 border border-[var(--flame)]/30 rounded-xl hover:bg-[var(--flame)]/10 transition"
-        >
-          Go Back
-        </button>
-      </div>
+      <ShopAccountShell hideSidebar>
+        <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-6 py-16 text-center">
+          <AlertCircle className="h-12 w-12 text-red-500" />
+          <p className="text-sm text-white/60">Failed to load order details.</p>
+          <button
+            onClick={() => router.back()}
+            className="rounded-xl border border-[var(--flame)]/30 px-5 py-2.5 text-xs font-bold text-[var(--flame)] transition hover:bg-[var(--flame)]/10"
+          >
+            Go Back
+          </button>
+        </div>
+      </ShopAccountShell>
     );
   }
 
@@ -382,21 +385,19 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
       : Math.max(0, order.subtotal - order.coinsDiscount - order.discountAmount);
 
   return (
-    <div className="min-h-screen bg-[var(--void)] text-white pb-20">
-      {/* Top bar */}
-      <div className="sticky top-0 z-40 bg-[var(--void)]/95 backdrop-blur border-b border-white/[0.04] px-4 py-4 flex items-center gap-4">
+    <ShopAccountShell hideSidebar>
+      <div className="mb-6 flex items-center gap-4">
         <button
           onClick={() => router.back()}
-          className="p-2 hover:bg-white/5 rounded-full transition border border-white/[0.06] focus:outline-none"
+          className="rounded-full border border-[var(--line)] p-2 transition hover:bg-white/5 focus:outline-none"
           style={{ outline: "none", boxShadow: "none" }}
         >
-          <ArrowLeft className="w-5 h-5 text-white" />
+          <ArrowLeft className="h-5 w-5 text-white" />
         </button>
-        <h1 className="font-heading text-lg font-extrabold text-white">Order Details</h1>
+        <h1 className="font-heading text-2xl font-extrabold text-white">Order Details</h1>
       </div>
 
-      {/* Content */}
-      <div className="max-w-[680px] mx-auto px-4 pt-6 flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
 
         {/* ── Hero Card ── */}
         <HeroCard order={order} />
@@ -523,6 +524,6 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
           <ActionRow icon={MessageSquare} label="Contact Support" href="https://www.16arena.com/#contact" />
         </SectionCard>
       </div>
-    </div>
+    </ShopAccountShell>
   );
 }

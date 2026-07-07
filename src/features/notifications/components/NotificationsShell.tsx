@@ -24,6 +24,7 @@ import {
 } from "../hooks/useNotifications";
 import { NotificationModel } from "../api";
 import { useNotificationStore } from "../store";
+import { ShopAccountShell } from "@/features/shop/components/shop-account-shell";
 
 function groupNotifications(notifications: NotificationModel[]) {
   const today: NotificationModel[] = [];
@@ -233,7 +234,7 @@ export function NotificationsShell() {
   };
 
   return (
-    <div className="mx-auto min-h-screen max-w-[800px] bg-[var(--void)] px-4 pb-20 pt-6 text-white md:px-8">
+    <ShopAccountShell>
       <div className="mb-8 flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link
@@ -300,14 +301,25 @@ export function NotificationsShell() {
       </div>
 
       {isLoading && page === 1 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--surface)] py-24 text-center">
           <Loader2 className="mb-4 h-8 w-8 animate-spin text-[var(--flame)]" />
           <p className="text-sm text-[var(--muted)]">Loading notifications...</p>
         </div>
       ) : filteredNotifications.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--line)] bg-[var(--surface)] py-20 text-center">
-          <Bell className="mx-auto mb-3 h-10 w-10 text-[var(--faint)]" />
-          <p className="text-sm text-[var(--muted)]">No notifications found</p>
+        <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-6 py-16 text-center">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--flame)]/20 bg-[var(--flame)]/10">
+            <Bell className="h-8 w-8 text-[var(--flame)]" />
+          </div>
+          <h2 className="font-heading text-lg font-bold text-white">No notifications yet</h2>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-[var(--muted)]">
+            Order updates, delivery alerts, and announcements will appear here.
+          </p>
+          <Link
+            href="/shop"
+            className="mt-6 inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#ff973c] to-[#ff6a00] px-6 py-2.5 text-xs font-bold text-black transition active:scale-95"
+          >
+            Browse Store
+          </Link>
         </div>
       ) : (
         <div className="space-y-8">
@@ -334,6 +346,6 @@ export function NotificationsShell() {
           )}
         </div>
       )}
-    </div>
+    </ShopAccountShell>
   );
 }

@@ -6,6 +6,7 @@ import Image from "next/image";
 import { ArrowLeft, ClipboardList, Copy, Check, Calendar, Receipt, AlertCircle, Loader2 } from "lucide-react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { shopApi } from "@/features/shop";
+import { ShopAccountShell } from "@/features/shop/components/shop-account-shell";
 import coinImg from "@/assets/png/coin.png";
 
 export function OrdersShell() {
@@ -67,52 +68,65 @@ export function OrdersShell() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--void)] text-white">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 text-[var(--flame)] animate-spin" />
+      <ShopAccountShell>
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--surface)] py-24">
+          <Loader2 className="mb-4 h-8 w-8 animate-spin text-[var(--flame)]" />
           <span className="text-sm text-[var(--muted)]">Loading order history...</span>
         </div>
-      </div>
+      </ShopAccountShell>
     );
   }
 
   if (isError) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--void)] text-white p-6">
-        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-        <h2 className="font-heading text-lg font-bold text-white mb-2">Failed to load orders</h2>
-        <p className="text-xs text-[var(--muted)] mb-6 text-center max-w-sm">
-          There was an error communicating with the API. Please try again.
-        </p>
-        <Link href="/shop" className="px-5 py-2.5 bg-gradient-to-r from-[#ff973c] to-[#ff6a00] text-black text-xs font-bold rounded-xl">
-          Return to Shop
-        </Link>
-      </div>
+      <ShopAccountShell>
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-6 py-16 text-center">
+          <AlertCircle className="mb-4 h-12 w-12 text-red-500" />
+          <h2 className="font-heading mb-2 text-lg font-bold text-white">Failed to load orders</h2>
+          <p className="mb-6 max-w-sm text-xs text-[var(--muted)]">
+            There was an error communicating with the API. Please try again.
+          </p>
+          <Link
+            href="/shop"
+            className="rounded-xl bg-gradient-to-r from-[#ff973c] to-[#ff6a00] px-5 py-2.5 text-xs font-bold text-black"
+          >
+            Return to Shop
+          </Link>
+        </div>
+      </ShopAccountShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--void)] text-white pb-20 px-4 md:px-8 max-w-[800px] mx-auto pt-6">
-      
-      {/* Top Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <Link href="/shop" className="p-2 hover:bg-white/5 rounded-full transition border border-white/5">
-          <ArrowLeft className="w-5 h-5 text-white" />
+    <ShopAccountShell>
+      <div className="mb-8 flex items-center gap-4">
+        <Link
+          href="/shop"
+          className="rounded-full border border-[var(--line)] p-2 transition hover:bg-white/5"
+        >
+          <ArrowLeft className="h-5 w-5 text-white" />
         </Link>
         <div>
           <h1 className="font-heading text-2xl font-black text-white">Order History</h1>
-          <p className="text-xs text-[var(--muted)] font-medium">View all your purchased brand vouchers and UC top-ups.</p>
+          <p className="text-xs font-medium text-[var(--muted)]">
+            View all your purchased brand vouchers and UC top-ups.
+          </p>
         </div>
       </div>
 
       {allOrders.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 border border-white/5 bg-[#121212]/30 rounded-2xl text-center">
-          <ClipboardList className="w-12 h-12 text-[var(--flame)] opacity-40 mb-4" />
-          <h2 className="font-heading text-base font-bold text-white mb-1">No Orders Found</h2>
-          <p className="text-xs text-[var(--muted)] mb-6 max-w-xs">
+        <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-6 py-16 text-center">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--flame)]/20 bg-[var(--flame)]/10">
+            <ClipboardList className="h-8 w-8 text-[var(--flame)]" />
+          </div>
+          <h2 className="font-heading text-lg font-bold text-white">No orders yet</h2>
+          <p className="mx-auto mt-2 max-w-xs text-xs text-[var(--muted)]">
             You haven&apos;t purchased any digital gift cards or top-ups yet.
           </p>
-          <Link href="/shop" className="px-5 py-2.5 bg-gradient-to-r from-[#ff973c] to-[#ff6a00] text-black text-xs font-bold rounded-xl active:scale-95 transition">
+          <Link
+            href="/shop"
+            className="mt-6 inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#ff973c] to-[#ff6a00] px-6 py-2.5 text-xs font-bold text-black transition active:scale-95"
+          >
             Go to Store
           </Link>
         </div>
@@ -128,7 +142,7 @@ export function OrdersShell() {
               <Link
                 key={order.id}
                 href={`/orders/${order.id}`}
-                className="block border border-white/5 bg-[#121212]/30 rounded-2xl overflow-hidden shadow-lg hover:border-white/15 hover:bg-[#181818]/50 transition-all duration-200 cursor-pointer"
+                className="block overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-lg transition-all duration-200 hover:border-white/15 hover:bg-[#181818]/50"
               >
                 {/* Order Header */}
                 <div className="p-4 border-b border-white/5 bg-[#161616]/40 flex flex-wrap justify-between items-center gap-3">
@@ -257,11 +271,11 @@ export function OrdersShell() {
           {/* Loader for Infinite scroll pages */}
           {isFetchingNextPage && (
             <div className="flex justify-center p-4">
-              <Loader2 className="w-6 h-6 text-[var(--flame)] animate-spin" />
+              <Loader2 className="h-6 w-6 animate-spin text-[var(--flame)]" />
             </div>
           )}
         </div>
       )}
-    </div>
+    </ShopAccountShell>
   );
 }

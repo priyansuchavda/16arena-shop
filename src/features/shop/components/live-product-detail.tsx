@@ -445,66 +445,71 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
               {/* Title and Descriptions */}
               <div className="max-w-[560px]">
-                <h1 className="text-[32px] font-extrabold tracking-tight text-white">{product.name}</h1>
-                {(product.description || product.about) && (
-                  <>
-                    <p
-                      className={`mt-3 text-sm text-[var(--muted)] leading-relaxed whitespace-pre-wrap ${!isReadMore ? "line-clamp-2" : ""}`}
-                    >
-                      {product.description || product.about}
-                    </p>
-                    <button
-                      onClick={() => setIsReadMore(!isReadMore)}
-                      className="mt-2 text-[13px] font-bold text-white hover:text-[var(--flame)] transition-colors"
-                    >
-                      {isReadMore ? "View less" : "View more"}
-                    </button>
-                  </>
-                )}
+                {(() => {
+                  const fullDescription = [product.description, product.about].filter(Boolean).join("\n\n");
+                  if (!fullDescription) return null;
+                  return (
+                    <>
+                      <p
+                        className={`mt-3 text-sm text-[var(--muted)] leading-relaxed whitespace-pre-wrap ${!isReadMore ? "line-clamp-2" : ""}`}
+                      >
+                        {fullDescription}
+                      </p>
+                      <button
+                        onClick={() => setIsReadMore(!isReadMore)}
+                        className="mt-2 text-[13px] font-bold text-white hover:text-[var(--flame)] transition-colors"
+                      >
+                        {isReadMore ? "View less" : "View more"}
+                      </button>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Core Voucher Badges */}
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-[560px]">
-                <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-white">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line>
+              <div className="mt-4 grid grid-cols-3 gap-3 max-w-[560px]">
+                {/* REDEEM */}
+                <div className="flex flex-col items-center justify-center text-center p-3 rounded-xl border border-white/5 bg-white/[0.01]">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                      <line x1="12" y1="18" x2="12.01" y2="18"></line>
                     </svg>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-bold uppercase tracking-[0.05em] text-[var(--muted)]">Redemption</span>
-                    <span className="text-xs font-bold text-white mt-0.5">
-                      {product.giftCardInfo?.redemptionType === "ONLINE" ? "Online Only" : "Web & App"}
-                    </span>
-                  </div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-white mt-3">REDEEM</span>
+                  <span className="text-xs font-semibold text-white/50 mt-1">
+                    {product.giftCardInfo?.redemptionType === "ONLINE" ? "Online" : "Online"}
+                  </span>
                 </div>
 
-                <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-white">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12"></polyline>
+                {/* EXPIRY */}
+                <div className="flex flex-col items-center justify-center text-center p-3 rounded-xl border border-white/5 bg-white/[0.01]">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                      <line x1="16" y1="2" x2="16" y2="6"></line>
+                      <line x1="8" y1="2" x2="8" y2="6"></line>
+                      <line x1="3" y1="10" x2="21" y2="10"></line>
                     </svg>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-bold uppercase tracking-[0.05em] text-[var(--muted)]">Expiry</span>
-                    <span className="text-xs font-bold text-white mt-0.5">
-                      {product.giftCardInfo?.expiryLabel || "No Expiry"}
-                    </span>
-                  </div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-white mt-3">EXPIRY</span>
+                  <span className="text-xs font-semibold text-white/50 mt-1">
+                    {product.giftCardInfo?.expiryLabel || "1 Year"}
+                  </span>
                 </div>
 
-                <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-white">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+                {/* USAGE */}
+                <div className="flex flex-col items-center justify-center text-center p-3 rounded-xl border border-white/5 bg-white/[0.01]">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
+                      <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
                     </svg>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-bold uppercase tracking-[0.05em] text-[var(--muted)]">Voucher Type</span>
-                    <span className="text-xs font-bold text-white mt-0.5">
-                      {product.giftCardInfo?.cardType || "Digital Code"}
-                    </span>
-                  </div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-white mt-3">USAGE</span>
+                  <span className="text-xs font-semibold text-white/50 mt-1">
+                    {product.giftCardInfo?.cardType || "One Time"}
+                  </span>
                 </div>
               </div>
             </div>

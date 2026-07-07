@@ -5,4 +5,8 @@ export type StaticGiftCard = {
   purchasedAt: string;
   imageUrl: string;
   orderId: string;
+  status: "active" | "expired";
+  skuLabel?: string;
+  cashbackText?: string;
+  category?: string;
 };

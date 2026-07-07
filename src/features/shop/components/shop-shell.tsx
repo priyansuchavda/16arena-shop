@@ -327,7 +327,11 @@ export function ShopShell({
           )}
         </div>
       ) : activeCategory ? (
-        <ShopCategoryView category={activeCategory} cards={filtered} />
+        <ShopCategoryView 
+          category={activeCategory} 
+          cards={filtered} 
+          popularCards={featuredCards.length > 0 ? featuredCards : allCards.slice(0, 10)}
+        />
       ) : null}
     </ShopLayout>
   );

@@ -1,6 +1,7 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "@/features/auth/store/auth.store";
 import { getApiBaseUrl } from "@/shared/lib/api-config";
+import { applyAccessToken } from "@/shared/lib/auth-token";
 import {
   enqueueAccessTokenRefresh,
   isAuthFlowRequest,
@@ -45,7 +46,7 @@ apiClient.interceptors.response.use(
 
     try {
       const accessToken = await enqueueAccessTokenRefresh();
-      useAuthStore.getState().setAccessToken(accessToken);
+      applyAccessToken(accessToken);
       originalRequest.headers.Authorization = `Bearer ${accessToken}`;
       return apiClient(originalRequest);
     } catch (refreshError) {

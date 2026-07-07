@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import type { AuthState } from "../types/auth.types";
 
+function hasValidAccessToken(accessToken: string | null): boolean {
+  return typeof accessToken === "string" && accessToken.length > 0;
+}
+
 export const useAuthStore = create<AuthState>()((set, get) => ({
   user: null,
   accessToken: null,
@@ -18,21 +22,20 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     set({
       user,
       accessToken,
-      isAuthenticated: Boolean(user && accessToken),
+      isAuthenticated: hasValidAccessToken(accessToken),
     });
   },
   setAccessToken: (accessToken) => {
-    const { user } = get();
     set({
       accessToken,
-      isAuthenticated: Boolean(user && accessToken),
+      isAuthenticated: hasValidAccessToken(accessToken),
     });
   },
   setUser: (user) => {
     const { accessToken } = get();
     set({
       user,
-      isAuthenticated: Boolean(user && accessToken),
+      isAuthenticated: hasValidAccessToken(accessToken),
     });
   },
   logout: () => {

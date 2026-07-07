@@ -32,8 +32,7 @@ export function ShopAccountShell({
       onSelectCategory={(slug) => router.push(`/shop/${slug}`)}
       onSelectAll={() => router.push("/shop")}
     >
-      <div className="mx-auto w-full max-w-[1200px] pb-12 pt-1">{children}</div>
-      <div className={fullWidth ? "w-full pb-12 pt-1" : "mx-auto w-full max-w-[900px] pb-12 pt-1"}>
+      <div className={fullWidth ? "w-full pb-12 pt-1" : "mx-auto w-full max-w-[1200px] pb-12 pt-1"}>
         {children}
       </div>
     </ShopLayout>

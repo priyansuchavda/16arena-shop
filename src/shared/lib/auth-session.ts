@@ -1,4 +1,5 @@
 import axios from "axios";
+import { applyAccessToken } from "@/shared/lib/auth-token";
 import { getApiBaseUrl } from "@/shared/lib/api-config";
 
 const LEGACY_AUTH_STORAGE_KEY = "auth-storage";
@@ -76,6 +77,7 @@ export async function refreshAccessToken(): Promise<string> {
       if (!accessToken) {
         throw new Error("Refresh response did not include an access token");
       }
+      applyAccessToken(accessToken);
       flushRefreshQueue(null, accessToken);
       return accessToken;
     })

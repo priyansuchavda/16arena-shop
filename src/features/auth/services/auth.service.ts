@@ -1,5 +1,6 @@
 import { apiClient } from "@/shared/lib/axios";
 import { refreshAccessToken } from "@/shared/lib/auth-session";
+import { applyAccessToken } from "@/shared/lib/auth-token";
 import type { UserProfile } from "../types/auth.types";
 
 function unwrapData<T>(payload: unknown): T {
@@ -31,6 +32,29 @@ function normalizeUser(user: unknown): UserProfile {
   };
 }
 
+function parseSessionResponse(response: unknown) {
+  const session = unwrapData<{
+    accessToken?: string;
+    user?: UserProfile;
+  }>(response);
+
+  if (!session?.accessToken) {
+    return null;
+  }
+
+  return {
+    accessToken: session.accessToken,
+    user: normalizeUser(session.user),
+  };
+}
+
+function persistSessionFromResponse(response: unknown): void {
+  const session = parseSessionResponse(response);
+  if (session?.accessToken) {
+    applyAccessToken(session.accessToken);
+  }
+}
+
 export const authApi = {
   requestPhoneOtp: async (phone: string, countryCode: string = "+91") => {
     const { data } = await apiClient.post("/v1/auth/phone-login", {
@@ -55,6 +79,7 @@ export const authApi = {
       deviceInfo: typeof navigator !== "undefined" ? navigator.userAgent : "NodeJS Server",
       ...(fcmToken && { fcmToken }),
     });
+    persistSessionFromResponse(data);
     return data;
   },
 
@@ -79,6 +104,7 @@ export const authApi = {
       }),
       ...(fcmToken && { fcmToken }),
     });
+    persistSessionFromResponse(data);
     return data;
   },
 
@@ -113,21 +139,7 @@ export const authApi = {
     return data;
   },
 
-  parseSessionResponse: (response: unknown) => {
-    const session = unwrapData<{
-      accessToken?: string;
-      user?: UserProfile;
-    }>(response);
-
-    if (!session?.accessToken) {
-      return null;
-    }
-
-    return {
-      accessToken: session.accessToken,
-      user: normalizeUser(session.user),
-    };
-  },
+  parseSessionResponse,
 
   parseProfileResponse: (response: unknown) => {
     const profile = unwrapData<UserProfile | { user?: UserProfile }>(response);

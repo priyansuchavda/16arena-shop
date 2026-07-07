@@ -108,13 +108,37 @@ export default async function ShopSlugPage({
     const filteredCards = filterCardsByCategory(allCards, slug);
     const visibleCategories = withActiveCategory(categoryItems, slug);
 
+    let popularCards: CardModel[] = [];
+    if (filteredCards.length === 0) {
+      try {
+        const featuredProducts = await shopApi.fetchFeaturedProducts();
+        popularCards = featuredProducts
+          .filter((p) => p.isActive !== false)
+          .map((p) => apiToCard(p, slugs));
+
+        if (popularCards.length === 0) {
+          const allProducts = await shopApi.fetchProducts(undefined, 1, 30).catch(() => []);
+          popularCards = allProducts
+            .filter((p) => p.isActive !== false)
+            .map((p) => apiToCard(p, slugs))
+            .slice(0, 10);
+        }
+      } catch {
+        popularCards = staticProducts.map(productToCard).slice(0, 8);
+      }
+    }
+
     return (
       <ShopLayout
         categories={visibleCategories}
         walletBalance={0}
         categoryMode={true}
       >
-        <ShopCategoryView category={activeCategory} cards={filteredCards} />
+        <ShopCategoryView 
+          category={activeCategory} 
+          cards={filteredCards} 
+          popularCards={popularCards} 
+        />
       </ShopLayout>
     );
   }

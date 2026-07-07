@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { buildCheckoutRequest, shopApi } from "../api";
 import { useAuthStore } from "@/features/auth";
 import { getApiErrorMessage } from "../services/shop-api-client";
+import { confirmCheckoutPreview } from "../utils/confirm-checkout";
 
 export type CheckoutParams = {
   skuId?: string;
@@ -16,9 +17,11 @@ export type CheckoutParams = {
   useWalletCredits?: boolean;
   walletCreditsToUse?: number;
   productName: string;
-  cartItemIds?: string[];
+  cartItemIds?: string[] | null;
   isCartCheckout?: boolean;
   deliveryInfo?: Record<string, string>;
+  /** Latest preview from payment sheet — used to align hybrid flag before pay */
+  previewHint?: import("../types/shop.types").CheckoutPreview | null;
 };
 
 declare global {
@@ -150,7 +153,12 @@ export const useCheckout = () => {
       setError(null);
 
       try {
-        if (!params.isCartCheckout) {
+        const cartAlreadySynced =
+          !params.isCartCheckout &&
+          Array.isArray(params.cartItemIds) &&
+          params.cartItemIds.length > 0;
+
+        if (!params.isCartCheckout && !cartAlreadySynced) {
           if (!params.skuId) {
             throw new Error("SKU is required for checkout.");
           }
@@ -162,8 +170,8 @@ export const useCheckout = () => {
           );
         }
 
-        const checkoutRequest = buildCheckoutRequest({
-          cartItemIds: params.isCartCheckout ? params.cartItemIds ?? null : null,
+        let checkoutRequest = buildCheckoutRequest({
+          cartItemIds: params.isCartCheckout ? null : params.cartItemIds ?? null,
           coinsToRedeem: params.coinsToRedeem,
           useWalletCredits: params.useWalletCredits,
           walletCreditsToUse: params.walletCreditsToUse,
@@ -172,18 +180,9 @@ export const useCheckout = () => {
           quantity: params.quantity,
         });
 
-        if (params.skuId) {
-          await shopApi.checkoutPreview({
-            skuId: params.skuId,
-            quantity: params.quantity,
-            coinsToRedeem: params.coinsToRedeem,
-            couponCode: params.couponCode,
-            customVoucherAmount: params.customVoucherAmount,
-            allowHybridInrPayment: params.allowHybridInrPayment,
-            useWalletCredits: params.useWalletCredits,
-            walletCreditsToUse: params.walletCreditsToUse,
-          });
-        }
+        const { request: confirmedRequest, preview: finalPreview } =
+          await confirmCheckoutPreview(checkoutRequest, params.previewHint);
+        checkoutRequest = confirmedRequest;
 
         const createdOrder = await shopApi.placeOrder(checkoutRequest);
 
@@ -192,8 +191,7 @@ export const useCheckout = () => {
           throw new Error("Failed to create order. Please try again.");
         }
 
-        const order = await shopApi.getOrder(orderId);
-        const totalPaid = order?.totalPaid ?? createdOrder.totalPaid ?? 0;
+        const totalPaid = createdOrder.totalPaid ?? finalPreview.totalPayable ?? 0;
 
         if (totalPaid > 0) {
           const payment = await shopApi.initiatePayment(orderId);

@@ -46,14 +46,14 @@ export default function OrderSuccessPage() {
 
         if (orderData) {
           setOrder(orderData);
-          setLoading(false);
           setError(null);
 
-          if (
-            !isOrderStatusTerminal(orderData.status) &&
-            Date.now() - startedAt < ORDER_POLL_MAX_WAIT_MS
-          ) {
+          const terminal = isOrderStatusTerminal(orderData.status);
+          if (!terminal && Date.now() - startedAt < ORDER_POLL_MAX_WAIT_MS) {
+            setLoading(true);
             timeoutId = setTimeout(fetchOrder, ORDER_POLL_INTERVAL_MS);
+          } else {
+            setLoading(false);
           }
         } else if (Date.now() - startedAt < ORDER_POLL_MAX_WAIT_MS) {
           timeoutId = setTimeout(fetchOrder, ORDER_POLL_INTERVAL_MS);
@@ -86,11 +86,17 @@ export default function OrderSuccessPage() {
     setTimeout(() => setCopiedId(null), 1500);
   };
 
-  if (loading) {
+  const status = order?.status.toLowerCase() || "";
+  const isFulfilled = status === "fulfilled";
+  const isPending = order ? isOrderStatusPending(status) : true;
+
+  if (loading || (order && isPending)) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--void)] p-6 text-white">
         <Loader2 className="mb-4 h-8 w-8 animate-spin text-[var(--flame)]" />
-        <p className="text-sm text-[var(--muted)]">Confirming your order…</p>
+        <p className="text-sm text-[var(--muted)]">
+          {order ? orderStatusMessage(order.status) : "Confirming your order…"}
+        </p>
       </div>
     );
   }
@@ -110,10 +116,6 @@ export default function OrderSuccessPage() {
       </div>
     );
   }
-
-  const status = order?.status.toLowerCase() || "";
-  const isFulfilled = status === "fulfilled";
-  const isPending = isOrderStatusPending(status);
 
   return (
     <div className="relative mx-auto min-h-screen max-w-[580px] bg-[var(--void)] px-4 pb-20 pt-12 text-white md:px-8">

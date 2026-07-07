@@ -2,8 +2,8 @@ import type {
   AddCartItemRequest,
   CartData,
   CheckoutPreview,
-  CheckoutPreviewRequest,
   CheckoutRequest,
+  SyncCartPreviewInput,
   UpdateCartItemRequest,
 } from "../types/shop.types";
 import { formatDeliveryVoucherAmount } from "../utils/checkout.utils";
@@ -46,22 +46,18 @@ export function buildCheckoutRequest(state: {
 }
 
 export const shopCheckoutService = {
-  previewCheckout: async (
-    request: CheckoutPreviewRequest
-  ): Promise<CheckoutPreview | null> => {
+  previewCheckout: async (request: CheckoutRequest): Promise<CheckoutPreview | null> => {
     const { data } = await apiClient.post<ApiEnvelope<unknown>>(
       "/v1/shop/checkout/preview",
-      {
-        skuId: request.skuId,
-        quantity: request.quantity,
+      buildCheckoutRequest({
+        cartItemIds: request.cartItemIds ?? null,
         coinsToRedeem: request.coinsToRedeem,
-        useWalletCredits: request.useWalletCredits ?? false,
-        walletCreditsToUse: request.walletCreditsToUse ?? 0,
-        couponCode: request.couponCode ?? null,
-        isSquad: request.isSquad ?? request.quantity >= 5,
+        useWalletCredits: request.useWalletCredits,
+        walletCreditsToUse: request.walletCreditsToUse,
+        couponCode: request.couponCode,
+        isSquad: request.isSquad,
         allowHybridInrPayment: request.allowHybridInrPayment,
-        customVoucherAmount: request.customVoucherAmount ?? null,
-      }
+      })
     );
 
     if (data.success === false) {
@@ -69,6 +65,40 @@ export const shopCheckoutService = {
     }
 
     return mapCheckoutPreview(data);
+  },
+
+  syncCartAndPreview: async (
+    input: SyncCartPreviewInput
+  ): Promise<{ preview: CheckoutPreview | null; cart: CartData; cartItemIds: string[] }> => {
+    const cart = await shopCartService.addCartItem({
+      skuId: input.skuId,
+      quantity: input.quantity,
+      customVoucherAmount: input.customVoucherAmount,
+      deliveryInfo: input.deliveryInfo,
+    });
+
+    if (!cart) {
+      throw new Error("Could not update cart for this selection.");
+    }
+
+    const preview = await shopCheckoutService.previewCheckout({
+      cartItemIds: input.cartItemIds ?? null,
+      coinsToRedeem: input.coinsToRedeem,
+      useWalletCredits: input.useWalletCredits ?? false,
+      walletCreditsToUse: input.walletCreditsToUse ?? 0,
+      couponCode: input.couponCode ?? null,
+      isSquad: input.isSquad ?? input.quantity >= 5,
+      allowHybridInrPayment: input.allowHybridInrPayment,
+    });
+
+    const cartItemIds =
+      cart.items.map((item) => item.id).filter(Boolean).length > 0
+        ? cart.items.map((item) => item.id).filter(Boolean)
+        : preview?.lines
+            ?.map((line) => line.cartItemId)
+            .filter((id): id is string => Boolean(id)) ?? [];
+
+    return { preview, cart, cartItemIds };
   },
 
   placeOrder: async (request: CheckoutRequest) => {

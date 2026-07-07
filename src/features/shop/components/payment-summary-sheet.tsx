@@ -4,13 +4,13 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { AlertCircle, Loader2, X } from "lucide-react";
 import coinImg from "@/assets/png/coin.png";
-import { shopApi } from "../api";
+import { shopApi, buildCheckoutRequest } from "../api";
 import { useCheckout } from "../hooks/useCheckout";
 import type { CheckoutPreview, ShopProductDetail, ShopSku } from "../types/shop.types";
 import {
   buyDisabledReason,
   payButtonLabel,
-  shouldAllowHybridInrPayment,
+  resolveAllowHybridInrPayment,
 } from "../utils/checkout.utils";
 import { resolveSkuRetailPrice } from "../utils/normalize-product";
 import {
@@ -30,6 +30,8 @@ type PaymentSummarySheetProps = {
   couponCode?: string | null;
   customVoucherAmount?: number | null;
   initialPreview?: CheckoutPreview | null;
+  cartItemIds?: string[] | null;
+  isCartCheckout?: boolean;
 };
 
 export function PaymentSummarySheet({
@@ -43,6 +45,8 @@ export function PaymentSummarySheet({
   couponCode,
   customVoucherAmount,
   initialPreview,
+  cartItemIds = null,
+  isCartCheckout = false,
 }: PaymentSummarySheetProps) {
   const { handleCheckout, loading, error } = useCheckout();
   const [preview, setPreview] = useState<CheckoutPreview | null>(initialPreview ?? null);
@@ -50,20 +54,14 @@ export function PaymentSummarySheet({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [coinsToRedeem, setCoinsToRedeem] = useState(initialCoinsToRedeem);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cartSyncedRef = useRef(false);
 
   const isFlexible = isFlexibleSkuSelection(sku);
-
-  useEffect(() => {
-    if (!open) return;
-    setCoinsToRedeem(initialCoinsToRedeem);
-    setPreview(initialPreview ?? null);
-    setPreviewError(null);
-  }, [open, initialCoinsToRedeem, initialPreview]);
 
   const allowHybridInrPayment = useMemo(() => {
     const rules = preview?.paymentRules ?? sku.paymentRules;
     const maxCoins = rules?.maxCoinsAllowedEstimate ?? coinsToRedeem;
-    return shouldAllowHybridInrPayment({
+    return resolveAllowHybridInrPayment({
       coinsToRedeem,
       maxCoinsAllowed: maxCoins,
       totalPayable: preview?.totalPayable,
@@ -72,50 +70,81 @@ export function PaymentSummarySheet({
   }, [preview, sku, coinsToRedeem]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      cartSyncedRef.current = false;
+      return;
+    }
+    setCoinsToRedeem(initialCoinsToRedeem);
+    setPreview(initialPreview ?? null);
+    setPreviewError(null);
+    if (initialPreview || cartItemIds?.length || isCartCheckout) {
+      cartSyncedRef.current = true;
+    }
+  }, [open, initialCoinsToRedeem, initialPreview, cartItemIds, isCartCheckout]);
 
-    debounceRef.current = setTimeout(async () => {
-      setPreviewLoading(true);
-      setPreviewError(null);
-      try {
-        const nextPreview = await shopApi.checkoutPreview({
-          skuId: sku.id,
+  const runPreview = async (syncCart: boolean) => {
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      if (syncCart && !isCartCheckout && !cartSyncedRef.current) {
+        await shopApi.addToCart(
+          sku.id,
           quantity,
+          isFlexible ? customVoucherAmount : null
+        );
+        cartSyncedRef.current = true;
+      }
+
+      const nextPreview = await shopApi.checkoutPreview(
+        buildCheckoutRequest({
+          cartItemIds: isCartCheckout ? null : cartItemIds,
           coinsToRedeem,
           couponCode,
-          customVoucherAmount: isFlexible ? customVoucherAmount : null,
           allowHybridInrPayment,
-        });
-        if (nextPreview) {
-          setPreview(nextPreview);
-        } else {
-          setPreviewError("Could not load price for this order.");
-        }
-      } catch (err: unknown) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : (err as { response?: { data?: { message?: string } } })?.response?.data
-                ?.message ?? "Failed to load checkout preview.";
-        setPreviewError(message);
-      } finally {
-        setPreviewLoading(false);
+          quantity,
+          isSquad: quantity >= 5,
+        })
+      );
+      if (nextPreview) {
+        setPreview(nextPreview);
+      } else {
+        setPreviewError("Could not load price for this order.");
       }
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : (err as { response?: { data?: { message?: string } } })?.response?.data
+              ?.message ?? "Failed to load checkout preview.";
+      setPreviewError(message);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open) return;
+
+    debounceRef.current = setTimeout(() => {
+      void runPreview(true);
     }, 300);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [
-    open,
-    sku.id,
-    quantity,
-    coinsToRedeem,
-    couponCode,
-    customVoucherAmount,
-    isFlexible,
-    allowHybridInrPayment,
-  ]);
+  }, [open, sku.id, quantity, customVoucherAmount, isFlexible, isCartCheckout, cartItemIds]);
+
+  useEffect(() => {
+    if (!open || !cartSyncedRef.current) return;
+
+    debounceRef.current = setTimeout(() => {
+      void runPreview(false);
+    }, 300);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [coinsToRedeem, couponCode, allowHybridInrPayment]);
 
   const fallbackSubtotal = useMemo(() => {
     if (isFlexible && customVoucherAmount) {
@@ -144,6 +173,9 @@ export function PaymentSummarySheet({
       customVoucherAmount: isFlexible ? customVoucherAmount : null,
       allowHybridInrPayment,
       productName: product.name,
+      cartItemIds: isCartCheckout ? null : cartItemIds,
+      isCartCheckout,
+      previewHint: preview,
     });
   };
 

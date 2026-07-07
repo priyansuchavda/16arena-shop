@@ -10,7 +10,7 @@ export function formatDeliveryVoucherAmount(amount: number): string {
   return amount.toFixed(2);
 }
 
-export function shouldAllowHybridInrPayment({
+export function resolveAllowHybridInrPayment({
   coinsToRedeem,
   maxCoinsAllowed,
   totalPayable,
@@ -18,16 +18,33 @@ export function shouldAllowHybridInrPayment({
 }: {
   coinsToRedeem: number;
   maxCoinsAllowed: number;
-  totalPayable?: number;
+  totalPayable?: number | null;
   paymentRules?: SkuPaymentRules | null;
 }): boolean {
   if (paymentRules?.isCoinOnly) return false;
-  if (totalPayable != null && totalPayable <= 0) return false;
   if (paymentRules?.allowInrPayment === false) return false;
-  if (coinsToRedeem <= 0) return true;
-  if (coinsToRedeem >= maxCoinsAllowed) return false;
-  return coinsToRedeem < maxCoinsAllowed;
+  if (coinsToRedeem <= 0) return false;
+  if (totalPayable != null && totalPayable <= 0) return false;
+
+  // Any coins + INR remainder requires hybrid (matches mobile pay gate + docs).
+  if (totalPayable != null && totalPayable > 0) return true;
+
+  if (maxCoinsAllowed > 0 && coinsToRedeem < maxCoinsAllowed) return true;
+
+  const minRequired =
+    paymentRules?.minRequiredCoins ??
+    (paymentRules as { effectiveMinRequiredCoins?: number } | null | undefined)
+      ?.effectiveMinRequiredCoins ??
+    maxCoinsAllowed;
+  if (minRequired > 0 && coinsToRedeem > 0 && coinsToRedeem < minRequired) {
+    return true;
+  }
+
+  return false;
 }
+
+/** @deprecated Use resolveAllowHybridInrPayment */
+export const shouldAllowHybridInrPayment = resolveAllowHybridInrPayment;
 
 export function isOrderStatusTerminal(status: string): boolean {
   const s = status.toLowerCase();

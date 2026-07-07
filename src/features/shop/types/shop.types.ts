@@ -160,6 +160,8 @@ export type SkuPaymentRules = {
   isCoinOnly: boolean;
   maxCoinsAllowedEstimate: number;
   maxCoinDiscountEstimate?: number;
+  minRequiredCoins?: number;
+  effectiveMinRequiredCoins?: number;
   coinToInrRate?: number;
   maxCoinCoveragePercent?: number;
 };
@@ -254,6 +256,7 @@ export type CheckoutPreview = {
   couponCode?: string;
   paymentRules?: SkuPaymentRules;
   lines?: Array<{
+    cartItemId?: string;
     skuLabel?: string;
     quantity?: number;
     lineTotalPayable?: number;
@@ -271,16 +274,20 @@ export type CheckoutRequest = {
   allowHybridInrPayment: boolean;
 };
 
-export type CheckoutPreviewRequest = {
+export type CheckoutPreviewRequest = CheckoutRequest;
+
+export type SyncCartPreviewInput = {
   skuId: string;
   quantity: number;
+  customVoucherAmount?: number | null;
+  deliveryInfo?: Record<string, string>;
+  cartItemIds?: string[] | null;
   coinsToRedeem: number;
   useWalletCredits?: boolean;
   walletCreditsToUse?: number;
   couponCode?: string | null;
   isSquad?: boolean;
   allowHybridInrPayment: boolean;
-  customVoucherAmount?: number | null;
 };
 
 export type AddCartItemRequest = {

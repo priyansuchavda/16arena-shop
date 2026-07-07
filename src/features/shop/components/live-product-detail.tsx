@@ -9,7 +9,7 @@ import { ScrollRow } from "./scroll-row";
 import { CoinIcon, ZapIcon } from "@/shared/components/icons";
 import { gradientFor, apiToCard } from "@/features/shop/utils/mappers";
 import { useAuthStore, useUserSummary } from "@/features/auth";
-import { shopApi } from "../api";
+import { shopApi, buildCheckoutRequest } from "../api";
 import { PaymentSummarySheet } from "./payment-summary-sheet";
 import {
   ShopProductDetail,
@@ -27,7 +27,7 @@ import {
   shouldShowCoinEditor,
   computeFlexibleSubtotal,
 } from "../services/product.service";
-import { shouldAllowHybridInrPayment, buyDisabledReason } from "../utils/checkout.utils";
+import { resolveAllowHybridInrPayment, buyDisabledReason } from "../utils/checkout.utils";
 import { resolveSkuRetailPrice } from "../utils/normalize-product";
 
 function rgba(hex: string, opacity: number) {
@@ -100,12 +100,15 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
   // Checkout Preview cache
   const [checkoutPreview, setCheckoutPreview] = useState<CheckoutPreview | null>(null);
+  const [cartItemIds, setCartItemIds] = useState<string[] | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
   const coinsBalance = checkoutPreview?.coinsBalance ?? userSummary?.arenaCoins ?? 0;
 
   const previewDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const cartSyncKeyRef = useRef<string>("");
+  const cartSyncedRef = useRef(false);
 
   // Handle custom amount input validation
   const handleCustomAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -166,7 +169,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
       rules?.maxCoinsAllowedEstimate ??
       checkoutPreview?.paymentRules?.maxCoinsAllowedEstimate ??
       optimalCoins;
-    return shouldAllowHybridInrPayment({
+    return resolveAllowHybridInrPayment({
       coinsToRedeem,
       maxCoinsAllowed: maxCoins,
       totalPayable: checkoutPreview?.totalPayable,
@@ -174,35 +177,95 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     });
   }, [selectedSku, checkoutPreview, coinsToRedeem, optimalCoins]);
 
-  // Load Checkout Preview (auth required — matches mobile API)
-  const loadPreview = async () => {
+  const buildDeliveryInfo = () => {
+    if (!isFlexibleSelection || !customAmount) return undefined;
+    return {
+      customVoucherAmount: String(customAmount),
+    };
+  };
+
+  const getCartSyncKey = () =>
+    `${selectedSku?.id ?? ""}:${qty}:${isFlexibleSelection ? customAmount : "fixed"}`;
+
+  const buildPreviewRequest = () =>
+    buildCheckoutRequest({
+      cartItemIds: null,
+      coinsToRedeem,
+      couponCode: appliedCoupon,
+      allowHybridInrPayment,
+      quantity: qty,
+      isSquad: qty >= 5,
+    });
+
+  const syncCartForSelection = async () => {
+    if (!selectedSku) return false;
+    const cart = await shopApi.addToCart(
+      selectedSku.id,
+      qty,
+      isFlexibleSelection ? customAmount : null,
+      buildDeliveryInfo()
+    );
+    if (!cart) return false;
+
+    const ids =
+      cart.items.map((item) => item.id).filter(Boolean).length > 0
+        ? cart.items.map((item) => item.id).filter(Boolean)
+        : [];
+    if (ids.length > 0) {
+      setCartItemIds(ids);
+    }
+    cartSyncKeyRef.current = getCartSyncKey();
+    cartSyncedRef.current = true;
+    return true;
+  };
+
+  const fetchCheckoutPreview = async (): Promise<CheckoutPreview | null> => {
+    const preview = await shopApi.checkoutPreview(buildPreviewRequest());
+    if (!preview) {
+      setPreviewError("Failed to resolve checkout price preview.");
+      return null;
+    }
+
+    setCheckoutPreview(preview);
+    if (!cartItemIds?.length) {
+      const lineIds =
+        preview.lines
+          ?.map((line) => line.cartItemId)
+          .filter((id): id is string => Boolean(id)) ?? [];
+      if (lineIds.length > 0) {
+        setCartItemIds(lineIds);
+      }
+    }
+    setPreviewError(null);
+    return preview;
+  };
+
+  const loadPreview = async ({
+    syncCart = false,
+  }: { syncCart?: boolean } = {}): Promise<CheckoutPreview | null> => {
     if (!selectedSku || !isAuthenticated) {
       setPreviewLoading(false);
-      return;
+      return null;
     }
     if (isFlexibleSelection && (!customAmount || amountError)) {
       setPreviewLoading(false);
-      return;
+      return null;
     }
 
     setPreviewLoading(true);
     setPreviewError(null);
 
     try {
-      const preview = await shopApi.checkoutPreview({
-        skuId: selectedSku.id,
-        quantity: qty,
-        coinsToRedeem,
-        couponCode: appliedCoupon,
-        customVoucherAmount: isFlexibleSelection ? customAmount : null,
-        allowHybridInrPayment,
-      });
-
-      if (preview) {
-        setCheckoutPreview(preview);
-      } else {
-        setPreviewError("Failed to resolve checkout price preview.");
+      const shouldSyncCart = syncCart || cartSyncKeyRef.current !== getCartSyncKey();
+      if (shouldSyncCart) {
+        const synced = await syncCartForSelection();
+        if (!synced) {
+          setPreviewError("Could not update cart for this selection.");
+          return null;
+        }
       }
+
+      return await fetchCheckoutPreview();
     } catch (err: unknown) {
       const message =
         err instanceof Error
@@ -210,24 +273,27 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           : (err as { response?: { data?: { message?: string } } })?.response?.data
               ?.message ?? "Error validating order calculations.";
       setPreviewError(message);
+      return null;
     } finally {
       setPreviewLoading(false);
     }
   };
 
-  // Debounced preview trigger
+  // Sync cart when SKU/qty/amount changes, then preview.
   useEffect(() => {
     if (!isAuthenticated) {
       setCheckoutPreview(null);
       setPreviewLoading(false);
       setPreviewError(null);
+      cartSyncedRef.current = false;
+      cartSyncKeyRef.current = "";
       return;
     }
 
     if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
 
     previewDebounceRef.current = setTimeout(() => {
-      void loadPreview();
+      void loadPreview({ syncCart: true });
     }, 400);
 
     return () => {
@@ -238,12 +304,25 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     selectedSku,
     customAmount,
     qty,
-    appliedCoupon,
-    coinsToRedeem,
-    allowHybridInrPayment,
     amountError,
     isFlexibleSelection,
   ]);
+
+  // Preview-only refresh when coins/coupon/hybrid changes (no cart POST).
+  useEffect(() => {
+    if (!isAuthenticated || !selectedSku || !cartSyncedRef.current) return;
+    if (isFlexibleSelection && (!customAmount || amountError)) return;
+
+    if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
+
+    previewDebounceRef.current = setTimeout(() => {
+      void loadPreview({ syncCart: false });
+    }, 300);
+
+    return () => {
+      if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
+    };
+  }, [coinsToRedeem, appliedCoupon, allowHybridInrPayment]);
 
   // Set default flexible amount when selecting flexible SKU
   useEffect(() => {
@@ -266,7 +345,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     [selectedSku, coinsBalance, checkoutPreview, amountError, isFlexibleSelection]
   );
 
-  const triggerBuy = () => {
+  const triggerBuy = async () => {
     if (!selectedSku || buyWarning) return;
     if (isFlexibleSelection && amountError) return;
 
@@ -275,7 +354,15 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
       return;
     }
 
-    setPaymentSheetOpen(true);
+    if (checkoutPreview) {
+      setPaymentSheetOpen(true);
+      return;
+    }
+
+    const preview = await loadPreview({ syncCart: true });
+    if (preview) {
+      setPaymentSheetOpen(true);
+    }
   };
 
   const handleApplyCoupon = async () => {
@@ -288,14 +375,17 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     try {
       let serverSubtotal = checkoutPreview?.subtotal;
       if (serverSubtotal == null) {
-        const basePreview = await shopApi.checkoutPreview({
-          skuId: selectedSku.id,
-          quantity: qty,
-          coinsToRedeem,
-          couponCode: null,
-          customVoucherAmount: isFlexibleSelection ? customAmount : null,
-          allowHybridInrPayment,
-        });
+        await syncCartForSelection();
+        const basePreview = await shopApi.checkoutPreview(
+          buildCheckoutRequest({
+            cartItemIds: null,
+            coinsToRedeem,
+            couponCode: null,
+            allowHybridInrPayment,
+            quantity: qty,
+            isSquad: qty >= 5,
+          })
+        );
         serverSubtotal = basePreview?.subtotal;
       }
 
@@ -793,6 +883,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           couponCode={appliedCoupon}
           customVoucherAmount={isFlexibleSelection ? customAmount : null}
           initialPreview={checkoutPreview}
+          cartItemIds={cartItemIds}
         />
       )}
     </div>

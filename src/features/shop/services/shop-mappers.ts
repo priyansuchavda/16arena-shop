@@ -3,11 +3,18 @@ import type {
   CheckoutPreview,
   OrderInvoice,
   ShopOrder,
+  SkuPaymentRules,
 } from "../types/shop.types";
+import { unwrapData } from "./shop-api-client";
+
+function asRecord(raw: unknown): Record<string, unknown> | null {
+  if (!raw || typeof raw !== "object") return null;
+  return raw as Record<string, unknown>;
+}
 
 export function mapCartData(raw: unknown): CartData | null {
-  if (!raw || typeof raw !== "object") return null;
-  const data = raw as Record<string, unknown>;
+  const data = asRecord(unwrapData(raw) ?? raw);
+  if (!data) return null;
 
   const itemsRaw = Array.isArray(data.items) ? data.items : [];
   const items = itemsRaw.map((item) => {
@@ -38,8 +45,16 @@ export function mapCartData(raw: unknown): CartData | null {
 }
 
 export function mapCheckoutPreview(raw: unknown): CheckoutPreview | null {
-  if (!raw || typeof raw !== "object") return null;
-  const data = raw as Record<string, unknown>;
+  const data = asRecord(unwrapData(raw) ?? raw);
+  if (!data) return null;
+
+  const lines = Array.isArray(data.lines)
+    ? (data.lines as Array<Record<string, unknown>>)
+    : [];
+  const firstLine = lines[0];
+  const paymentRules = (data.paymentRules ?? firstLine?.paymentRules) as
+    | SkuPaymentRules
+    | undefined;
 
   return {
     subtotal: Number(data.subtotal ?? 0),
@@ -51,24 +66,31 @@ export function mapCheckoutPreview(raw: unknown): CheckoutPreview | null {
     walletBalance: Number(data.walletBalance ?? 0),
     totalPayable: Number(data.totalPayable ?? 0),
     totalPayableInCoins: Number(data.totalPayableInCoins ?? 0),
-    savingsPercent: data.savingsPercent as number | undefined,
+    savingsPercent: Number(
+      data.savingsPercent ?? firstLine?.savingsPercent ?? 0
+    ) || undefined,
     effectiveCashbackPercent: data.effectiveCashbackPercent as number | undefined,
     cashbackEarned: Number(data.cashbackEarned ?? 0),
     cashbackCoinsEarned: data.cashbackCoinsEarned as number | undefined,
     coinsBalance: Number(data.coinsBalance ?? 0),
-    unitPrice: data.unitPrice as number | undefined,
-    originalUnitPrice: data.originalUnitPrice as number | undefined,
-    couponCode: data.couponCode as string | undefined,
-    paymentRules: data.paymentRules as CheckoutPreview["paymentRules"],
-    lines: Array.isArray(data.lines)
-      ? (data.lines as CheckoutPreview["lines"])
-      : undefined,
+    unitPrice: Number(data.unitPrice ?? firstLine?.unitPrice ?? 0) || undefined,
+    originalUnitPrice:
+      Number(data.originalUnitPrice ?? firstLine?.originalUnitPrice ?? 0) || undefined,
+    couponCode: (data.couponCode as string | null) ?? undefined,
+    paymentRules,
+    lines: lines.map((line) => ({
+      cartItemId: line.cartItemId as string | undefined,
+      skuLabel: line.skuLabel as string | undefined,
+      quantity: Number(line.quantity ?? 1),
+      lineTotalPayable: Number(line.lineTotalPayable ?? 0),
+      paymentRules: line.paymentRules as SkuPaymentRules | undefined,
+    })),
   };
 }
 
 export function mapOrder(raw: unknown): ShopOrder | null {
-  if (!raw || typeof raw !== "object") return null;
-  const data = raw as Record<string, unknown>;
+  const data = asRecord(unwrapData(raw) ?? raw);
+  if (!data) return null;
 
   const itemsRaw = Array.isArray(data.items) ? data.items : [];
   const items = itemsRaw.map((item) => {

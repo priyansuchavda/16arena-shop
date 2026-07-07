@@ -6,6 +6,7 @@ import type {
   CheckoutPreview,
   CheckoutPreviewRequest,
   CheckoutRequest,
+  SyncCartPreviewInput,
   CouponValidateResult,
   HubbleSsoTokenResponse,
   MobileSection,
@@ -42,8 +43,11 @@ export const shopApi = {
   getMyCoupons: shopCouponsService.getMyCoupons,
   validateCoupon: shopCouponsService.validateCoupon,
 
-  checkoutPreview: (payload: CheckoutPreviewRequest) =>
-    shopCheckoutService.previewCheckout(payload),
+  checkoutPreview: (request: CheckoutRequest) =>
+    shopCheckoutService.previewCheckout(request),
+
+  syncCartAndPreview: (input: SyncCartPreviewInput) =>
+    shopCheckoutService.syncCartAndPreview(input),
 
   buildCheckoutRequest,
   placeOrder: async (request: CheckoutRequest): Promise<ShopOrder> => {
@@ -120,6 +124,7 @@ export type {
   CheckoutPreview,
   CheckoutPreviewRequest,
   CheckoutRequest,
+  SyncCartPreviewInput,
   CouponValidateResult,
   HubbleSsoTokenResponse,
   MobileSection,

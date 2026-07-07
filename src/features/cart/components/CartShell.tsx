@@ -14,7 +14,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { buttonVariants } from "@/shared/components/ui/button";
-import { shopApi } from "@/features/shop/api";
+import { shopApi, buildCheckoutRequest } from "@/features/shop/api";
 import { useCheckout } from "@/features/shop/hooks/useCheckout";
 import { useAuthStore, useUserSummary } from "@/features/auth";
 import {
@@ -25,7 +25,7 @@ import type { CartData, CartItem, CheckoutPreview } from "@/features/shop/types/
 import {
   parseCustomVoucherAmount,
   payButtonLabel,
-  shouldAllowHybridInrPayment,
+  resolveAllowHybridInrPayment,
 } from "@/features/shop/utils/checkout.utils";
 
 function formatInr(amount: number) {
@@ -96,7 +96,7 @@ export function CartShell() {
   }, [applyCoins, customCoins, optimalCoins]);
 
   const allowHybridInrPayment = useMemo(() => {
-    return shouldAllowHybridInrPayment({
+    return resolveAllowHybridInrPayment({
       coinsToRedeem,
       maxCoinsAllowed: preview?.paymentRules?.maxCoinsAllowedEstimate ?? optimalCoins,
       totalPayable: preview?.totalPayable,
@@ -105,7 +105,7 @@ export function CartShell() {
   }, [coinsToRedeem, preview, optimalCoins]);
 
   useEffect(() => {
-    if (!primaryItem || !isAuthenticated) {
+    if (!cart?.items.length || !isAuthenticated) {
       setPreview(null);
       return;
     }
@@ -115,14 +115,14 @@ export function CartShell() {
       setPreviewLoading(true);
       setPreviewError(null);
       try {
-        const customAmount = parseCustomVoucherAmount(primaryItem.deliveryInfo);
-        const nextPreview = await shopApi.checkoutPreview({
-          skuId: primaryItem.skuId,
-          quantity: primaryItem.quantity,
-          coinsToRedeem,
-          allowHybridInrPayment,
-          customVoucherAmount: customAmount,
-        });
+        const nextPreview = await shopApi.checkoutPreview(
+          buildCheckoutRequest({
+            cartItemIds: null,
+            coinsToRedeem,
+            allowHybridInrPayment,
+            quantity: primaryItem?.quantity ?? 1,
+          })
+        );
         if (!cancelled) setPreview(nextPreview);
       } catch (err) {
         if (!cancelled) {
@@ -137,7 +137,7 @@ export function CartShell() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [primaryItem, coinsToRedeem, allowHybridInrPayment, isAuthenticated]);
+  }, [cart?.items.length, coinsToRedeem, allowHybridInrPayment, isAuthenticated, primaryItem?.quantity]);
 
   const updateQuantity = async (item: CartItem, nextQty: number) => {
     if (nextQty < 1) return;
@@ -173,7 +173,7 @@ export function CartShell() {
 
     handleCheckout({
       isCartCheckout: true,
-      cartItemIds: cart.items.map((item) => item.id),
+      cartItemIds: null,
       skuId: primaryItem.skuId,
       quantity: primaryItem.quantity,
       coinsToRedeem,

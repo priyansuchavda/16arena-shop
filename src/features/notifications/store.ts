@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export interface NotificationToast {
+export interface IncomingNotificationToast {
   id: string;
   title: string;
   body: string;
@@ -9,11 +9,11 @@ export interface NotificationToast {
 
 interface NotificationState {
   unreadCount: number;
-  toast: NotificationToast | null;
+  toast: IncomingNotificationToast | null;
   incrementUnreadCount: () => void;
   resetUnreadCount: () => void;
   setUnreadCount: (count: number) => void;
-  showToast: (toast: Omit<NotificationToast, "id">) => void;
+  showToast: (toast: Omit<IncomingNotificationToast, "id">) => void;
   dismissToast: () => void;
 }
 

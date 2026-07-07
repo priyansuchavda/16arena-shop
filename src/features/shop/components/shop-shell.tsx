@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { ShopLayout } from "./shop-layout";
 import { HeroCarousel, type HeroSlide } from "./hero-carousel";
 import { ScrollRow } from "./scroll-row";
@@ -45,6 +46,20 @@ export function ShopShell({
 }: ShopShellProps) {
   const [activeSlug, setActiveSlug] = useState(ALL_CATEGORY_SLUG);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const searchParams = useSearchParams();
+  const qParam = searchParams.get("q");
+
+  useEffect(() => {
+    if (qParam !== null) {
+      setSearchQuery(qParam);
+      if (qParam) {
+        setActiveSlug(ALL_CATEGORY_SLUG);
+      }
+    } else {
+      setSearchQuery("");
+    }
+  }, [qParam]);
 
   const slides = useMemo(() => {
     // Static customizable slide 1 (Gaming)
@@ -256,16 +271,30 @@ export function ShopShell({
       onSelectCategory={(slug) => {
         setActiveSlug(slug);
         setSearchQuery("");
+        if (typeof window !== "undefined") {
+          window.history.replaceState(null, "", window.location.pathname);
+        }
       }}
       onSelectAll={() => {
         setActiveSlug(ALL_CATEGORY_SLUG);
         setSearchQuery("");
+        if (typeof window !== "undefined") {
+          window.history.replaceState(null, "", window.location.pathname);
+        }
       }}
       searchQuery={searchQuery}
       onSearchChange={(q) => {
         setSearchQuery(q);
         if (q) {
           setActiveSlug(ALL_CATEGORY_SLUG);
+          if (typeof window !== "undefined") {
+            const newUrl = `${window.location.pathname}?q=${encodeURIComponent(q)}`;
+            window.history.replaceState(null, "", newUrl);
+          }
+        } else {
+          if (typeof window !== "undefined") {
+            window.history.replaceState(null, "", window.location.pathname);
+          }
         }
       }}
     >
@@ -301,6 +330,9 @@ export function ShopShell({
                   setActiveSlug(slug);
                 }
                 setSearchQuery("");
+                if (typeof window !== "undefined") {
+                  window.history.replaceState(null, "", window.location.pathname);
+                }
               }}
             />
           </div>

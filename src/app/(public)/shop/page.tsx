@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { ArenaLogo } from "@/shared/components/arena-logo";
 import {
   ShopShell,
   ShopUnavailable,
+  ShopLoading,
   shopApi,
   categories as staticCategories,
   productToCard,
@@ -126,15 +128,17 @@ export default async function Home() {
   }
 
   return (
-    <ShopShell
-      categories={categoriesData}
-      categoryItems={categoryItems}
-      allCards={allCards}
-      featuredCards={featuredCards}
-      sections={layoutSections}
-      categoryProductsMap={categoryProductsMap}
-      slides={slides}
-      walletBalance={0}
-    />
+    <Suspense fallback={<ShopLoading />}>
+      <ShopShell
+        categories={categoriesData}
+        categoryItems={categoryItems}
+        allCards={allCards}
+        featuredCards={featuredCards}
+        sections={layoutSections}
+        categoryProductsMap={categoryProductsMap}
+        slides={slides}
+        walletBalance={0}
+      />
+    </Suspense>
   );
 }

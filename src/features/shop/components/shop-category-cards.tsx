@@ -61,18 +61,18 @@ export function ShopCategoryCards({
                     }
               }
             >
-              <div className="relative flex flex-1 items-center justify-center">
+              <div className="relative flex flex-1 items-center justify-center overflow-hidden">
                 <div
                   className={[
-                    "pointer-events-none absolute bottom-1 h-[12px] w-[40px] rounded-full opacity-80 mix-blend-screen transition-all duration-200",
+                    "pointer-events-none absolute bottom-0 h-[12px] w-[40px] translate-y-1/2 rounded-full opacity-80 mix-blend-screen transition-all duration-200",
                     isSelected ? "bg-[#FF973C] blur-[15px]" : "bg-[#D9D9D9] blur-[12px]",
                   ].join(" ")}
                   aria-hidden
                 />
                 <div
                   className={[
-                    "pointer-events-none absolute bottom-1 h-[3px] w-[40px] rounded-full mix-blend-screen transition-all duration-200",
-                    isSelected ? "bg-[#FF973C] blur-[4px]" : "bg-[#D9D9D9] blur-[3px]",
+                    "pointer-events-none absolute bottom-0 h-[3px] w-[40px] translate-y-1/2 rounded-full mix-blend-screen transition-all duration-200",
+                    isSelected ? "bg-[#FF973C] blur-[4px]" : "bg-[#D9D9D9] blur-[5px]",
                   ].join(" ")}
                   aria-hidden
                 />

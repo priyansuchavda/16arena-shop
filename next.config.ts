@@ -12,6 +12,9 @@ function getRewriteDestination(): string | null {
 }
 
 const nextConfig: NextConfig = {
+  // Allow the dev server to be accessed over the LAN IP (e.g. testing on a
+  // phone / another device) without HMR cross-origin warnings.
+  allowedDevOrigins: ["192.168.29.239"],
   images: {
     remotePatterns: [
       {

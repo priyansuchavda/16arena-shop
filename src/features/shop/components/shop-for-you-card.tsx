@@ -23,9 +23,19 @@ function footerColor(product: CardModel): string {
   return lerpToBlack(base, 0.62);
 }
 
+/** Prefix a bare hex ("81A600") with "#"; pass through rgb()/named/#-prefixed as-is. */
+function normalizeColor(color: string): string {
+  const c = color.trim();
+  return /^[0-9a-fA-F]{3,8}$/.test(c) ? `#${c}` : c;
+}
+
 export function ShopForYouCard({ product }: { product: CardModel }) {
   const caption = product.brand;
-  const footerFill = footerColor(product);
+  const imageSrc = product.featureImageUrl || product.imageUrl;
+  const footerText = product.featureLabel || product.name || product.brand;
+  const footerFill = product.featureColor
+    ? normalizeColor(product.featureColor)
+    : footerColor(product);
   const footerHeight = FOOTER_HEIGHT;
 
   return (
@@ -34,10 +44,10 @@ export function ShopForYouCard({ product }: { product: CardModel }) {
       className="shop-card-lift group relative flex h-[206px] w-[341px] shrink-0 flex-col overflow-hidden rounded-[10px] border border-white/10 bg-white/[0.05]"
     >
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        {product.imageUrl ? (
+        {imageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={product.imageUrl}
+            src={imageSrc}
             alt={caption}
             className="h-full w-full object-cover transition-opacity duration-300 group-hover:opacity-95"
           />
@@ -60,7 +70,7 @@ export function ShopForYouCard({ product }: { product: CardModel }) {
         style={{ height: footerHeight, backgroundColor: footerFill }}
       >
         <p className="font-heading absolute inset-x-2.5 top-1/2 line-clamp-2 -translate-y-1/2 text-center text-[13px] font-extrabold leading-[1.2] text-white">
-          {product.name || product.brand}
+          {footerText}
         </p>
       </div>
     </Link>

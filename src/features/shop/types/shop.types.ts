@@ -31,6 +31,12 @@ export type ApiProduct = {
   heroImageUrl: string | null;
   logoUrl: string | null;
   thumbnailImageUrl: string | null;
+  /** Full-bleed promo image used on featured / flash-deal cards. */
+  featuredImage?: string | null;
+  /** Bare or #-prefixed hex for the card's bottom label background, e.g. "81A600". */
+  featureColor?: string | null;
+  /** Label text shown on the card's bottom bar, e.g. "Buy Giftcard at 15% off". */
+  featureLabel?: string | null;
   cashbackPercent: number | null;
   savingsPercent: number | null;
   maxSavingsPercent: number | null;
@@ -83,6 +89,12 @@ export type CardModel = {
   accent: string;
   accent2: string;
   imageUrl?: string | null;
+  /** Full-bleed promo image (overrides imageUrl on featured / flash-deal cards). */
+  featureImageUrl?: string | null;
+  /** Hex color for the bottom label background. */
+  featureColor?: string | null;
+  /** Text shown on the bottom label bar. */
+  featureLabel?: string | null;
   priceStr: string;
   originalStr?: string;
   saveStr?: string;

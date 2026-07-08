@@ -1,9 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { categoryImageFor } from "@/features/shop/utils/category-icons";
 import { CategoryNavIcon } from "./category-nav-icon";
+
+/** Chip width (w-[81px]) and row gap (gap-3 = 12px) — used to fit chips without scrolling. */
+const CARD_WIDTH = 81;
+const CARD_GAP = 12;
 
 export type ShopCategoryChip = {
   label: string;
@@ -28,14 +32,48 @@ export function ShopCategoryCards({
   const modalCategories = allCategories ?? categories;
   const [isOpen, setIsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [totalSlots, setTotalSlots] = useState(Number.POSITIVE_INFINITY);
+
+  // Row list: featured (hero) categories first, then the rest of the full list.
+  // The row fills with as many as fit; the overflow lives in the View All modal.
+  const rowCategories = useMemo(() => {
+    const seen = new Set(categories.map((c) => c.slug));
+    return [...categories, ...modalCategories.filter((c) => !seen.has(c.slug))];
+  }, [categories, modalCategories]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const recompute = () => {
+      const width = el.clientWidth;
+      if (!width) return;
+      setTotalSlots(
+        Math.max(1, Math.floor((width + CARD_GAP) / (CARD_WIDTH + CARD_GAP))),
+      );
+    };
+
+    recompute();
+    const observer = new ResizeObserver(recompute);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Fill the row; only reserve a slot for "View All" when something overflows.
+  const overflowing = rowCategories.length > totalSlots;
+  const visibleCount = overflowing
+    ? Math.max(0, totalSlots - 1)
+    : rowCategories.length;
+  const visibleCategories = rowCategories.slice(0, visibleCount);
+  const showViewAll = visibleCount < rowCategories.length;
 
   return (
     <>
       <div
         ref={scrollRef}
-        className="shop-scroll flex min-w-0 w-full gap-3 overflow-x-auto py-1 select-none"
+        className="flex min-w-0 w-full gap-3 overflow-hidden py-1 select-none"
       >
-        {categories.map((category) => {
+        {visibleCategories.map((category) => {
           const isSelected = category.slug === selectedSlug;
           const image = categoryImageFor(category.slug, category.label);
 
@@ -103,6 +141,7 @@ export function ShopCategoryCards({
           );
         })}
 
+        {showViewAll && (
         <button
           type="button"
           onClick={() => setIsOpen(true)}
@@ -133,6 +172,7 @@ export function ShopCategoryCards({
             View All
           </div>
         </button>
+        )}
       </div>
 
       {/* Bottom Popup Dialog */}

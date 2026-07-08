@@ -6,6 +6,7 @@ import { ShopLayout } from "./shop-layout";
 import { HeroCarousel, type HeroSlide } from "./hero-carousel";
 import { ScrollRow } from "./scroll-row";
 import { ShopCategoryCards } from "./shop-category-cards";
+import { FlashDealsSection } from "./flash-deals-section";
 import { ShopCategoryView } from "./shop-category-view";
 import { ShopCategorySectionCard } from "./shop-category-section-card";
 import {
@@ -109,7 +110,25 @@ export function ShopShell({
     return forYouFromCards(allCards);
   }, [featuredCards, allCards]);
 
-
+  // Flash-deal banner config comes from the "Deal" mobile section (its `desc`
+  // is a JSON blob). Null when the section is absent/hidden → no flash deals.
+  const dealConfig = useMemo(() => {
+    const deal = sections.find(
+      (s) => s.name?.toLowerCase() === "deal" && s.isVisible && s.isActive !== false
+    );
+    if (!deal?.desc) return null;
+    try {
+      const parsed = JSON.parse(deal.desc) as Record<string, string>;
+      return {
+        banner: parsed.desktop_banner || parsed.banner,
+        title: parsed.title,
+        headline: parsed.headline,
+        color: parsed.color,
+      };
+    } catch {
+      return null;
+    }
+  }, [sections]);
 
   const slugs = useMemo(() => categorySlugMap(categories), [categories]);
 
@@ -188,10 +207,24 @@ export function ShopShell({
           </div>
         );
       } else if (name === "featured_card") {
-        if (forYou.length > 0) {
+        // Only render the flash-deal banner when the "Deal" section is on.
+        if (dealConfig && forYou.length > 0) {
           list.push(
             <div key={sec.id || `foryou-${idx}`} className="animate-fade-in">
-              <ScrollRow title="For You" items={forYou} card="forYou" />
+              <FlashDealsSection
+                items={forYou}
+                title={dealConfig.title}
+                ctaLabel={dealConfig.headline}
+                bannerUrl={dealConfig.banner}
+                ctaColor={dealConfig.color}
+                onCtaClick={() => {
+                  setActiveSlug(ALL_CATEGORY_SLUG);
+                  setSearchQuery("");
+                  if (typeof window !== "undefined") {
+                    window.history.replaceState(null, "", window.location.pathname);
+                  }
+                }}
+              />
             </div>
           );
         }

@@ -12,17 +12,18 @@ type CategoryNavIconProps = {
 
 export function CategoryNavIcon({ slug, label, active = false, size = 32, iconUrl }: CategoryNavIconProps) {
   if (iconUrl) {
+    // API icons can be non-square; render contained in a fixed box so the
+    // aspect ratio is preserved (and `fill` avoids Next's width/height warning).
     return (
-      <Image
-        src={iconUrl}
-        alt={label}
-        width={size}
-        height={size}
+      <span
         className={[
-          "object-contain transition-transform duration-200",
+          "relative inline-block shrink-0 transition-transform duration-200",
           active ? "scale-105" : "",
         ].join(" ")}
-      />
+        style={{ width: size, height: size }}
+      >
+        <Image src={iconUrl} alt={label} fill sizes={`${size}px`} className="object-contain" />
+      </span>
     );
   }
 

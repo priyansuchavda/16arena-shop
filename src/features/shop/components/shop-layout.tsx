@@ -194,12 +194,29 @@ function ShopTopBar({
 
   return (
     <div
-      className={[
-        "sticky top-0 z-40 shrink-0 px-5 pb-2 pt-5 lg:px-10 lg:pt-7",
-        categoryMode ? "bg-transparent" : "bg-transparent backdrop-blur-[2px]",
-      ].join(" ")}
+      className="sticky top-0 z-40 shrink-0 px-5 pb-7 pt-5 lg:px-10 lg:pt-7"
+      style={
+        categoryMode
+          ? undefined
+          : {
+              background:
+                "linear-gradient(to bottom, var(--void) 0%, var(--void) 34%, color-mix(in srgb, var(--void) 92%, transparent) 55%, color-mix(in srgb, var(--void) 62%, transparent) 73%, color-mix(in srgb, var(--void) 26%, transparent) 89%, transparent 100%)",
+            }
+      }
     >
-      <div className="shop-content-width flex items-center justify-between gap-4">
+      {!categoryMode && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 backdrop-blur-md"
+          style={{
+            WebkitMaskImage:
+              "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.98) 30%, rgba(0,0,0,0.84) 52%, rgba(0,0,0,0.52) 70%, rgba(0,0,0,0.22) 86%, rgba(0,0,0,0) 100%)",
+            maskImage:
+              "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.98) 30%, rgba(0,0,0,0.84) 52%, rgba(0,0,0,0.52) 70%, rgba(0,0,0,0.22) 86%, rgba(0,0,0,0) 100%)",
+          }}
+        />
+      )}
+      <div className="relative z-10 shop-content-width flex items-center justify-between gap-4">
         {/* Left Section: Logo */}
         <div className="flex lg:flex-1 justify-start shrink-0">
           <ArenaLogo className="shrink-0 cursor-pointer" height={28} onClick={onSelectAll} />

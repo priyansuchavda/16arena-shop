@@ -85,11 +85,21 @@ export function ShopShell({
 
   const heroChipCategories = useMemo(() => {
     const hotDeals = { label: "Hot Deals", slug: "hot-deals", iconUrl: null as string | null };
-    const heroCats = flattenCategories(categories)
-      .filter((c) => c.isActive && c.isHero)
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((c) => ({ label: c.name, slug: c.slug, iconUrl: c.iconUrl }));
-    return [hotDeals, ...heroCats];
+    const allCats = flattenCategories(categories).filter((c) => c.isActive && c.slug !== "hot-deals");
+    
+    const sortedCats = [...allCats].sort((a, b) => {
+      if (a.isHero && !b.isHero) return -1;
+      if (!a.isHero && b.isHero) return 1;
+      return a.sortOrder - b.sortOrder;
+    });
+
+    const mappedCats = sortedCats.map((c) => ({
+      label: c.name,
+      slug: c.slug,
+      iconUrl: c.iconUrl,
+    }));
+
+    return [hotDeals, ...mappedCats];
   }, [categories]);
 
   const allChipCategories = useMemo(() => {

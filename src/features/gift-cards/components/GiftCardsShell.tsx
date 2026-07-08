@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ShopAccountShell } from "@/features/shop/components/shop-account-shell";
-import { STATIC_GIFT_CARDS } from "../data/static-gift-cards";
 import { GiftCardRow } from "./gift-card-row";
 import { CreditCard, Wallet, CheckCircle2, Clock, Loader2 } from "lucide-react";
 import { shopApi } from "@/features/shop";
@@ -100,8 +99,7 @@ export function GiftCardsShell() {
     }
   }
 
-  // Fallback to static cards only if the API returns no fulfilled orders (for initial dev / empty db state)
-  const giftCardsToRender = dynamicGiftCards.length > 0 ? dynamicGiftCards : STATIC_GIFT_CARDS;
+  const giftCardsToRender = dynamicGiftCards;
 
   const activeCards = giftCardsToRender.filter((card) => card.status === "active");
   const expiredCards = giftCardsToRender.filter((card) => card.status === "expired");

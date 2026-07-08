@@ -996,7 +996,12 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
       {selectedSku && (
         <PaymentSummarySheet
           open={paymentSheetOpen}
-          onClose={() => setPaymentSheetOpen(false)}
+          onClose={() => {
+            setPaymentSheetOpen(false);
+            setCheckoutPreview(null);
+            setCartItemIds(null);
+            cartSyncedRef.current = false;
+          }}
           product={product}
           sku={selectedSku}
           quantity={cartQuantity}

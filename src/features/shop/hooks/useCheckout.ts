@@ -53,6 +53,7 @@ export const useCheckout = () => {
   const user = useAuthStore((state) => state.user);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsResync, setNeedsResync] = useState(false);
 
   const navigateToSuccess = useCallback(
     (orderId: string) => {
@@ -151,27 +152,34 @@ export const useCheckout = () => {
     async (params: CheckoutParams) => {
       setLoading(true);
       setError(null);
+      let orderId: string | null = null;
 
       try {
         const cartAlreadySynced =
+          !needsResync &&
           !params.isCartCheckout &&
           Array.isArray(params.cartItemIds) &&
           params.cartItemIds.length > 0;
+
+        let currentCartItemIds = params.cartItemIds;
 
         if (!params.isCartCheckout && !cartAlreadySynced) {
           if (!params.skuId) {
             throw new Error("SKU is required for checkout.");
           }
-          await shopApi.addToCart(
+          const cart = await shopApi.addToCart(
             params.skuId,
             params.quantity,
             params.customVoucherAmount,
             params.deliveryInfo
           );
+          if (cart && Array.isArray(cart.items)) {
+            currentCartItemIds = cart.items.map((item) => item.id).filter(Boolean);
+          }
         }
 
         let checkoutRequest = buildCheckoutRequest({
-          cartItemIds: params.isCartCheckout ? null : params.cartItemIds ?? null,
+          cartItemIds: params.isCartCheckout ? null : currentCartItemIds ?? null,
           coinsToRedeem: params.coinsToRedeem,
           useWalletCredits: params.useWalletCredits,
           walletCreditsToUse: params.walletCreditsToUse,
@@ -186,7 +194,7 @@ export const useCheckout = () => {
 
         const createdOrder = await shopApi.placeOrder(checkoutRequest);
 
-        const orderId = createdOrder.id;
+        orderId = createdOrder.id;
         if (!orderId) {
           throw new Error("Failed to create order. Please try again.");
         }
@@ -204,12 +212,20 @@ export const useCheckout = () => {
 
         navigateToSuccess(orderId);
       } catch (err) {
+        if (orderId) {
+          setNeedsResync(true);
+          try {
+            await shopApi.cancelOrder(orderId);
+          } catch (cancelErr) {
+            console.error("Failed to cancel order after payment error:", cancelErr);
+          }
+        }
         setError(getApiErrorMessage(err, "Checkout failed. Please try again."));
       } finally {
         setLoading(false);
       }
     },
-    [navigateToSuccess, openRazorpayCheckout]
+    [navigateToSuccess, openRazorpayCheckout, needsResync]
   );
 
   return {

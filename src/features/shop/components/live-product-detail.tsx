@@ -217,15 +217,42 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     return true;
   };
 
-  const buildPreviewRequest = (couponCodeOverride?: string | null) =>
-    buildCheckoutRequest({
+  const getCoinsToRedeem = (coinsOverride?: number | null) => {
+    if (coinsOverride !== undefined && coinsOverride !== null) {
+      if (coinsOverride <= 0) return 0;
+      return Math.min(coinsOverride, optimalCoins);
+    }
+    return coinsToRedeem;
+  };
+
+  const getCappedCoins = (coinsOverride?: number | null) => {
+    const requested = getCoinsToRedeem(coinsOverride);
+    return capCoinsToRedeem({
+      requested,
+      coinsBalance,
+      maxCoinsAllowed: ruleCoinCap,
+    });
+  };
+
+  const buildPreviewRequest = (
+    couponCodeOverride?: string | null,
+    coinsOverride?: number | null
+  ) => {
+    const finalCoins = getCappedCoins(coinsOverride);
+    const finalAllowHybrid = resolveAllowHybridInrPayment({
+      coinsToRedeem: finalCoins,
+      maxCoinsAllowed: ruleCoinCap,
+      paymentRules,
+    });
+    return buildCheckoutRequest({
       cartItemIds: null,
-      coinsToRedeem: cappedCoinsToRedeem,
+      coinsToRedeem: finalCoins,
       couponCode: couponCodeOverride !== undefined ? couponCodeOverride : appliedCoupon,
-      allowHybridInrPayment,
+      allowHybridInrPayment: finalAllowHybrid,
       quantity: cartQuantity,
       isSquad: cartQuantity >= 5,
     });
+  };
 
   const applyPreviewResult = (preview: CheckoutPreview) => {
     setCheckoutPreview(preview);
@@ -240,10 +267,11 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   };
 
   const requestCheckoutPreview = async (
-    couponCodeOverride?: string | null
+    couponCodeOverride?: string | null,
+    coinsOverride?: number | null
   ): Promise<CheckoutPreview | null> => {
     const preview = await previewCheckoutWithHybridRetry(
-      buildPreviewRequest(couponCodeOverride),
+      buildPreviewRequest(couponCodeOverride, coinsOverride),
       (request) => shopApi.checkoutPreview(request)
     );
     applyPreviewResult(preview);
@@ -259,7 +287,9 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     }
   };
 
-  const syncCartAndPreview = async (): Promise<CheckoutPreview | null> => {
+  const syncCartAndPreview = async (
+    coinsOverride: number | null = null
+  ): Promise<CheckoutPreview | null> => {
     if (!canFetchCheckoutPreview() || !selectedSku) return null;
 
     setPreviewLoading(true);
@@ -284,7 +314,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
       await revalidateCouponIfNeeded();
 
-      return await requestCheckoutPreview();
+      return await requestCheckoutPreview(undefined, coinsOverride);
     } catch (err: unknown) {
       const message =
         err instanceof Error
@@ -298,14 +328,16 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     }
   };
 
-  const previewCheckoutOnly = async (): Promise<CheckoutPreview | null> => {
+  const previewCheckoutOnly = async (
+    coinsOverride: number | null = null
+  ): Promise<CheckoutPreview | null> => {
     if (!canFetchCheckoutPreview() || !cartSyncedRef.current) return null;
 
     setPreviewLoading(true);
     setPreviewError(null);
 
     try {
-      return await requestCheckoutPreview();
+      return await requestCheckoutPreview(undefined, coinsOverride);
     } catch (err: unknown) {
       const message =
         err instanceof Error
@@ -349,11 +381,15 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
   const loadPreview = async ({
     syncCart = false,
-  }: { syncCart?: boolean } = {}): Promise<CheckoutPreview | null> => {
+    coinsOverride = null,
+  }: {
+    syncCart?: boolean;
+    coinsOverride?: number | null;
+  } = {}): Promise<CheckoutPreview | null> => {
     if (syncCart || !cartSyncedRef.current) {
-      return syncCartAndPreview();
+      return syncCartAndPreview(coinsOverride);
     }
-    return previewCheckoutOnly();
+    return previewCheckoutOnly(coinsOverride);
   };
 
   // Reset cart sync when selection changes; debounced sync+preview (mobile _schedulePreview).
@@ -1045,7 +1081,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           setShowEditCoinsModal(false);
           setCustomCoins(coins);
           setApplyCoins(coins > 0);
-          void loadPreview();
+          void loadPreview({ coinsOverride: coins });
         }}
       />
     </div>

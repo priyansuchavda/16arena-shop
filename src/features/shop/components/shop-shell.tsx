@@ -22,6 +22,7 @@ import {
   withActiveCategory,
 } from "@/features/shop/utils/shop-catalog";
 import { flattenCategories, apiToCard, categorySlugMap } from "@/features/shop/utils/mappers";
+import { shopApi } from "../services/shop-api";
 
 type ShopShellProps = {
   categories: ApiCategory[];
@@ -46,6 +47,8 @@ export function ShopShell({
 }: ShopShellProps) {
   const [activeSlug, setActiveSlug] = useState(ALL_CATEGORY_SLUG);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<CardModel[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   const searchParams = useSearchParams();
   const qParam = searchParams.get("q");
@@ -164,17 +167,56 @@ export function ShopShell({
 
   const slugs = useMemo(() => categorySlugMap(categories), [categories]);
 
-  // Search filter results
-  const searchResults = useMemo(() => {
-    if (!searchQuery) return [];
-    const q = searchQuery.toLowerCase().trim();
-    return allCards.filter(
+  // Debounced search logic querying the backend API
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+
+    // Filter in-memory products first as a fast fallback
+    const localMatches = allCards.filter(
       (card) =>
-        card.brand.toLowerCase().includes(q) ||
-        (card.name && card.name.toLowerCase().includes(q)) ||
-        (card.sub && card.sub.toLowerCase().includes(q))
+        card.brand.toLowerCase().includes(trimmed.toLowerCase()) ||
+        (card.name && card.name.toLowerCase().includes(trimmed.toLowerCase())) ||
+        (card.sub && card.sub.toLowerCase().includes(trimmed.toLowerCase()))
     );
-  }, [allCards, searchQuery]);
+    setSearchResults(localMatches);
+
+    if (trimmed.length < 3) {
+      setSearchLoading(false);
+      return;
+    }
+
+    setSearchLoading(true);
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        const liveProducts = await shopApi.searchProducts(trimmed);
+        const liveCards = liveProducts
+          .filter((p) => p.isActive !== false)
+          .map((p) => apiToCard(p, slugs));
+
+        // Merge live results with local matches, avoiding duplicates by id
+        const merged = [...liveCards];
+        const seenIds = new Set(liveCards.map((c) => c.id));
+        localMatches.forEach((card) => {
+          if (!seenIds.has(card.id)) {
+            merged.push(card);
+          }
+        });
+
+        setSearchResults(merged);
+      } catch (err) {
+        console.error("Search API error:", err);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, allCards, slugs]);
 
   // Dynamic layout rendering mapper
   const renderDynamicSections = () => {
@@ -300,9 +342,14 @@ export function ShopShell({
     >
       {searchQuery ? (
         <div className="animate-fade-in relative z-10 pt-6">
-          <h2 className="font-heading text-[20px] font-extrabold text-white mb-6">
-            Search Results for &apos;{searchQuery}&apos;
-          </h2>
+          <div className="flex items-center gap-3 mb-6">
+            <h2 className="font-heading text-[20px] font-extrabold text-white">
+              Search Results for &apos;{searchQuery}&apos;
+            </h2>
+            {searchLoading && (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+            )}
+          </div>
           {searchResults.length > 0 ? (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-x-4 gap-y-8">
               {searchResults.map((card, i) => (
@@ -310,6 +357,10 @@ export function ShopShell({
                   <ShopCategorySectionCard product={card} />
                 </div>
               ))}
+            </div>
+          ) : searchLoading ? (
+            <div className="text-center py-16 border border-white/5 bg-[#121212]/30 rounded-2xl">
+              <p className="text-sm text-[var(--muted)]">Searching for gift cards...</p>
             </div>
           ) : (
             <div className="text-center py-16 border border-white/5 bg-[#121212]/30 rounded-2xl">

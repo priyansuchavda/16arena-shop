@@ -39,6 +39,7 @@ export const shopApi = {
   fetchWalletBalance: shopWalletService.getArenaCreditsBalance,
   getCoinsBalance: shopWalletService.getCoinsBalance,
   getArenaCreditsBalance: shopWalletService.getArenaCreditsBalance,
+  fetchWalletTransactions: shopWalletService.getWalletTransactions,
 
   getMyCoupons: shopCouponsService.getMyCoupons,
   validateCoupon: shopCouponsService.validateCoupon,

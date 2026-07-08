@@ -1,9 +1,13 @@
 import Image from "next/image";
+import Link from "next/link";
 import coinImg from "@/assets/png/coin.png";
 
 export function WalletCoinChip({ balance }: { balance: number }) {
   return (
-    <div className="shop-pill relative inline-flex h-[42px] shrink-0 items-center gap-2 border border-white/10 bg-white/[0.03] py-1 pl-1 pr-4">
+    <Link 
+      href="/transactions"
+      className="shop-pill relative inline-flex h-[42px] shrink-0 items-center gap-2 border border-white/10 bg-white/[0.03] py-1 pl-1 pr-4 cursor-pointer transition-all hover:bg-white/[0.08] hover:border-white/20 active:scale-95"
+    >
       <span className="relative flex h-8 w-8 shrink-0 items-center justify-center">
         <Image
           src={coinImg}
@@ -16,6 +20,7 @@ export function WalletCoinChip({ balance }: { balance: number }) {
       <span className="font-data text-[14px] font-semibold leading-none tabular-nums text-white">
         {balance.toLocaleString("en-IN")}
       </span>
-    </div>
+    </Link>
   );
 }
+

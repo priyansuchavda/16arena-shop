@@ -99,7 +99,7 @@ export const shopCatalogService = {
   checkShopVisibility: async (): Promise<ShopVisibility> => {
     try {
       const { data } = await apiClient.get<{ data?: unknown[] }>(
-        "/v1/MobileSection/getAllSections?page=shop&type=shop"
+        "/v1/MobileSection/getAllSections?page=shop&type=shop"  
       );
       const sections = data?.data ?? [];
       return { visible: sections.length > 0 };

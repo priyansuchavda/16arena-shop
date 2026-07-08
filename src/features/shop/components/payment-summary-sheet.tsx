@@ -54,10 +54,17 @@ export function PaymentSummarySheet({
   cartItemIds = null,
   isCartCheckout = false,
 }: PaymentSummarySheetProps) {
-  const { handleCheckout, loading, error } = useCheckout();
+  const {
+    handleCheckout,
+    cancelPendingOrder,
+    loading,
+    error,
+    pendingOrderId,
+  } = useCheckout();
   const [preview, setPreview] = useState<CheckoutPreview | null>(initialPreview ?? null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
   const previewFetchedRef = useRef(false);
 
   const isFlexible = isFlexibleSkuSelection(sku);
@@ -196,7 +203,8 @@ export function PaymentSummarySheet({
   ]);
 
   const totalPayable = preview?.totalPayable ?? fallbackSubtotal;
-  const payLabel = payButtonLabel(totalPayable);
+  const awaitingRetry = Boolean(pendingOrderId);
+  const payLabel = awaitingRetry ? "Retry payment" : payButtonLabel(totalPayable);
   const displayCoinsSpent = preview?.coinsSpent ?? coinsToRedeem;
 
   const fallbackG = useMemo(() => gradientFor(product.brandName ?? product.name), [product]);
@@ -219,6 +227,21 @@ export function PaymentSummarySheet({
     (hybridBlocked ? "Partial coin payment is not available for this item." : null);
 
   const onPay = () => {
+    if (awaitingRetry) {
+      handleCheckout({
+        skuId: sku.id,
+        quantity,
+        coinsToRedeem,
+        couponCode,
+        customVoucherAmount: isFlexible ? customVoucherAmount : null,
+        allowHybridInrPayment,
+        productName: product.name,
+        cartItemIds: isCartCheckout ? null : cartItemIds,
+        isCartCheckout,
+        previewHint: preview,
+      });
+      return;
+    }
     if (disabledReason || previewLoading || previewError || !preview) return;
     handleCheckout({
       skuId: sku.id,
@@ -234,6 +257,21 @@ export function PaymentSummarySheet({
     });
   };
 
+  const handleClose = async () => {
+    if (loading || closing) return;
+    if (pendingOrderId) {
+      setClosing(true);
+      try {
+        await cancelPendingOrder(pendingOrderId);
+      } catch {
+        // Still close — order may already be cancelled server-side.
+      } finally {
+        setClosing(false);
+      }
+    }
+    onClose();
+  };
+
   if (!open) return null;
 
   return (
@@ -242,13 +280,14 @@ export function PaymentSummarySheet({
         type="button"
         className="absolute inset-0"
         aria-label="Close payment summary"
-        onClick={onClose}
+        onClick={() => void handleClose()}
       />
       <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-t-3xl border border-white/10 bg-[#161616] shadow-2xl sm:rounded-3xl">
         <button
           type="button"
-          onClick={onClose}
-          className="absolute top-4 right-4 z-20 rounded-lg p-2 text-white/50 hover:bg-white/10 hover:text-white"
+          onClick={() => void handleClose()}
+          disabled={loading || closing}
+          className="absolute top-4 right-4 z-20 rounded-lg p-2 text-white/50 hover:bg-white/10 hover:text-white disabled:opacity-50"
         >
           <X className="h-5 w-5" />
         </button>
@@ -278,16 +317,17 @@ export function PaymentSummarySheet({
           >
             {/* Specular Sheen Reflections Overlay */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden select-none z-0 opacity-40">
-              <div 
+              <div
                 className="absolute rounded-full"
                 style={{
-                  left: '20%',
-                  top: '38%',
-                  width: '140%',
-                  height: '34%',
-                  transform: 'rotate(45deg)',
-                  filter: 'blur(21px)',
-                  background: 'linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.36) 50%, rgba(255,255,255,0) 100%)',
+                  left: "20%",
+                  top: "38%",
+                  width: "140%",
+                  height: "34%",
+                  transform: "rotate(45deg)",
+                  filter: "blur(21px)",
+                  background:
+                    "linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.36) 50%, rgba(255,255,255,0) 100%)",
                 }}
               />
             </div>
@@ -319,7 +359,11 @@ export function PaymentSummarySheet({
                   Voucher worth
                 </span>
                 <span className="text-2xl font-bold text-white tracking-tight mt-0.5 leading-none">
-                  ₹{(isFlexible ? (customVoucherAmount ?? 0) : sku.faceValue ?? sku.unitAmount ?? 0).toLocaleString("en-IN")}
+                  ₹
+                  {(isFlexible
+                    ? (customVoucherAmount ?? 0)
+                    : sku.faceValue ?? sku.unitAmount ?? 0
+                  ).toLocaleString("en-IN")}
                 </span>
               </div>
             </div>
@@ -328,11 +372,20 @@ export function PaymentSummarySheet({
           {/* Title and Green discount text */}
           <div className="flex flex-col gap-1">
             <h3 className="text-lg font-extrabold text-white font-sans">
-              ₹{(isFlexible ? (customVoucherAmount ?? 0) : sku.faceValue ?? sku.unitAmount ?? 0).toLocaleString("en-IN")} {product.brandName ?? product.name} card
+              ₹
+              {(isFlexible
+                ? (customVoucherAmount ?? 0)
+                : sku.faceValue ?? sku.unitAmount ?? 0
+              ).toLocaleString("en-IN")}{" "}
+              {product.brandName ?? product.name} card
             </h3>
             {instantDiscountPercent > 0 ? (
               <span className="text-xs font-bold text-[#25C26E] font-sans">
-                Getting for ₹{baseDiscountedPrice.toLocaleString("en-IN")} <span className="line-through text-white/40 ml-1">₹{subtotalVal.toLocaleString("en-IN")}</span> ({instantDiscountPercent}%off)
+                Getting for ₹{baseDiscountedPrice.toLocaleString("en-IN")}{" "}
+                <span className="line-through text-white/40 ml-1">
+                  ₹{subtotalVal.toLocaleString("en-IN")}
+                </span>{" "}
+                ({instantDiscountPercent}%off)
               </span>
             ) : (
               <span className="text-xs font-bold text-white/40 font-sans">
@@ -346,12 +399,16 @@ export function PaymentSummarySheet({
             <h4 className="text-sm font-bold text-white uppercase tracking-wider">Summary</h4>
             <div className="border-t border-white/10 my-0.5" />
             <div className="flex flex-col gap-3">
-              {/* Row 1: Brand card worth */}
               <div className="flex justify-between items-start text-sm">
                 <div className="flex flex-col">
                   <span className="text-white font-medium">Brand card worth</span>
                   <span className="text-xs text-white/40 font-medium mt-0.5">
-                    ₹{(isFlexible ? (customVoucherAmount ?? 0) : sku.faceValue ?? sku.unitAmount ?? 0).toLocaleString("en-IN")} card x{quantity}
+                    ₹
+                    {(isFlexible
+                      ? (customVoucherAmount ?? 0)
+                      : sku.faceValue ?? sku.unitAmount ?? 0
+                    ).toLocaleString("en-IN")}{" "}
+                    card x{quantity}
                   </span>
                 </div>
                 <span className="text-white font-bold">
@@ -359,7 +416,6 @@ export function PaymentSummarySheet({
                 </span>
               </div>
 
-              {/* Row 2: Instant Discount (Regular discount + Coupon) */}
               {instantDiscountVal > 0 && (
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-[#25C26E] font-medium">Instant Discount</span>
@@ -369,25 +425,29 @@ export function PaymentSummarySheet({
                 </div>
               )}
 
-              {/* Row 3: Instant Discount with Coins */}
               {displayCoinsSpent > 0 && (preview?.coinsDiscount ?? 0) > 0 && (
                 <div className="flex justify-between items-center text-sm">
                   <div className="flex items-center gap-1 text-[#25C26E] font-medium">
                     <span>Instant Discount with</span>
-                    <Image src={coinImg} alt="" width={14} height={14} className="object-contain shrink-0" />
+                    <Image
+                      src={coinImg}
+                      alt=""
+                      width={14}
+                      height={14}
+                      className="object-contain shrink-0"
+                    />
                     <span>{displayCoinsSpent.toLocaleString("en-IN")}</span>
                   </div>
                   <span className="text-white font-medium">
-                    -₹{preview?.coinsDiscount?.toLocaleString("en-IN") ?? "0"} ({coinDiscountPercent}%)
+                    -₹{preview?.coinsDiscount?.toLocaleString("en-IN") ?? "0"} (
+                    {coinDiscountPercent}%)
                   </span>
                 </div>
               )}
             </div>
 
-            {/* Divider */}
             <div className="border-t border-white/10 my-1" />
 
-            {/* Row 4: You pay only */}
             <div className="flex justify-between items-center text-base font-bold">
               <span className="text-white">You pay only</span>
               <span className="text-white text-lg">
@@ -396,47 +456,50 @@ export function PaymentSummarySheet({
             </div>
           </div>
 
+          {awaitingRetry && displayCoinsSpent > 0 && (
+            <p className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-200">
+              Arena Coins stay on this order until you complete payment or cancel. Closing cancels
+              the order and releases your coins.
+            </p>
+          )}
+
           {error && (
             <p className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">
               {error}
             </p>
           )}
-          {disabledReason && (
+          {disabledReason && !awaitingRetry && (
             <p className="text-sm text-amber-300">{disabledReason}</p>
           )}
         </div>
 
-        <div className="p-5">
+        <div className="p-5 flex flex-col gap-3">
           <SlantedButton
             type="button"
             onClick={onPay}
-            disabled={previewLoading || !!disabledReason || !!previewError || !preview}
+            disabled={
+              loading ||
+              closing ||
+              (!awaitingRetry &&
+                (previewLoading || !!disabledReason || !!previewError || !preview))
+            }
             isLoading={loading}
             className="w-full h-12 uppercase text-xs"
           >
             {payLabel}
           </SlantedButton>
+          {awaitingRetry && (
+            <button
+              type="button"
+              onClick={() => void handleClose()}
+              disabled={loading || closing}
+              className="w-full rounded-xl border border-white/15 py-3 text-xs font-bold uppercase tracking-wide text-white/70 transition hover:bg-white/5 disabled:opacity-50"
+            >
+              {closing ? "Cancelling…" : "Cancel order"}
+            </button>
+          )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function Row({
-  label,
-  value,
-  accent,
-  bold,
-}: {
-  label: string;
-  value: string;
-  accent?: string;
-  bold?: boolean;
-}) {
-  return (
-    <div className={`flex justify-between ${accent ?? "text-white/70"}`}>
-      <span>{label}</span>
-      <span className={bold ? "font-black text-white" : "font-semibold"}>{value}</span>
     </div>
   );
 }

@@ -392,6 +392,12 @@ export function payButtonLabel(totalPayable: number): string {
   return `Pay ${formatInr(totalPayable)}`;
 }
 
+/** True when the order can still be paid (or cancelled) from history/detail. */
+export function canCompleteOrCancelPayment(status: string): boolean {
+  const s = status.toLowerCase();
+  return s === "pending" || s === "payment_initiated";
+}
+
 /** Matches mobile ShopService.buyDisabledReason. */
 export function buyDisabledReason({
   sku,

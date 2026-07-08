@@ -13,15 +13,19 @@ export type ShopCategoryChip = {
 
 type ShopCategoryCardsProps = {
   categories: ShopCategoryChip[];
+  /** Full category list shown in the View All modal. Defaults to `categories`. */
+  allCategories?: ShopCategoryChip[];
   selectedSlug: string;
   onCategoryTap: (slug: string) => void;
 };
 
 export function ShopCategoryCards({
   categories,
+  allCategories,
   selectedSlug,
   onCategoryTap,
 }: ShopCategoryCardsProps) {
+  const modalCategories = allCategories ?? categories;
   const [isOpen, setIsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -138,40 +142,42 @@ export function ShopCategoryCards({
           onClick={() => setIsOpen(false)}
         >
           <div
-            className="w-full max-w-[380px] bg-[#141414] border border-white/10 rounded-[28px] p-6 mb-6 shadow-2xl animate-in slide-in-from-bottom-8 duration-300"
+            className="w-full max-w-[380px] max-h-[min(80vh,640px)] flex flex-col bg-[#141414] border border-white/10 rounded-[28px] p-6 mb-6 shadow-2xl animate-in slide-in-from-bottom-8 duration-300"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="grid grid-cols-3 gap-x-3 gap-y-8">
-              {categories.map((c) => {
-                const isSelected = c.slug === selectedSlug;
-                return (
-                  <button
-                    key={c.slug}
-                    type="button"
-                    onClick={() => {
-                      onCategoryTap(c.slug);
-                      setIsOpen(false);
-                    }}
-                    className="flex flex-col items-center gap-2 text-center group focus:outline-none"
-                  >
-                    <span className="flex h-12 w-12 items-center justify-center transition-transform duration-200 group-hover:scale-105">
-                      <CategoryNavIcon
-                        slug={c.slug}
-                        label={c.label}
-                        active={isSelected}
-                        size={42}
-                        iconUrl={c.iconUrl}
-                      />
-                    </span>
-                    <span
-                      className="max-w-[90px] truncate text-[10px] font-bold uppercase tracking-wider transition-colors duration-200"
-                      style={{ color: isSelected ? "#FF973C" : "rgba(255, 255, 255, 0.75)" }}
+            <div className="shop-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+              <div className="grid grid-cols-3 gap-x-3 gap-y-8 pb-1">
+                {modalCategories.map((c) => {
+                  const isSelected = c.slug === selectedSlug;
+                  return (
+                    <button
+                      key={c.slug}
+                      type="button"
+                      onClick={() => {
+                        onCategoryTap(c.slug);
+                        setIsOpen(false);
+                      }}
+                      className="flex flex-col items-center gap-2 text-center group focus:outline-none"
                     >
-                      {c.label}
-                    </span>
-                  </button>
-                );
-              })}
+                      <span className="flex h-12 w-12 items-center justify-center transition-transform duration-200 group-hover:scale-105">
+                        <CategoryNavIcon
+                          slug={c.slug}
+                          label={c.label}
+                          active={isSelected}
+                          size={42}
+                          iconUrl={c.iconUrl}
+                        />
+                      </span>
+                      <span
+                        className="max-w-[90px] truncate text-[10px] font-bold uppercase tracking-wider transition-colors duration-200"
+                        style={{ color: isSelected ? "#FF973C" : "rgba(255, 255, 255, 0.75)" }}
+                      >
+                        {c.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>

@@ -83,7 +83,7 @@ export function ProfileChip() {
 
   const handleEditProfile = () => {
     setIsOpen(false);
-    openRegisterModal("/shop");
+    openRegisterModal("/");
   };
 
   if (!isAuthenticated || !user) {

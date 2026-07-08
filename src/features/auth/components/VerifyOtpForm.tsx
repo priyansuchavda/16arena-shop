@@ -14,7 +14,7 @@ export const VerifyOtpForm = () => {
   const phone = searchParams.get("phone") || "";
   const email = searchParams.get("email") || "";
   const otpToken = searchParams.get("token") || "";
-  const returnUrl = searchParams.get("returnUrl") || "/shop";
+  const returnUrl = searchParams.get("returnUrl") || "/";
 
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [error, setError] = useState("");

@@ -27,7 +27,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   const handleSuccess = (isProfileComplete: boolean) => {
     if (!isProfileComplete) {
-      openRegisterModal("/shop");
+      openRegisterModal("/");
     }
     onClose();
   };

@@ -228,7 +228,7 @@ export function CartShell() {
           Add a digital card from the shop to start checkout.
         </p>
         <Link
-          href="/shop"
+          href="/"
           className={buttonVariants({
             className:
               "mt-8 bg-[var(--flame)] hover:bg-[var(--flame)]/90 text-white font-medium px-6 py-6 h-auto rounded-xl flex items-center justify-center",
@@ -255,7 +255,7 @@ export function CartShell() {
               {cart.itemCount} item{cart.itemCount === 1 ? "" : "s"} ready for checkout
             </p>
           </div>
-          <Link href="/shop" className="text-sm text-[var(--flame)] hover:underline">
+          <Link href="/" className="text-sm text-[var(--flame)] hover:underline">
             Continue shopping
           </Link>
         </div>

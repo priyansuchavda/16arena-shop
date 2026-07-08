@@ -45,7 +45,7 @@ export function ArenaLogo({
   }
 
   return (
-    <Link href="/shop" className={classNames}>
+    <Link href="/" className={classNames}>
       {image}
     </Link>
   );

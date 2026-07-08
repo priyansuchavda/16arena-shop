@@ -10,7 +10,7 @@ export const LoginForm = () => {
   const searchParams = useSearchParams();
   const openRegisterModal = useAuthStore((state) => state.openRegisterModal);
   
-  const returnUrl = searchParams.get("returnUrl") || "/shop";
+  const returnUrl = searchParams.get("returnUrl") || "/";
 
   const handleSuccess = (isProfileComplete: boolean) => {
     if (!isProfileComplete) {
@@ -23,7 +23,7 @@ export const LoginForm = () => {
     <AuthCard
       onSuccess={handleSuccess}
       showCloseButton={true}
-      onClose={() => router.push("/shop")}
+      onClose={() => router.push("/")}
     />
   );
 };

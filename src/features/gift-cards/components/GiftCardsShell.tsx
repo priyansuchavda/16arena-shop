@@ -122,7 +122,7 @@ export function GiftCardsShell() {
       <div className="mx-auto w-full max-w-[1000px]">
         {/* Breadcrumb */}
         <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-[var(--muted)]">
-          <Link href="/shop" className="hover:text-white transition">Home</Link>
+          <Link href="/" className="hover:text-white transition">Home</Link>
           <span className="text-white/20">&gt;</span>
           <span className="text-white/60">My Gift Cards</span>
         </div>

@@ -39,6 +39,8 @@ export type ApiProduct = {
   isFeatured: boolean;
   isActive: boolean;
   wishlistCount24h: number | null;
+  showSku?: boolean;
+  skus?: ShopSku[];
 };
 
 export type ShopConfig = Record<string, unknown>;
@@ -432,4 +434,15 @@ export type OrderInvoice = {
     faceValue?: number;
   }>;
   [key: string]: unknown;
+};
+
+export type MobileBanner = {
+  id: string;
+  page: string;
+  type: string;
+  category: string;
+  isVisible: boolean;
+  priority: number;
+  image: string;
+  cta: string | null;
 };

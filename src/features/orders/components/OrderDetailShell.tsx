@@ -493,7 +493,7 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
 
               {/* Buy Again button */}
               <button
-                onClick={() => router.push("/shop")}
+                onClick={() => router.push("/")}
                 className="w-full rounded-xl bg-gradient-to-r from-[#ff973c] to-[#ff6a00] py-3.5 text-xs font-bold text-black transition active:scale-95 hover:opacity-90 mt-1"
               >
                 Buy Again

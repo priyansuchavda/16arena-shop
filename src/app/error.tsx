@@ -31,7 +31,7 @@ export default function Error({
           Try Again
         </button>
         <Link
-          href="/shop"
+          href="/"
           className="rounded-xl bg-gradient-to-r from-[#ff973c] to-[#ff6a00] px-5 py-2.5 text-xs font-bold text-black hover:opacity-95 transition active:scale-95"
         >
           Return to Shop

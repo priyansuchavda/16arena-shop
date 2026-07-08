@@ -1,16 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { ShopLayout } from "./shop-layout";
-import { categories as staticCategories } from "../services/product.service";
+import { shopApi } from "../services/shop-api";
+import { topCategories } from "../utils/mappers";
 import type { CategoryItem } from "../types/shop.types";
-
-const staticCategoryItems: CategoryItem[] = staticCategories.map((c) => ({
-  label: c.label,
-  slug: c.slug,
-  color: c.color,
-  active: false,
-}));
 
 type ShopAccountShellProps = {
   children: React.ReactNode;
@@ -24,13 +19,26 @@ export function ShopAccountShell({
   fullWidth = false,
 }: ShopAccountShellProps) {
   const router = useRouter();
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const cats = await shopApi.fetchCategories();
+        setCategories(topCategories(cats));
+      } catch (err) {
+        console.error("Failed to load categories in account layout:", err);
+      }
+    }
+    load();
+  }, []);
 
   return (
     <ShopLayout
-      categories={staticCategoryItems}
+      categories={categories}
       hideSidebar={hideSidebar}
       onSelectCategory={(slug) => router.push(`/shop/${slug}`)}
-      onSelectAll={() => router.push("/shop")}
+      onSelectAll={() => router.push("/")}
     >
       <div className={fullWidth ? "w-full pb-12 pt-1" : "mx-auto w-full max-w-[1200px] pb-12 pt-1"}>
         {children}

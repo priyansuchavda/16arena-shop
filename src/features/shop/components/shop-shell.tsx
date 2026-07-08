@@ -42,7 +42,7 @@ export function ShopShell({
   featuredCards,
   sections,
   categoryProductsMap,
-  slides: initialSlides,
+  slides,
   walletBalance,
 }: ShopShellProps) {
   const [activeSlug, setActiveSlug] = useState(ALL_CATEGORY_SLUG);
@@ -64,58 +64,17 @@ export function ShopShell({
     }
   }, [qParam]);
 
-  const slides = useMemo(() => {
-    // Static customizable slide 1 (Gaming)
-    const staticSlide1: HeroSlide = {
-      id: "static-promo-banner-1",
-      slug: "bgmi-uc",
-      eyebrow: "16ARENA TRUSTED STORE",
-      title: "ASDASD",
-      subtitle: "Get flat 15% off on gaming credits instantly.",
-      cta: "TOP UP NOW",
-      accent: "#FF973C",
-      accent2: "#FF973C",
-      imageUrl: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1800&q=80",
-    };
 
-    // Static customizable slide 2 (Food/Swiggy)
-    const staticSlide2: HeroSlide = {
-      id: "static-promo-banner-2",
-      slug: "swiggy",
-      eyebrow: "16ARENA TRUSTED STORE",
-      title: "SWIGGY DEALS",
-      subtitle: "Get flat 15% off on food orders instantly.",
-      cta: "ORDER NOW",
-      accent: "#FC8019",
-      accent2: "#FC8019",
-      imageUrl: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1800&q=80",
-    };
-
-    // Static customizable slide 3 (Music/Spotify)
-    const staticSlide3: HeroSlide = {
-      id: "static-promo-banner-3",
-      slug: "spotify",
-      eyebrow: "16ARENA TRUSTED STORE",
-      title: "SPOTIFY PREMIUM",
-      subtitle: "Get flat 15% off on music streaming subscriptions instantly.",
-      cta: "LISTEN NOW",
-      accent: "#1DB954",
-      accent2: "#1DB954",
-      imageUrl: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&w=1800&q=80",
-    };
-
-    return [staticSlide2, staticSlide3, staticSlide1];
-  }, []);
 
   const visibleCategories = useMemo(
     () => withActiveCategory(categoryItems, activeSlug),
     [categoryItems, activeSlug],
   );
 
-  const activeCategory = useMemo(
-    () => categoryItems.find((c) => c.slug === activeSlug),
-    [categoryItems, activeSlug],
-  );
+  const activeCategory = useMemo(() => {
+    const flat = flattenCategories(categories);
+    return flat.find((c) => c.slug === activeSlug);
+  }, [categories, activeSlug]);
 
   const filtered = useMemo(
     () => filterCardsByCategory(allCards, activeSlug),
@@ -124,7 +83,16 @@ export function ShopShell({
 
   const isHome = activeSlug === ALL_CATEGORY_SLUG;
 
-  const chipCategories = useMemo(() => {
+  const heroChipCategories = useMemo(() => {
+    const hotDeals = { label: "Hot Deals", slug: "hot-deals", iconUrl: null as string | null };
+    const heroCats = flattenCategories(categories)
+      .filter((c) => c.isActive && c.isHero)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((c) => ({ label: c.name, slug: c.slug, iconUrl: c.iconUrl }));
+    return [hotDeals, ...heroCats];
+  }, [categories]);
+
+  const allChipCategories = useMemo(() => {
     const hotDeals = { label: "Hot Deals", slug: "hot-deals", iconUrl: null as string | null };
     const rest = categoryItems
       .filter((c) => c.slug !== "hot-deals")
@@ -141,29 +109,7 @@ export function ShopShell({
     return forYouFromCards(allCards);
   }, [featuredCards, allCards]);
 
-  const travelCards = useMemo(() => {
-    const travelSlugs = ["makemytrip", "booking", "goibibo"];
-    const found = allCards.filter((card) => travelSlugs.includes(card.slug));
-    return [...found].sort((a, b) => travelSlugs.indexOf(a.slug) - travelSlugs.indexOf(b.slug));
-  }, [allCards]);
 
-  const foodCards = useMemo(() => {
-    const foodSlugs = ["swiggy", "zomato", "bigbasket"];
-    const found = allCards.filter((card) => foodSlugs.includes(card.slug));
-    return [...found].sort((a, b) => foodSlugs.indexOf(a.slug) - foodSlugs.indexOf(b.slug));
-  }, [allCards]);
-
-  const shoppingCards = useMemo(() => {
-    const shoppingSlugs = ["amazon", "flipkart", "ikea"];
-    const found = allCards.filter((card) => shoppingSlugs.includes(card.slug));
-    return [...found].sort((a, b) => shoppingSlugs.indexOf(a.slug) - shoppingSlugs.indexOf(b.slug));
-  }, [allCards]);
-
-  const musicCards = useMemo(() => {
-    const musicSlugs = ["spotify", "apple-music", "gaana"];
-    const found = allCards.filter((card) => musicSlugs.includes(card.slug));
-    return [...found].sort((a, b) => musicSlugs.indexOf(a.slug) - musicSlugs.indexOf(b.slug));
-  }, [allCards]);
 
   const slugs = useMemo(() => categorySlugMap(categories), [categories]);
 
@@ -372,7 +318,8 @@ export function ShopShell({
         <div className="flex flex-col gap-4">
           <div className="mb-6">
             <ShopCategoryCards
-              categories={chipCategories}
+              categories={heroChipCategories}
+              allCategories={allChipCategories}
               selectedSlug={selectedChipSlug}
               onCategoryTap={(slug) => {
                 if (slug === "hot-deals") {
@@ -388,31 +335,11 @@ export function ShopShell({
             />
           </div>
            {renderDynamicSections()}
-          {travelCards.length > 0 && (
-            <div className="animate-fade-in">
-              <ScrollRow title="Travel & Hotels" items={travelCards} card="travelHotel" />
-            </div>
-          )}
-          {foodCards.length > 0 && (
-            <div className="animate-fade-in">
-              <ScrollRow title="Food & Beverages" items={foodCards} card="travelHotel" />
-            </div>
-          )}
-          {shoppingCards.length > 0 && (
-            <div className="animate-fade-in">
-              <ScrollRow title="Shopping" items={shoppingCards} card="travelHotel" />
-            </div>
-          )}
-          {musicCards.length > 0 && (
-            <div className="animate-fade-in">
-              <ScrollRow title="Music" items={musicCards} card="travelHotel" />
-            </div>
-          )}
         </div>
       ) : activeCategory ? (
         <ShopCategoryView 
           category={activeCategory} 
-          cards={filtered} 
+          categories={categories}
           popularCards={featuredCards.length > 0 ? featuredCards : allCards.slice(0, 10)}
         />
       ) : null}

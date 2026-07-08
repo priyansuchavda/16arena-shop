@@ -87,7 +87,7 @@ export function OrdersShell() {
             There was an error communicating with the API. Please try again.
           </p>
           <Link
-            href="/shop"
+            href="/"
             className="rounded-xl bg-gradient-to-r from-[#ff973c] to-[#ff6a00] px-5 py-2.5 text-xs font-bold text-black"
           >
             Return to Shop
@@ -101,7 +101,7 @@ export function OrdersShell() {
     <ShopAccountShell>
       <div className="mb-8 flex items-center gap-4">
         <Link
-          href="/shop"
+          href="/"
           className="rounded-full border border-[var(--line)] p-2 transition hover:bg-white/5"
         >
           <ArrowLeft className="h-5 w-5 text-white" />
@@ -124,7 +124,7 @@ export function OrdersShell() {
             You haven&apos;t purchased any digital gift cards or top-ups yet.
           </p>
           <Link
-            href="/shop"
+            href="/"
             className="mt-6 inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#ff973c] to-[#ff6a00] px-6 py-2.5 text-xs font-bold text-black transition active:scale-95"
           >
             Go to Store

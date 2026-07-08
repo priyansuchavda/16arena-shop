@@ -5,7 +5,7 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--void)]/90 backdrop-blur-xl">
       <div className="mx-auto flex max-w-[1280px] items-center gap-5 px-5 py-3.5 lg:px-8">
-        <Link href="/shop" className="shrink-0">
+        <Link href="/" className="shrink-0">
           <span className="font-heading text-[22px] font-extrabold tracking-[0.06em] text-white">16ARENA</span>
         </Link>
 

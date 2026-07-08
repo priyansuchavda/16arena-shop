@@ -1,15 +1,9 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import {
-  ProductDetail,
   LiveProductDetail,
   ShopCategoryView,
   ShopLayout,
-  getProductBySlug,
-  getRelated,
-  products as staticProducts,
-  categories as staticCategories,
-  productToCard,
   shopApi,
   type CategoryItem,
   type CardModel,
@@ -21,7 +15,6 @@ import {
   topCategories,
 } from "@/features/shop/utils/mappers";
 import {
-  filterCardsByCategory,
   withActiveCategory,
 } from "@/features/shop/utils/shop-catalog";
 
@@ -51,14 +44,6 @@ export async function generateMetadata({
     }
   } catch {}
 
-  const sample = getProductBySlug(slug);
-  if (sample) {
-    return {
-      title: `Buy ${sample.brand} Gift Cards - 16arenashop`,
-      description: sample.description || `Get ${sample.brand} gift cards instantly with digital delivery.`,
-    };
-  }
-
   return {
     title: "16arenashop - Gift Cards & Vouchers",
     description: "Buy gift cards, coupons, and gaming top-ups instantly.",
@@ -79,53 +64,46 @@ export default async function ShopSlugPage({
     liveCats = await shopApi.fetchCategories();
     categoryItems = topCategories(liveCats);
   } catch {
-    categoryItems = staticCategories.map((c) => ({
-      label: c.label,
-      slug: c.slug,
-      color: c.color,
-      active: false,
-    }));
+    categoryItems = [];
   }
 
   const activeCategory = categoryItems.find((c) => c.slug === slug);
 
   if (activeCategory) {
-    let allCards: CardModel[] = [];
+    const matchingLiveCat = liveCats.find((c) => c.slug === slug) ?? ({
+      id: activeCategory.slug,
+      name: activeCategory.label,
+      slug: activeCategory.slug,
+      iconUrl: activeCategory.iconUrl ?? null,
+      parentId: null,
+      sortOrder: 0,
+      badgeText: activeCategory.badge ?? null,
+      isActive: true,
+      isFeatured: false,
+      isHero: false,
+      productCount: activeCategory.count ?? 0,
+      subCategories: []
+    } as ApiCategory);
+
+    const visibleCategories = withActiveCategory(categoryItems, slug);
     const slugs = categorySlugMap(liveCats);
 
+    let popularCards: CardModel[] = [];
     try {
-      const matchingLiveCat = liveCats.find((c) => c.slug === slug);
-      if (matchingLiveCat) {
-        const liveProducts = await shopApi.fetchProducts(matchingLiveCat.id);
-        allCards = liveProducts.filter((p) => p.isActive !== false).map((p) => apiToCard(p, slugs));
-      } else {
-        allCards = staticProducts.map(productToCard);
+      const featuredProducts = await shopApi.fetchFeaturedProducts();
+      popularCards = featuredProducts
+        .filter((p) => p.isActive !== false)
+        .map((p) => apiToCard(p, slugs));
+
+      if (popularCards.length === 0) {
+        const allProducts = await shopApi.fetchProducts(undefined, 1, 30).catch(() => []);
+        popularCards = allProducts
+          .filter((p) => p.isActive !== false)
+          .map((p) => apiToCard(p, slugs))
+          .slice(0, 10);
       }
     } catch {
-      allCards = staticProducts.map(productToCard);
-    }
-
-    const filteredCards = filterCardsByCategory(allCards, slug);
-    const visibleCategories = withActiveCategory(categoryItems, slug);
-
-    let popularCards: CardModel[] = [];
-    if (filteredCards.length === 0) {
-      try {
-        const featuredProducts = await shopApi.fetchFeaturedProducts();
-        popularCards = featuredProducts
-          .filter((p) => p.isActive !== false)
-          .map((p) => apiToCard(p, slugs));
-
-        if (popularCards.length === 0) {
-          const allProducts = await shopApi.fetchProducts(undefined, 1, 30).catch(() => []);
-          popularCards = allProducts
-            .filter((p) => p.isActive !== false)
-            .map((p) => apiToCard(p, slugs))
-            .slice(0, 10);
-        }
-      } catch {
-        popularCards = staticProducts.map(productToCard).slice(0, 8);
-      }
+      popularCards = [];
     }
 
     return (
@@ -135,8 +113,8 @@ export default async function ShopSlugPage({
         categoryMode={true}
       >
         <ShopCategoryView 
-          category={activeCategory} 
-          cards={filteredCards} 
+          category={matchingLiveCat} 
+          categories={liveCats}
           popularCards={popularCards} 
         />
       </ShopLayout>
@@ -186,37 +164,6 @@ export default async function ShopSlugPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(dynamicJsonLd) }}
         />
         <LiveProductDetail product={item} related={related} />
-      </ShopLayout>
-    );
-  }
-
-  const sample = getProductBySlug(slug);
-  if (sample) {
-    const staticJsonLd = {
-      "@context": "https://schema.org",
-      "@type": "Product",
-      "name": sample.brand,
-      "description": sample.description || `Get ${sample.brand} gift cards instantly.`,
-      "offers": {
-        "@type": "AggregateOffer",
-        "priceCurrency": "INR",
-        "lowPrice": 250,
-        "highPrice": 5000,
-        "offerCount": 4,
-      }
-    };
-
-    return (
-      <ShopLayout
-        categories={categoryItems}
-        walletBalance={0}
-        hideSidebar={true}
-      >
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(staticJsonLd) }}
-        />
-        <ProductDetail product={sample} related={getRelated(slug).map(productToCard)} />
       </ShopLayout>
     );
   }

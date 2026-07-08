@@ -129,5 +129,8 @@ function TravelHotelCard({ product }: { product: CardModel }) {
 }
 
 export function ShopCategorySectionCard({ product }: { product: CardModel }) {
+  if (product.coinAmount && product.coinAmount > 0) {
+    return <TravelHotelCard product={product} />;
+  }
   return <TopDealCard product={product} />;
 }

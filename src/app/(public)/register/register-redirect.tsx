@@ -11,7 +11,7 @@ export function RegisterRedirect() {
   const openRegisterModal = useAuthStore((state) => state.openRegisterModal);
 
   useEffect(() => {
-    const returnUrl = searchParams.get("returnUrl") || "/shop";
+    const returnUrl = searchParams.get("returnUrl") || "/";
     openRegisterModal(returnUrl);
     router.replace(returnUrl);
   }, [openRegisterModal, router, searchParams]);

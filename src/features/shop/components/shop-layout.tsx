@@ -12,7 +12,6 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { X, ChevronRight } from "lucide-react";
 import { shopApi } from "../services/shop-api";
-import { products as staticProducts } from "../services/product.service";
 import { useUserSummary, useAuthStore } from "@/features/auth";
 import { AuthModal } from "./auth-modal";
 import { RegisterModal } from "./register-modal";
@@ -125,26 +124,6 @@ function ShopTopBar({
           });
         });
 
-        // Add static items matching query
-        const queryLower = trimmed.toLowerCase();
-        staticProducts.forEach((p) => {
-          if (seenSlugs.has(p.slug)) return;
-          const matches = p.brand.toLowerCase().includes(queryLower) || 
-                          p.sub.toLowerCase().includes(queryLower) || 
-                          p.slug.toLowerCase().includes(queryLower);
-          if (matches) {
-            seenSlugs.add(p.slug);
-            combined.push({
-              id: p.id,
-              name: p.brand,
-              slug: p.slug,
-              logoUrl: null,
-              categoryName: p.sub || "Gift Card",
-              discountText: p.save || "",
-            });
-          }
-        });
-
         setSearchResults(combined);
       } catch (err) {
         console.error("Search error", err);
@@ -177,7 +156,7 @@ function ShopTopBar({
     if (localQuery.trim()) {
       router.push(`/shop?q=${encodeURIComponent(localQuery.trim())}`);
     } else {
-      router.push("/shop");
+      router.push("/");
     }
   };
 

@@ -36,7 +36,7 @@ export const RegisterForm = ({
   const profile = userSummary?.userProfile || userSummary || useAuthStore.getState().user;
   const isProfileComplete = profile?.isProfileComplete ?? false;
 
-  const returnUrl = returnUrlProp ?? (searchParams.get("returnUrl") || "/shop");
+  const returnUrl = returnUrlProp ?? (searchParams.get("returnUrl") || "/");
 
   const leaveRegisterFlow = (url?: string) => {
     closeRegisterModal();

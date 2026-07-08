@@ -46,6 +46,50 @@ export function gradientFor(seed: string): { accent: string; accent2: string } {
 
 export function apiToCard(p: ApiProduct, slugByCategoryId?: Map<string, string>): CardModel {
   const g = gradientFor(p.brandName ?? p.name);
+
+  if (p.showSku && p.skus && p.skus.length > 0) {
+    const activeSkus = p.skus.filter((s) => s.isActive !== false)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const sku = activeSkus.length > 0 ? activeSkus[0] : p.skus[0];
+
+    const save = Math.round(sku.savingsPercent ?? p.maxSavingsPercent ?? p.savingsPercent ?? 0);
+    const hasOriginal =
+      sku.originalPrice != null &&
+      sku.price != null &&
+      sku.originalPrice > sku.price;
+
+    const isCoinOnly = sku.paymentRules?.isCoinOnly ?? sku.isCoinOnly ?? false;
+    const maxCoins = sku.paymentRules?.maxCoins ?? sku.paymentRules?.maxCoinsAllowedEstimate ?? sku.coinPriceEstimate ?? 0;
+    const coinAmount = isCoinOnly
+      ? (sku.paymentRules?.minRequiredCoins ?? sku.paymentRules?.effectiveMinRequiredCoins ?? (maxCoins > 0 ? maxCoins : (sku.coinPriceEstimate ?? 0)))
+      : maxCoins;
+
+    return {
+      id: p.id,
+      slug: p.slug,
+      brand: p.brandName || p.name,
+      name: sku.title || sku.label || p.name,
+      sub: p.categoryName,
+      accent: g.accent,
+      accent2: g.accent2,
+      imageUrl: p.logoUrl || p.heroImageUrl,
+      priceStr: sku.price != null ? `₹${sku.price}` : "—",
+      originalStr: hasOriginal ? `₹${sku.originalPrice}` : undefined,
+      savePct: save > 0 ? save : undefined,
+      coinAmount: coinAmount > 0 ? coinAmount : undefined,
+      cashbackPct: p.cashbackPercent ?? undefined,
+      wishlist: p.wishlistCount24h ?? undefined,
+      badge:
+        save >= 10
+          ? { tone: "hot", label: `${save}% OFF` }
+          : p.isFeatured
+            ? { tone: "new", label: "Featured" }
+            : undefined,
+      tagline: p.categoryName,
+      categorySlug: slugByCategoryId?.get(p.categoryId),
+    };
+  }
+
   const save = Math.round(p.savingsPercent ?? p.maxSavingsPercent ?? 0);
   const hasOriginal =
     p.startingOriginalPrice != null &&

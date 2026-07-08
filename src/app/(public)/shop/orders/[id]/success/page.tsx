@@ -137,7 +137,7 @@ export default function OrderSuccessPage() {
             <h2 className="font-heading text-lg font-bold text-white">Order Not Found</h2>
             <p className="max-w-sm text-xs text-[var(--muted)]">{error}</p>
             <Link
-              href="/shop"
+              href="/"
               className="mt-2 rounded-xl bg-gradient-to-r from-[#ff973c] to-[#ff6a00] px-5 py-2.5 text-xs font-bold text-black hover:brightness-110 active:scale-95 transition"
             >
               Return to Store
@@ -434,7 +434,7 @@ export default function OrderSuccessPage() {
               <div className="flex flex-col gap-3">
                 {/* Primary CTA (Return to Store) */}
                 <Link
-                  href="/shop"
+                  href="/"
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#ff973c] to-[#ff6a00] p-4 text-sm font-black text-black shadow-lg hover:brightness-110 active:scale-[0.99] transition duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--flame)]/50"
                 >
                   <ShoppingBag className="w-4 h-4 stroke-[2.5px]" />

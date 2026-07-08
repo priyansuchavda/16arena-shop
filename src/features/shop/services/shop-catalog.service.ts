@@ -7,6 +7,7 @@ import type {
   ShopConfig,
   ShopProductDetail,
   ShopVisibility,
+  MobileBanner,
 } from "../types/shop.types";
 import { normalizeShopProductDetail } from "../utils/normalize-product";
 import { type ApiEnvelope, unwrapData } from "./shop-api-client";
@@ -24,6 +25,30 @@ export const shopCatalogService = {
     const { data } = await apiClient.get<{ data: { items: ApiProduct[] } }>(path);
     const items = data.data?.items ?? (data.data as unknown as ApiProduct[]);
     return Array.isArray(items) ? items : [];
+  },
+
+  fetchProductsPaginated: async (
+    categoryId?: string,
+    featured?: boolean,
+    page = 1,
+    pageSize = 20
+  ): Promise<{ items: ApiProduct[]; totalPages: number; page: number; totalCount: number }> => {
+    let path = `/v1/shop/products?page=${page}&pageSize=${pageSize}`;
+    if (categoryId) path += `&categoryId=${categoryId}`;
+    if (featured !== undefined) path += `&featured=${featured}`;
+    const { data } = await apiClient.get<{
+      data: { items: ApiProduct[]; totalPages?: number; page?: number; totalCount?: number };
+    }>(path);
+    const items = data.data?.items ?? (data.data as unknown as ApiProduct[]);
+    const totalPages = data.data?.totalPages ?? 1;
+    const currentPage = data.data?.page ?? page;
+    const totalCount = data.data?.totalCount ?? (Array.isArray(items) ? items.length : 0);
+    return {
+      items: Array.isArray(items) ? items : [],
+      totalPages,
+      page: currentPage,
+      totalCount,
+    };
   },
 
   getProductBySlug: async (slug: string): Promise<ApiProduct | null> => {
@@ -87,6 +112,17 @@ export const shopCatalogService = {
     try {
       const { data } = await apiClient.get<{ data: MobileSection[] }>(
         "/v1/MobileSection/getAllSections?page=shop&type=shop"
+      );
+      return data.data ?? [];
+    } catch {
+      return [];
+    }
+  },
+
+  fetchMobileBanners: async (): Promise<MobileBanner[]> => {
+    try {
+      const { data } = await apiClient.get<{ data: MobileBanner[] }>(
+        "/v1/MobileBanner/getAllBanners"
       );
       return data.data ?? [];
     } catch {

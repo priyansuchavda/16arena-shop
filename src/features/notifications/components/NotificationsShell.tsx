@@ -156,12 +156,12 @@ export function NotificationsShell() {
     }
 
     if (type.includes("wallet")) {
-      router.push("/shop");
+      router.push("/");
       return;
     }
 
     if (type.includes("tournament") && n.tournamentId) {
-      router.push("/shop");
+      router.push("/");
       return;
     }
   };
@@ -232,7 +232,7 @@ export function NotificationsShell() {
       <div className="mb-8 flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link
-            href="/shop"
+            href="/"
             className="rounded-full border border-[var(--line)] p-2 transition hover:bg-white/5"
           >
             <ArrowLeft className="h-5 w-5 text-white" />
@@ -272,7 +272,7 @@ export function NotificationsShell() {
             Order updates, delivery alerts, and announcements will appear here.
           </p>
           <Link
-            href="/shop"
+            href="/"
             className="mt-6 inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#ff973c] to-[#ff6a00] px-6 py-2.5 text-xs font-bold text-black transition active:scale-95"
           >
             Browse Store

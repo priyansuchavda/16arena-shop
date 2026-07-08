@@ -14,27 +14,12 @@ export type HeroSlide = {
   accent: string;
   accent2: string;
   imageUrl?: string | null;
+  /** Optional external URL override for the CTA button (API banners). */
+  ctaUrl?: string;
 };
 
 const GAMING_BANNER_FALLBACK =
   "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1800&q=80";
-
-function bannerHeadline(slide: HeroSlide): { line1: string; line2: string; line3: string } {
-  if (slide.slug.includes("bgmi")) {
-    return {
-      line1: "BEST BONUS",
-      line2: "UC DEALS ON",
-      line3: "16 ARENA",
-    };
-  }
-
-  const brand = slide.title.toUpperCase();
-  return {
-    line1: "BEST DEALS ON",
-    line2: brand,
-    line3: "16 ARENA",
-  };
-}
 
 export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
   const [index, setIndex] = useState(0);
@@ -52,7 +37,6 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
   if (!count) return null;
 
   const slide = slides[index];
-  const headline = bannerHeadline(slide);
   const imageSrc = slide.imageUrl || GAMING_BANNER_FALLBACK;
 
   const navBtn =
@@ -103,19 +87,24 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
             </span>
           </div>
 
-          <div className="mt-4 flex items-end justify-between gap-4">
-            <h2 className="font-heading max-w-[min(100%,520px)] text-[22px] font-extrabold leading-[1.05] tracking-[-0.02em] sm:text-[28px]">
-              <span className="text-[#FF973C]">{headline.line1} </span>
-              <span className="text-white">{headline.line2} </span>
-              <span className="text-[#FF973C]">{headline.line3}</span>
-            </h2>
-
-            <Link
-              href={`/shop/${slide.slug}`}
-              className="shop-pill shrink-0 bg-[#FF973C] px-5 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#0c0c0c] transition hover:brightness-110 sm:px-6 sm:py-3 sm:text-xs"
-            >
-              {slide.slug.includes("bgmi") ? "TOP UP NOW" : slide.cta}
-            </Link>
+          <div className="mt-4 flex items-end justify-end gap-4">
+            {slide.ctaUrl ? (
+              <a
+                href={slide.ctaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shop-pill shrink-0 bg-[#FF973C] px-5 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#0c0c0c] transition hover:brightness-110 sm:px-6 sm:py-3 sm:text-xs"
+              >
+                {slide.cta}
+              </a>
+            ) : slide.slug ? (
+              <Link
+                href={`/shop/${slide.slug}`}
+                className="shop-pill shrink-0 bg-[#FF973C] px-5 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#0c0c0c] transition hover:brightness-110 sm:px-6 sm:py-3 sm:text-xs"
+              >
+                {slide.cta}
+              </Link>
+            ) : null}
           </div>
         </div>
       </div>

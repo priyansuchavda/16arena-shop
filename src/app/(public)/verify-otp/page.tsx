@@ -1,16 +1,18 @@
 import { Suspense } from "react";
 import { VerifyOtpForm } from "@/features/auth/components/VerifyOtpForm";
 import { ShopLayout } from "@/features/shop/components/shop-layout";
-import { categories as staticCategories } from "@/features/shop";
+import { shopApi } from "@/features/shop";
+import { topCategories } from "@/features/shop/utils/mappers";
 import { Loader2 } from "lucide-react";
 
-export default function VerifyOtpPage() {
-  const categoryItems = staticCategories.map((c) => ({
-    label: c.label,
-    slug: c.slug,
-    color: c.color,
-    active: false,
-  }));
+export default async function VerifyOtpPage() {
+  let categoryItems: any[] = [];
+  try {
+    const cats = await shopApi.fetchCategories();
+    categoryItems = topCategories(cats);
+  } catch (err) {
+    console.error("Failed to load categories on verify OTP page:", err);
+  }
 
   return (
     <ShopLayout categories={categoryItems}>

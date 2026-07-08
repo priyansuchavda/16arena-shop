@@ -17,6 +17,7 @@ import type {
   ShopProductDetail,
   ShopVisibility,
   UpdateCartItemRequest,
+  MobileBanner,
 } from "../types/shop.types";
 import { shopCatalogService } from "./shop-catalog.service";
 import {
@@ -115,6 +116,7 @@ export const shopApi = {
   fetchOrderInvoice: shopOrdersService.fetchOrderInvoice,
 
   searchProducts: shopCatalogService.searchProducts,
+  fetchMobileBanners: shopCatalogService.fetchMobileBanners,
 };
 
 export type {
@@ -136,4 +138,5 @@ export type {
   ShopProductDetail,
   ShopVisibility,
   UpdateCartItemRequest,
+  MobileBanner,
 };

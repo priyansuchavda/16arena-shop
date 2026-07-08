@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/invoices/", "/orders/", "/notifications/", "/verify-otp"],
+      disallow: ["/invoices/", "/orders/", "/verify-otp"],
     },
     sitemap: `${baseUrl}/sitemap.xml`,
   };

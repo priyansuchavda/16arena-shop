@@ -71,13 +71,12 @@ export const authApi = {
     return data;
   },
 
-  verifyOtp: async (otpToken: string, otp: string, fcmToken?: string) => {
+  verifyOtp: async (otpToken: string, otp: string) => {
     const { data } = await apiClient.post("/v1/auth/verify-otp", {
       otpToken,
       otp,
       deviceId: "web-browser",
       deviceInfo: typeof navigator !== "undefined" ? navigator.userAgent : "NodeJS Server",
-      ...(fcmToken && { fcmToken }),
     });
     persistSessionFromResponse(data);
     return data;
@@ -93,7 +92,7 @@ export const authApi = {
     return data;
   },
 
-  googleLogin: async (idToken: string, fcmToken?: string) => {
+  googleLogin: async (idToken: string) => {
     const { data } = await apiClient.post("/v1/auth/oauth", {
       provider: "google",
       token: idToken,
@@ -102,7 +101,6 @@ export const authApi = {
         platform: "web",
         userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "NodeJS Server",
       }),
-      ...(fcmToken && { fcmToken }),
     });
     persistSessionFromResponse(data);
     return data;

@@ -52,10 +52,6 @@ export function AuthCard({
     return () => clearTimeout(timer);
   }, [step, loginMode]);
 
-  const getFcmToken = () => {
-    return typeof window !== "undefined" ? localStorage.getItem("fcm_token") || undefined : undefined;
-  };
-
   const handleRequestOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setError("");
@@ -94,11 +90,9 @@ export function AuthCard({
     if (otpString.length < 4) return;
     setError("");
     try {
-      const storedFcmToken = getFcmToken();
       const response = await verifyOtpMutation.mutateAsync({
         otpToken,
         otp: otpString,
-        fcmToken: storedFcmToken,
       });
       const data = response?.data || response;
       const isComplete = data?.isProfileComplete ?? !!data?.user?.displayName;
@@ -123,8 +117,7 @@ export function AuthCard({
   const handleGoogleSignIn = async () => {
     setError("");
     try {
-      const storedFcmToken = getFcmToken();
-      const response = await googleLoginMutation.mutateAsync(storedFcmToken);
+      const response = await googleLoginMutation.mutateAsync();
       const data = response?.data || response;
       const isComplete = data?.isProfileComplete ?? !!data?.user?.displayName;
 

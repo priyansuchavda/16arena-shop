@@ -8,7 +8,7 @@ export const useGoogleLogin = () => {
   const setAuth = useAuthStore((state) => state.setAuth);
 
   return useMutation({
-    mutationFn: async (fcmToken?: string) => {
+    mutationFn: async () => {
       const userCredential = await signInWithPopup(auth, googleProvider);
       const credential = GoogleAuthProvider.credentialFromResult(userCredential);
       const idToken = credential?.idToken;
@@ -17,7 +17,7 @@ export const useGoogleLogin = () => {
         throw new Error("Failed to retrieve Google ID token from credential");
       }
 
-      return authApi.googleLogin(idToken, fcmToken);
+      return authApi.googleLogin(idToken);
     },
     onSuccess: (response) => {
       const session = authApi.parseSessionResponse(response);
@@ -47,12 +47,10 @@ export const useVerifyOtp = () => {
     mutationFn: ({
       otpToken,
       otp,
-      fcmToken,
     }: {
       otpToken: string;
       otp: string;
-      fcmToken?: string;
-    }) => authApi.verifyOtp(otpToken, otp, fcmToken),
+    }) => authApi.verifyOtp(otpToken, otp),
     onSuccess: (response) => {
       const session = authApi.parseSessionResponse(response);
       if (session) {

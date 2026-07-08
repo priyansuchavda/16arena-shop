@@ -9,9 +9,7 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isProtectedPath =
-    pathname.startsWith("/orders") ||
-    pathname.startsWith("/invoices") ||
-    pathname.startsWith("/notifications");
+    pathname.startsWith("/orders") || pathname.startsWith("/invoices");
 
   if (isProtectedPath) {
     return NextResponse.next();
@@ -21,5 +19,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/orders/:path*", "/invoices/:path*", "/notifications/:path*"],
+  matcher: ["/orders/:path*", "/invoices/:path*"],
 };

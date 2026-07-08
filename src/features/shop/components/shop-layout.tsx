@@ -4,7 +4,6 @@ import { MobileCategoryStrip } from "./mobile-category-strip";
 import { ArenaLogo } from "@/shared/components/arena-logo";
 import { WalletCoinChip } from "./wallet-coin-chip";
 import { ProfileChip } from "./profile-chip";
-import { NotificationBell } from "@/features/notifications";
 import { SearchIcon } from "@/shared/components/icons";
 import { CategoryItem, ApiProduct } from "@/features/shop/types/shop.types";
 
@@ -281,9 +280,8 @@ function ShopTopBar({
           )}
         </div>
 
-        {/* Right Section: Coins, Profile, Notifications */}
+        {/* Right Section: Coins, Profile */}
         <div className="flex lg:flex-1 justify-end items-center gap-2.5 shrink-0">
-          <NotificationBell />
           <WalletCoinChip balance={coins} />
           <ProfileChip />
         </div>

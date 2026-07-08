@@ -31,7 +31,6 @@ import {
   ORDER_POLL_INTERVAL_MS,
   ORDER_POLL_MAX_WAIT_MS,
 } from "@/features/shop/utils/checkout.utils";
-import { useNotificationStore } from "@/features/notifications/store";
 
 export default function OrderSuccessPage() {
   const params = useParams();
@@ -41,8 +40,6 @@ export default function OrderSuccessPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  
-  const showToast = useNotificationStore((state) => state.showToast);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,13 +95,9 @@ export default function OrderSuccessPage() {
     };
   }, [orderId]);
 
-  const handleCopy = (text: string, id: string, label: string) => {
+  const handleCopy = (text: string, id: string, _label: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
-    showToast({
-      title: "Copied to Clipboard",
-      body: `${label} has been copied successfully.`,
-    });
     setTimeout(() => setCopiedId(null), 2000);
   };
 

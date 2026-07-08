@@ -27,12 +27,9 @@ export const VerifyOtpForm = () => {
     if (otpString.length < 4) return;
     setError("");
     try {
-      const storedFcmToken =
-        typeof window !== "undefined" ? localStorage.getItem("fcm_token") || undefined : undefined;
       const response = await verifyOtpMutation.mutateAsync({
         otpToken,
         otp: otpString,
-        fcmToken: storedFcmToken,
       });
       const data = response?.data || response;
       const isComplete = data?.isProfileComplete ?? !!data?.user?.displayName;

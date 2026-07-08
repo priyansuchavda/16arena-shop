@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/shared/components/icons";
 
@@ -18,12 +18,45 @@ export type HeroSlide = {
   ctaUrl?: string;
 };
 
-const GAMING_BANNER_FALLBACK =
-  "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1800&q=80";
-
 export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
   const [index, setIndex] = useState(0);
-  const count = slides.length;
+  // Ids of slides whose banner image actually loaded. `null` = still checking.
+  const [okIds, setOkIds] = useState<Set<string> | null>(null);
+
+  // Preload each banner image and keep only the ones that load successfully —
+  // slides with no image or a broken/non-image URL are dropped.
+  useEffect(() => {
+    const withImages = slides.filter((s) => s.imageUrl);
+    if (!withImages.length) {
+      setOkIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    const ok = new Set<string>();
+    let remaining = withImages.length;
+    const settle = () => {
+      remaining -= 1;
+      if (remaining === 0 && !cancelled) setOkIds(new Set(ok));
+    };
+    withImages.forEach((s) => {
+      const img = new window.Image();
+      img.onload = () => {
+        ok.add(s.id);
+        settle();
+      };
+      img.onerror = settle;
+      img.src = s.imageUrl as string;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [slides]);
+
+  const validSlides = useMemo(
+    () => (okIds ? slides.filter((s) => s.imageUrl && okIds.has(s.id)) : []),
+    [slides, okIds],
+  );
+  const count = validSlides.length;
 
   const next = useCallback(() => setIndex((i) => (i + 1) % count), [count]);
   const prev = useCallback(() => setIndex((i) => (i - 1 + count) % count), [count]);
@@ -34,10 +67,15 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
     return () => clearInterval(t);
   }, [count, next]);
 
+  // Keep the active index in range as slides are validated/dropped.
+  useEffect(() => {
+    if (index >= count) setIndex(0);
+  }, [index, count]);
+
   if (!count) return null;
 
-  const slide = slides[index];
-  const imageSrc = slide.imageUrl || GAMING_BANNER_FALLBACK;
+  const slide = validSlides[Math.min(index, count - 1)];
+  const imageSrc = slide.imageUrl as string;
 
   const navBtn =
     "flex h-8 w-10 items-center justify-center rounded-full bg-transparent text-white transition-all duration-200 group-hover:bg-[var(--surface)] hover:!bg-white/14";
@@ -111,7 +149,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
 
       {count > 1 && (
         <div className="absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 gap-1.5">
-          {slides.map((s, i) => (
+          {validSlides.map((s, i) => (
             <button
               key={`${s.id}-${i}`}
               type="button"

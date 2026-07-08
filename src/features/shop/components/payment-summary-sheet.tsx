@@ -287,9 +287,9 @@ export function PaymentSummarySheet({
           type="button"
           onClick={() => void handleClose()}
           disabled={loading || closing}
-          className="absolute top-4 right-4 z-20 rounded-lg p-2 text-white/50 hover:bg-white/10 hover:text-white disabled:opacity-50"
+          className="absolute top-4 right-4 z-20 p-1.5 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 active:scale-95 transition disabled:opacity-50"
         >
-          <X className="h-5 w-5" />
+          <X className="h-4 w-4" />
         </button>
 
         <div className="max-h-[70vh] overflow-y-auto px-5 pt-14 pb-4 flex flex-col gap-5">
@@ -307,9 +307,8 @@ export function PaymentSummarySheet({
             </div>
           )}
 
-          {/* Premium Card Graphic */}
           <div
-            className="relative flex h-[160px] w-full flex-col justify-between rounded-[14px] border border-white/10 p-5 overflow-hidden select-none"
+            className="relative flex h-[160px] w-full flex-col justify-between rounded-[14px] p-5 overflow-hidden select-none"
             style={{
               background: `linear-gradient(to top right, ${g.accent} 0%, ${g.accent} 50%, ${g.accent2} 100%)`,
               boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15)",
@@ -355,10 +354,10 @@ export function PaymentSummarySheet({
                 )}
               </div>
               <div className="flex flex-col items-end shrink-0 pb-1">
-                <span className="text-[10px] font-heading font-medium uppercase tracking-[0.1em] text-white/60">
+                <span className="text-[10px] font-heading font-medium text-white">
                   Voucher worth
                 </span>
-                <span className="text-2xl font-bold text-white tracking-tight mt-0.5 leading-none">
+                <span className="text-2xl font-semibold text-white tracking-tight mt-0.5 leading-none">
                   ₹
                   {(isFlexible
                     ? (customVoucherAmount ?? 0)
@@ -380,15 +379,14 @@ export function PaymentSummarySheet({
               {product.brandName ?? product.name} card
             </h3>
             {instantDiscountPercent > 0 ? (
-              <span className="text-xs font-bold text-[#25C26E] font-sans">
-                Getting for ₹{baseDiscountedPrice.toLocaleString("en-IN")}{" "}
-                <span className="line-through text-white/40 ml-1">
-                  ₹{subtotalVal.toLocaleString("en-IN")}
-                </span>{" "}
-                ({instantDiscountPercent}%off)
+              <span className="text-xs font-medium text-[#25C26E] font-sans flex items-baseline gap-1">
+                <span>Getting for</span>
+                <span className="text-[14px] font-semibold">₹{baseDiscountedPrice.toLocaleString("en-IN")}</span>
+                <span className="line-through text-[11px] opacity-85 ml-0.5">₹{subtotalVal.toLocaleString("en-IN")}</span>
+                <span className="ml-0.5">({instantDiscountPercent}%off)</span>
               </span>
             ) : (
-              <span className="text-xs font-bold text-white/40 font-sans">
+              <span className="text-xs font-medium text-white/40 font-sans">
                 Getting for ₹{subtotalVal.toLocaleString("en-IN")}
               </span>
             )}
@@ -396,13 +394,13 @@ export function PaymentSummarySheet({
 
           {/* Summary section */}
           <div className="flex flex-col gap-3 font-sans mt-1">
-            <h4 className="text-sm font-bold text-white uppercase tracking-wider">Summary</h4>
+            <h4 className="text-sm font-bold text-white">Summary</h4>
             <div className="border-t border-white/10 my-0.5" />
             <div className="flex flex-col gap-3">
               <div className="flex justify-between items-start text-sm">
                 <div className="flex flex-col">
                   <span className="text-white font-medium">Brand card worth</span>
-                  <span className="text-xs text-white/40 font-medium mt-0.5">
+                  <span className="text-xs text-white/60 font-medium mt-0.5">
                     ₹
                     {(isFlexible
                       ? (customVoucherAmount ?? 0)
@@ -411,7 +409,7 @@ export function PaymentSummarySheet({
                     card x{quantity}
                   </span>
                 </div>
-                <span className="text-white font-bold">
+                <span className="text-white font-semibold">
                   ₹{subtotalVal.toLocaleString("en-IN")}
                 </span>
               </div>
@@ -419,7 +417,7 @@ export function PaymentSummarySheet({
               {instantDiscountVal > 0 && (
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-[#25C26E] font-medium">Instant Discount</span>
-                  <span className="text-white font-medium">
+                  <span className="text-white font-semibold">
                     -₹{instantDiscountVal.toLocaleString("en-IN")} ({instantDiscountPercent}%)
                   </span>
                 </div>
@@ -436,11 +434,10 @@ export function PaymentSummarySheet({
                       height={14}
                       className="object-contain shrink-0"
                     />
-                    <span>{displayCoinsSpent.toLocaleString("en-IN")}</span>
+                    <span className="text-[#F5A623] font-bold">{displayCoinsSpent.toLocaleString("en-IN")}</span>
                   </div>
-                  <span className="text-white font-medium">
-                    -₹{preview?.coinsDiscount?.toLocaleString("en-IN") ?? "0"} (
-                    {coinDiscountPercent}%)
+                  <span className="text-white font-semibold">
+                    -₹{preview?.coinsDiscount?.toLocaleString("en-IN") ?? "0"} ({coinDiscountPercent}%)
                   </span>
                 </div>
               )}

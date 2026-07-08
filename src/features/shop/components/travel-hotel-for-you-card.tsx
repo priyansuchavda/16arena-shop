@@ -142,7 +142,7 @@ export function TravelHotelForYouCard({ product }: { product: CardModel }) {
                     height={14}
                     className="h-[14px] w-[14px] object-contain"
                   />
-                  <span className="text-[13.5px] font-extrabold tabular-nums text-[#FBCD00]">
+                  <span className="text-[13.5px] font-extrabold tabular-nums text-[#F5A623]">
                     {coinAmount.toLocaleString("en-IN")}
                   </span>
                 </>

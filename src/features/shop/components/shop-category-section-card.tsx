@@ -122,7 +122,7 @@ function TravelHotelCard({ product }: { product: CardModel }) {
         <span className="text-[10px] font-bold text-white">{product.priceStr}</span>
         <span className="text-[10px] font-bold text-white">+</span>
         <Image src={coinImg} alt="" width={13} height={13} className="h-[13px] w-[13px] object-contain" />
-        <span className="text-[10px] font-bold tabular-nums text-[#FBCD00]">{coinAmount}</span>
+        <span className="text-[10px] font-bold tabular-nums text-[#F5A623]">{coinAmount}</span>
       </div>
     </Link>
   );

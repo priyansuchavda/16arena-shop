@@ -256,6 +256,39 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
   const isFlexibleSelection = selectedSku?.isDynamicDenomination ?? false;
 
+  const quickSuggestions = useMemo(() => {
+    if (!selectedSku || !selectedSku.isDynamicDenomination) return [100, 150, 200, 250];
+    const minVal = selectedSku.minFaceValue ?? 100;
+    const maxVal = selectedSku.maxFaceValue ?? 1000;
+
+    const PRESETS = [50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 7500, 10000, 15000, 20000, 25000, 50000];
+    let available = PRESETS.filter((p) => p >= minVal && p <= maxVal);
+
+    if (!available.includes(minVal)) available.unshift(minVal);
+    if (!available.includes(maxVal) && maxVal > minVal) available.push(maxVal);
+    available = Array.from(new Set(available));
+
+    if (available.length < 4) {
+      const diff = maxVal - minVal;
+      const step = Math.max(1, Math.round(diff / 3));
+      const chosen = [
+        minVal,
+        Math.min(maxVal, minVal + step),
+        Math.min(maxVal, minVal + step * 2),
+        maxVal,
+      ];
+      return Array.from(new Set(chosen));
+    }
+
+    const p1 = available[0];
+    const p4 = available[available.length - 1];
+    const idx2 = Math.floor((available.length - 1) / 3);
+    const idx3 = Math.floor(((available.length - 1) * 2) / 3);
+    const p2 = available[idx2];
+    const p3 = available[idx3];
+    return Array.from(new Set([p1, p2, p3, p4]));
+  }, [selectedSku]);
+
   // Flexible Amount fields
   const amountRestrictions = useMemo(() => {
     if (!selectedSku) return null;
@@ -771,7 +804,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           {/* Brand Premium Card Design */}
           <div
             ref={cardRef}
-            className="relative w-full aspect-[1.85/1] rounded-[14px] overflow-hidden border border-white/10 p-6 flex flex-col justify-between"
+            className="relative w-full aspect-[1.85/1] rounded-[14px] overflow-hidden p-6 flex flex-col justify-between"
             style={{
               background: `linear-gradient(to top right, ${g.accent} 0%, ${g.accent} ${flatStop * 100}%, ${g.accent2} 100%)`,
               boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15)"
@@ -779,7 +812,12 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           >
             {/* Dynamic Discount Chip on top center of the card */}
             {(selectedSku?.savingsPercent ?? product.savingsPercent ?? 5) > 0 && (
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 bg-[#25C26E] text-white text-[11px] font-extrabold px-4.5 py-1.5 rounded-b-[8px] rounded-t-none uppercase tracking-wider font-sans shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
+              <div 
+                className="absolute top-0 left-1/2 -translate-x-1/2 z-20 text-white text-[11px] font-extrabold px-4.5 py-1.5 rounded-b-[8px] rounded-t-none uppercase tracking-wider font-sans shadow-[0_2px_8px_rgba(0,0,0,0.15)] border-b border-x border-white/20"
+                style={{
+                  background: `linear-gradient(to right, ${g.accent2}, ${g.accent})`
+                }}
+              >
                 {selectedSku?.savingsPercent ?? product.savingsPercent ?? 5}% Off
               </div>
             )}
@@ -1002,7 +1040,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                               </span>
                               <span className="text-xl font-bold text-white leading-none px-0.5">+</span>
                               <Image src={coinImg} alt="" width={18} height={18} className="object-contain shrink-0" />
-                              <span className="text-2xl font-bold text-[#FBCD00] leading-none tabular-nums">
+                              <span className="text-2xl font-bold text-[#F5A623] leading-none tabular-nums">
                                 {coinsSpent.toLocaleString()}
                               </span>
                             </div>
@@ -1058,7 +1096,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
             {/* Quick value chips for flexible selection */}
             {isFlexibleSelection && (
               <div className="grid grid-cols-4 gap-2 mt-2">
-                {[100, 150, 200, 250].map((val) => {
+                {quickSuggestions.map((val) => {
                   const isSelected = customAmount === val;
                   return (
                     <button
@@ -1119,7 +1157,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                             <>
                               <span className="text-sm font-medium text-white/80">+</span>
                               <Image src={coinImg} alt="" width={15} height={15} className="object-contain shrink-0" />
-                              <span className="text-sm font-medium text-[#FBCD00]">
+                              <span className="text-sm font-medium text-[#F5A623]">
                                 {maxCoins.toLocaleString()}
                               </span>
                             </>
@@ -1145,7 +1183,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                   className="flex items-center gap-1.5 bg-white/[0.06] px-2.5 py-1.5 rounded-[6px] text-xs font-semibold text-white hover:bg-white/[0.08] active:scale-95 transition font-sans"
                 >
                   <Image src={coinImg} alt="" width={13} height={13} className="object-contain" />
-                  <span className="text-[#FBCD00] font-bold">{cappedCoinsToRedeem.toLocaleString()}</span>
+                  <span className="text-[#F5A623] font-bold">{cappedCoinsToRedeem.toLocaleString()}</span>
                   <SquarePen className="w-3.5 h-3.5 text-white/70 ml-0.5" />
                 </button>
               </div>
@@ -1314,9 +1352,9 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
               <button
                 type="button"
                 onClick={() => setShowTerms(false)}
-                className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition"
+                className="p-1.5 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 active:scale-95 transition"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
             {/* Body */}

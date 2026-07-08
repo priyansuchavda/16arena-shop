@@ -30,8 +30,8 @@ export const SlantedButton: React.FC<SlantedButtonProps> = ({
       className={`
         relative py-3.5 px-6
         bg-gradient-to-b from-[#FF973C] to-[#FF6A00]
-        text-black font-extrabold text-sm tracking-wide
-        rounded-lg shadow-[0_4px_6px_rgba(0,0,0,0.2)]
+        text-white font-extrabold text-sm tracking-wide
+        rounded-[6.64px] shadow-[0_4px_6px_rgba(0,0,0,0.2)]
         transition duration-150 active:scale-[0.98]
         transform -skew-x-[8.6deg]
         disabled:opacity-50 disabled:cursor-not-allowed

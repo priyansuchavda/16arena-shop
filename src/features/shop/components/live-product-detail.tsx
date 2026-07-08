@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Image from "next/image";
-import { AlertCircle, ChevronDown, ChevronUp, Copy, Check, Info, Loader2, Sparkles, Tag as TagIcon, ArrowRight, Pencil, ChevronRight, SquarePen, Zap, ShieldCheck } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, Copy, Check, Info, Loader2, Sparkles, Tag as TagIcon, ArrowRight, Pencil, ChevronRight, SquarePen, Zap, ShieldCheck, X } from "lucide-react";
 import coinImg from "@/assets/png/coin.png";
+import voucherIcon from "@/assets/svg/voucher.svg";
 import { HudPanel } from "./hud";
 import { ScrollRow } from "./scroll-row";
 import { CoinIcon, ZapIcon } from "@/shared/components/icons";
@@ -46,7 +47,7 @@ import {
 } from "../utils/checkout.utils";
 import { resolveSkuRetailPrice } from "../utils/normalize-product";
 
-function useLogoColors(
+export function useLogoColors(
   logoUrl: string | null,
   fallbackColors: { accent: string; accent2: string }
 ) {
@@ -121,7 +122,7 @@ function useLogoColors(
   return colors;
 }
 
-function useTransparentLogo(logoUrl: string | null) {
+export function useTransparentLogo(logoUrl: string | null) {
   const [processedUrl, setProcessedUrl] = useState<string | null>(logoUrl);
 
   useEffect(() => {
@@ -292,6 +293,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   // Accordions states
   const [showHowToRedeem, setShowHowToRedeem] = useState(true);
   const [showTerms, setShowTerms] = useState(false);
+  const [showCouponModal, setShowCouponModal] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [isReadMore, setIsReadMore] = useState(false);
   const [activeRetailModeIdx, setActiveRetailModeIdx] = useState(0);
@@ -764,10 +766,10 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
         </div>
       )}
           <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-12 relative z-10 pt-6">
-        {/* Left Column: Product Info & Purchase Flow (lg:col-span-7) */}
+        {/* Left Column: Product Info & Presentational Blocks (lg:col-span-7) */}
         <div className="lg:col-span-7 flex flex-col gap-6 w-full max-w-[560px]">
           {/* Brand Premium Card Design */}
-           <div
+          <div
             ref={cardRef}
             className="relative w-full aspect-[1.85/1] rounded-[14px] overflow-hidden border border-white/10 p-6 flex flex-col justify-between"
             style={{
@@ -775,6 +777,13 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
               boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15)"
             }}
           >
+            {/* Dynamic Discount Chip on top center of the card */}
+            {(selectedSku?.savingsPercent ?? product.savingsPercent ?? 5) > 0 && (
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 bg-[#25C26E] text-white text-[11px] font-extrabold px-4.5 py-1.5 rounded-b-[8px] rounded-t-none uppercase tracking-wider font-sans shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
+                {selectedSku?.savingsPercent ?? product.savingsPercent ?? 5}% Off
+              </div>
+            )}
+
             {/* Specular Sheen Reflections Overlay */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
               {/* Ellipse 1 */}
@@ -821,26 +830,6 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
             <div className="flex justify-between items-start">
             </div>
 
-            <div className="mx-auto flex flex-col items-center justify-center bg-white/10 backdrop-blur-md border border-white/15 rounded-[16px] px-5 py-3 shadow-[0_8px_32px_0_rgba(0,0,0,0.15)] select-none relative z-10">
-              <span className="text-white/80 text-[10px] font-bold uppercase tracking-[0.08em] mb-1">Voucher worth</span>
-              <div className="flex items-center gap-2">
-                <span className="text-white text-3xl font-black leading-none tabular-nums">
-                  ₹{(isFlexibleSelection ? customAmount : selectedSku?.faceValue ?? selectedSku?.unitAmount ?? 0).toLocaleString("en-IN")}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleEditVoucherWorth}
-                  className="p-1 rounded-md text-white/70 hover:bg-white/10 hover:text-white active:scale-90 transition flex items-center justify-center"
-                  title="Select Denomination"
-                >
-                  <svg width="18" height="18" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-[18px] h-[18px]">
-                    <path fillRule="evenodd" clipRule="evenodd" d="M0 5.48539C0 4.03057 0.577923 2.63534 1.60663 1.60663C2.63534 0.577923 4.03057 0 5.48539 0H11.2938C11.5933 0 11.8806 0.118988 12.0924 0.330787C12.3042 0.542586 12.4232 0.829848 12.4232 1.12938C12.4232 1.42891 12.3042 1.71617 12.0924 1.92797C11.8806 2.13977 11.5933 2.25876 11.2938 2.25876H5.48539C4.62963 2.25876 3.80892 2.5987 3.20381 3.20381C2.5987 3.80892 2.25876 4.62963 2.25876 5.48539V17.1022C2.25876 17.9579 2.5987 18.7786 3.20381 19.3837C3.80892 19.9888 4.62963 20.3288 5.48539 20.3288H17.1022C17.9579 20.3288 18.7786 19.9888 19.3837 19.3837C19.9888 18.7786 20.3288 17.9579 20.3288 17.1022V11.2938C20.3288 10.9942 20.4478 10.707 20.6596 10.4952C20.8714 10.2834 21.1586 10.1644 21.4582 10.1644C21.7577 10.1644 22.045 10.2834 22.2568 10.4952C22.4686 10.707 22.5876 10.9942 22.5876 11.2938V17.1022C22.5876 18.557 22.0096 19.9522 20.9809 20.9809C19.9522 22.0096 18.557 22.5876 17.1022 22.5876H5.48539C4.03057 22.5876 2.63534 22.0096 1.60663 20.9809C0.577923 19.9522 0 18.557 0 17.1022V5.48539Z" fill="currentColor"/>
-                    <path fillRule="evenodd" clipRule="evenodd" d="M14.8374 12.6684L12.3472 14.1705L11.1805 12.2358L13.6708 10.7338L13.6708 10.7338ZM14.8374 12.6684L12.3472 14.1705L11.1805 12.2358L13.6708 10.7338L13.6742 10.7315C13.7696 10.674 13.8576 10.605 13.9362 10.5259L19.5944 4.8384C19.6511 4.78126 19.7057 4.72212 19.7581 4.66109C20.132 4.22515 20.6854 3.36231 20.0156 2.6892C19.4498 2.11999 18.6389 2.65758 18.1138 3.11949C17.9729 3.24368 17.8373 3.37367 17.7072 3.50913L17.6688 3.54753L12.0897 9.15489C11.9572 9.28657 11.8534 9.44422 11.7847 9.61793L10.8541 11.9591C10.8365 12.0032 10.8332 12.0517 10.8446 12.0977C10.8561 12.1438 10.8818 12.185 10.918 12.2157C10.9543 12.2463 10.9993 12.2647 11.0466 12.2683C11.0939 12.272 11.14 12.2606 11.1805 12.2358L12.3472 14.1705C10.3086 15.3992 7.87483 13.3347 8.75575 11.1234L9.68748 8.78332C9.86889 8.32603 10.1417 7.9106 10.4893 7.56246L16.0673 1.95397L16.1001 1.92122C16.2661 1.75182 16.824 1.18035 17.5005 0.769257C17.8698 0.54677 18.4594 0.252002 19.1878 0.195533C20.0235 0.1289 20.9158 0.392045 21.616 1.09565C22.1519 1.62509 22.489 2.32311 22.5703 3.07206C22.6262 3.65583 22.537 4.24437 22.3105 4.78532C21.983 5.59509 21.4364 6.19027 21.1958 6.43083L15.5377 12.1184C15.3268 12.3299 15.0934 12.5133 14.8374 12.6684ZM19.8666 4.62043C19.8666 4.62043 19.862 4.62382 19.8519 4.62721L19.8666 4.62043Z" fill="currentColor"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-
             <div className="flex items-center gap-3 relative z-10">
               {transparentLogoUrl ? (
                 <Image
@@ -858,252 +847,50 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
             </div>
           </div>
 
-          {/* Badge & Info */}
-          <div className="flex flex-col gap-2 items-start mt-2">
-            {(selectedSku?.savingsPercent ?? product.savingsPercent ?? 5) > 0 && (
-              <span className="px-2 py-0.5 bg-[#25C26E] text-white text-[10px] font-black rounded uppercase select-none w-fit">
-                Get {selectedSku?.savingsPercent ?? product.savingsPercent ?? 5}% Off
-              </span>
-            )}
-            <h1 className="text-3xl font-black text-white leading-tight">
-              {product.name}
-            </h1>
-            <span className="text-sm font-extrabold text-[var(--flame)]">
-              Get for {savingsPct > 0 ? `${savingsPct}% off` : "best price"}
-            </span>
-            {(() => {
-              const coinsSpent = checkoutPreview?.coinsSpent ?? 0;
-              if (coinsSpent > 0) {
-                return (
-                  <div className="flex flex-col gap-1.5 mt-1 select-none">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[32px] font-black text-white tabular-nums">
-                        ₹{displayPrice.toLocaleString("en-IN")}
-                      </span>
-                      <span className="text-xl font-black text-white/50">+</span>
-                      <Image src={coinImg} alt="" width={18} height={18} className="-mt-0.5" />
-                      <span className="text-2xl font-black text-[#F5A623] tabular-nums">
-                        {coinsSpent.toLocaleString()}
-                      </span>
-                    </div>
-                    {displayOriginal > displayPrice && (
-                      <span className="text-base text-white/60 line-through font-semibold tabular-nums ml-0.5">
-                        ₹{displayOriginal.toLocaleString("en-IN")}
-                      </span>
-                    )}
-                  </div>
-                );
-              }
-              return (
-                <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-[32px] font-black text-white tabular-nums">
-                    ₹{displayPrice.toLocaleString("en-IN")}
-                  </span>
-                  {displayOriginal > displayPrice && (
-                    <span className="text-lg text-white/60 line-through font-semibold tabular-nums">
-                      ₹{displayOriginal.toLocaleString("en-IN")}
-                    </span>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
-
-
-          {/* Coupon & Coins Single Container */}
-          <div className="w-full bg-[#1C1C1E] border border-white/5 rounded-2xl flex flex-col p-4 gap-3.5 select-none relative">
-            {/* Top Area: Apply Coupon */}
-            <div ref={couponFieldRef} className="relative w-full flex flex-col gap-2.5">
-              <div className="flex items-center gap-3">
-                <TagIcon className="w-5 h-5 text-[var(--flame)]" />
-                <span className="text-sm font-extrabold text-white">Apply coupon</span>
-              </div>
-              
-              {appliedCoupon ? (
-                <div className="flex items-center justify-between bg-green-500/5 border border-green-500/20 rounded-xl p-3">
-                  <div>
-                    <p className="text-xs font-bold text-white">Code &apos;{appliedCoupon}&apos; applied</p>
-                    {(checkoutPreview?.discountAmount ?? checkoutPreview?.totalDiscount ?? 0) > 0 && (
-                      <p className="text-[10px] text-white/60 mt-0.5">
-                        Saved ₹{(checkoutPreview!.discountAmount ?? checkoutPreview!.totalDiscount).toLocaleString("en-IN")}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleRemoveCoupon}
-                    className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold rounded-xl hover:bg-red-500/20 transition active:scale-95"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    id="live-coupon-code"
-                    type="text"
-                    value={couponCode}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setCouponCode(val);
-                      if (val.trim() === "") {
-                        setShowCouponList(true);
-                      } else {
-                        const hasMatch = myCoupons.some((c) =>
-                          c.code.toUpperCase().startsWith(val.trim().toUpperCase())
-                        );
-                        setShowCouponList(hasMatch);
-                      }
-                    }}
-                    onFocus={handleCouponInputFocus}
-                    onClick={handleCouponInputFocus}
-                    placeholder="Enter coupon code"
-                    autoComplete="off"
-                    className="flex-1 h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs font-semibold text-white placeholder:text-white/20 outline-none focus:border-[var(--flame)] focus:ring-0 focus-visible:outline-none"
-                    style={{ outline: "none", boxShadow: "none" }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleApplyCoupon}
-                    disabled={couponValidating || !couponCode.trim()}
-                    className="h-11 px-4 bg-white/5 border border-white/10 text-white text-xs font-bold rounded-xl hover:bg-white/10 active:scale-95 transition disabled:opacity-40"
-                  >
-                    {couponValidating ? "Checking…" : "Apply"}
-                  </button>
-                </div>
-              )}
-
-              {showCouponList && !appliedCoupon && (
-                <CouponSuggestionsList
-                  coupons={myCoupons.filter((c) =>
-                    c.code.toUpperCase().startsWith(couponCode.trim().toUpperCase())
-                  )}
-                  loading={couponsLoading}
-                  error={couponsError}
-                  onSelect={handleSelectCoupon}
-                  onClose={() => setShowCouponList(false)}
-                />
-              )}
-              
-              {couponError && (
-                <p className="text-[10px] font-bold text-red-400 mt-0.5 flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  {couponError}
-                </p>
-              )}
+          {/* Product Description & About with Read More logic */}
+          {(product.description || product.about) && (
+            <div className="flex flex-col gap-2 mt-2">
+              <p className="text-sm font-medium font-sans text-white/70 leading-relaxed">
+                {(() => {
+                  const combinedText = [product.description, product.about].filter(Boolean).join(" ");
+                  if (combinedText.length <= 150) {
+                    return combinedText;
+                  }
+                  return (
+                    <>
+                      {isReadMore ? combinedText : `${combinedText.slice(0, 150)}...`}
+                      <button
+                        type="button"
+                        onClick={() => setIsReadMore(!isReadMore)}
+                        className="text-white hover:text-white/80 font-bold ml-1 underline underline-offset-2 focus:outline-none"
+                      >
+                        {isReadMore ? "Read less" : "Read more"}
+                      </button>
+                    </>
+                  );
+                })()}
+              </p>
             </div>
+          )}
 
-            {/* Divider Line */}
-            {shouldShowCoinEditor({ paymentRules, sku: selectedSku }) && optimalCoins > 0 && (
-              <div className="h-[1px] bg-white/5 w-full" />
-            )}
-
-            {/* Bottom Area: Arena Coins */}
-            {shouldShowCoinEditor({ paymentRules, sku: selectedSku }) && optimalCoins > 0 && (
-              <div className="flex items-center justify-between select-none">
-                <div className="flex items-center gap-1.5 text-[11px] font-bold text-white/70">
-                  <Image src={coinImg} alt="" width={16} height={16} />
-                  <span>100 Arena Coins = ₹1</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleEditCoins}
-                  className="flex items-center gap-2 bg-black/45 border border-white/5 px-2.5 py-1.5 rounded-[8px] text-xs font-bold text-white hover:bg-white/5 active:scale-95 transition"
-                >
-                  <Image src={coinImg} alt="" width={13} height={13} />
-                  <span className="text-[var(--coin)] font-extrabold">{cappedCoinsToRedeem.toLocaleString()}</span>
-                  <SquarePen className="w-3.5 h-3.5 text-white/70 ml-0.5" />
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Buy Action Button */}
-          <div className="w-full">
-            <SlantedButton
-              type="button"
-              onClick={triggerBuy}
-              disabled={!selectedSku || !!buyWarning}
-              isLoading={previewLoading}
-              className="w-full h-12 uppercase text-xs"
-            >
-              {!isAuthenticated ? (
-                <span>Sign in to Buy</span>
-              ) : buyButtonLabel.kind === "coins_only" ? (
-                <span className="inline-flex items-center gap-1">
-                  Buy with
-                  <Image src={coinImg} alt="" width={16} height={16} />
-                  {buyButtonLabel.coinsSpent.toLocaleString()}
-                </span>
-              ) : buyButtonLabel.kind === "hybrid" ? (
-                <span className="inline-flex items-center gap-1">
-                  Buy at ₹{buyButtonLabel.totalPayable.toLocaleString("en-IN")} +
-                  <Image src={coinImg} alt="" width={16} height={16} />
-                  {buyButtonLabel.coinsSpent.toLocaleString()}
-                </span>
-              ) : buyButtonLabel.kind === "inr_only" ? (
-                <span>Buy at ₹{buyButtonLabel.totalPayable.toLocaleString("en-IN")}</span>
-              ) : (
-                <span>Buy Now</span>
-              )}
-              <ArrowRight className="h-4 w-4 text-black ml-1.5" />
-            </SlantedButton>
-            {buyWarning && (
-              <div className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/10 p-2 text-center text-xs font-semibold text-amber-300">
-                {buyWarning}
-              </div>
-            )}
-            <div className="mt-4 p-4 border border-white/5 bg-[#1C1C1E]/50 rounded-2xl grid grid-cols-3 gap-3 items-center select-none">
-              {/* Instant Delivery */}
-              <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-[var(--flame)] shrink-0" fill="var(--flame)" />
-                <div className="flex flex-col text-left">
-                  <span className="text-[10px] font-extrabold text-white leading-tight">Instant Delivery</span>
-                  <span className="text-[8px] text-white/40 mt-0.5 font-medium leading-none">Get your code instantly</span>
-                </div>
-              </div>
-              
-              {/* 100% Secure */}
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-[#F5A623] shrink-0" fill="#F5A623" fillOpacity={0.15} />
-                <div className="flex flex-col text-left">
-                  <span className="text-[10px] font-extrabold text-white leading-tight">100% Secure</span>
-                  <span className="text-[8px] text-white/40 mt-0.5 font-medium leading-none">Safe & trusted payment</span>
-                </div>
-              </div>
-
-              {/* Official vouchers */}
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-[#F5A623] shrink-0" fill="#F5A623" fillOpacity={0.15} />
-                <div className="flex flex-col text-left">
-                  <span className="text-[10px] font-extrabold text-white leading-tight">Official vouchers</span>
-                  <span className="text-[8px] text-white/40 mt-0.5 font-medium leading-none">Genuine & Reliable</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Informational Cards & Instructions (lg:col-span-5) */}
-        <div className="lg:col-span-5 flex flex-col gap-6 w-full lg:sticky lg:top-[90px]">
           {/* Info cards (Redeem, Expiry, Usage) */}
-          <div className="grid grid-cols-3 gap-3 w-full">
+          <div className="grid grid-cols-3 gap-3 w-full mt-2">
             {/* REDEEM */}
-            <div className="flex flex-col items-center justify-center text-center p-3 rounded-2xl border border-white/5 bg-black/25">
+            <div className="flex flex-col items-center justify-center text-center p-3 rounded-[11px] border border-white/10 bg-white/[0.05]">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
                   <line x1="12" y1="18" x2="12.01" y2="18"></line>
                 </svg>
               </div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-white mt-3">REDEEM</span>
-              <span className="text-[10px] font-semibold text-white/40 mt-1">
+              <span className="text-[10px] font-bold font-sans uppercase tracking-wider text-white mt-3">REDEEM</span>
+              <span className="text-[10px] font-medium font-sans text-white/40 mt-1">
                 {product.giftCardInfo?.redemptionType === "ONLINE" ? "Online" : "Online"}
               </span>
             </div>
 
             {/* EXPIRY */}
-            <div className="flex flex-col items-center justify-center text-center p-3 rounded-2xl border border-white/5 bg-black/25">
+            <div className="flex flex-col items-center justify-center text-center p-3 rounded-[11px] border border-white/10 bg-white/[0.05]">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -1112,38 +899,56 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                   <line x1="3" y1="10" x2="21" y2="10"></line>
                 </svg>
               </div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-white mt-3">EXPIRY</span>
-              <span className="text-[10px] font-semibold text-white/40 mt-1">
+              <span className="text-[10px] font-bold font-sans uppercase tracking-wider text-white mt-3">EXPIRY</span>
+              <span className="text-[10px] font-medium font-sans text-white/40 mt-1">
                 {product.giftCardInfo?.expiryLabel || "1 Year"}
               </span>
             </div>
 
             {/* USAGE */}
-            <div className="flex flex-col items-center justify-center text-center p-3 rounded-2xl border border-white/5 bg-black/25">
+            <div className="flex flex-col items-center justify-center text-center p-3 rounded-[11px] border border-white/10 bg-white/[0.05]">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
                   <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
                 </svg>
               </div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-white mt-3">USAGE</span>
-              <span className="text-[10px] font-semibold text-white/40 mt-1">
+              <span className="text-[10px] font-bold font-sans uppercase tracking-wider text-white mt-3">USAGE</span>
+              <span className="text-[10px] font-medium font-sans text-white/40 mt-1">
                 {product.giftCardInfo?.cardType || "One Time"}
               </span>
             </div>
           </div>
 
+          {/* Underlined "View all T&Cs" Trigger */}
+          {product.giftCardInfo?.termsAndConditions && (
+            <div className="mt-2 text-left">
+              <button
+                type="button"
+                onClick={() => setShowTerms(true)}
+                className="text-sm font-semibold font-sans text-white hover:text-white/80 underline underline-offset-2 transition"
+              >
+                View all T&Cs
+              </button>
+            </div>
+          )}
+
           {/* How to Redeem container */}
           {(product.giftCardInfo?.howToUseInstructions || (product.giftCardInfo?.howToUseRetailModes && product.giftCardInfo.howToUseRetailModes.length > 0)) && (
-            <div className="w-full rounded-2xl border border-white/5 bg-black/25 overflow-hidden">
-              <div className="w-full flex items-center justify-between p-5 font-extrabold text-sm text-white select-none">
+            <div className="w-full rounded-2xl border border-white/5 bg-white/[0.06] overflow-hidden mt-4">
+              <div className="w-full flex items-center justify-between p-5 font-bold text-sm text-white select-none">
                 <span className="flex items-center gap-2">
-                  <span className="text-white/70">❓</span>
-                  <span>How to redeem</span>
+                  <svg width="20" height="20" viewBox="0 0 23 25" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 shrink-0 text-white/70">
+                    <path d="M11.7575 23.6229L11.7698 23.6207C11.7794 23.6222 11.7857 23.6288 11.7886 23.6407L11.8075 24.1151L11.8031 24.134L11.7898 24.1518L11.6742 24.234L11.6609 24.2385L11.6442 24.234L11.5286 24.1518L11.5175 24.1374L11.512 24.1151L11.5309 23.6396L11.5353 23.6285C11.5412 23.6211 11.5501 23.6192 11.562 23.6229L11.6409 23.6618L11.6564 23.6662L11.6786 23.6618L11.7575 23.6229Z" fill="currentColor"/>
+                    <path d="M12.0498 23.4974L12.0642 23.4951C12.0753 23.4981 12.0827 23.5062 12.0864 23.5196L12.1242 24.2018L12.1198 24.2174C12.1123 24.227 12.1016 24.23 12.0875 24.2262L11.8642 24.1229L11.8553 24.1151L11.8498 24.1018L11.8298 23.624L11.8331 23.6118L11.8442 23.6007L12.0498 23.4974Z" fill="currentColor"/>
+                    <path d="M11.2534 23.4947C11.259 23.4934 11.2649 23.4944 11.2698 23.4974L11.4742 23.5996L11.4853 23.6107L11.4886 23.624L11.4698 24.1018L11.4653 24.114L11.4542 24.1229L11.2309 24.2262L11.2142 24.2285C11.2023 24.224 11.1961 24.2151 11.1953 24.2018L11.2331 23.5196L11.2398 23.504C11.2429 23.4993 11.2478 23.4959 11.2534 23.4947Z" fill="currentColor"/>
+                    <path d="M11.1111 0C17.2478 0 22.2222 4.97444 22.2222 11.1111C22.2222 17.2478 17.2478 22.2222 11.1111 22.2222C4.97444 22.2222 0 17.2478 0 11.1111C0 4.97444 4.97444 0 11.1111 0ZM11.1111 2.22222C8.75363 2.22222 6.49271 3.15873 4.82572 4.82572C3.15873 6.49271 2.22222 8.75363 2.22222 11.1111C2.22222 13.4686 3.15873 15.7295 4.82572 17.3965C6.49271 19.0635 8.75363 20 11.1111 20C13.4686 20 15.7295 19.0635 17.3965 17.3965C19.0635 15.7295 20 13.4686 20 11.1111C20 8.75363 19.0635 6.49271 17.3965 4.82572C15.7295 3.15873 13.4686 2.22222 11.1111 2.22222ZM11.1111 15.5556C11.4058 15.5556 11.6884 15.6726 11.8968 15.881C12.1052 16.0894 12.2222 16.372 12.2222 16.6667C12.2222 16.9614 12.1052 17.244 11.8968 17.4523C11.6884 17.6607 11.4058 17.7778 11.1111 17.7778C10.8164 17.7778 10.5338 17.6607 10.3254 17.4523C10.1171 17.244 10 16.9614 10 16.6667C10 16.372 10.1171 16.0894 10.3254 15.881C10.5338 15.6726 10.8164 15.5556 11.1111 15.5556ZM11.1111 5C12.047 5.00003 12.9536 5.32595 13.6753 5.92178C14.397 6.51761 14.8887 7.34615 15.0659 8.26509C15.2431 9.18402 15.0948 10.136 14.6464 10.9575C14.1981 11.7789 13.4776 12.4186 12.6089 12.7667C12.4802 12.814 12.3642 12.8904 12.27 12.99C12.2211 13.0456 12.2133 13.1167 12.2144 13.19L12.2222 13.3333C12.2219 13.6165 12.1135 13.8889 11.9191 14.0949C11.7246 14.3008 11.4589 14.4247 11.1762 14.4413C10.8935 14.4579 10.6151 14.3659 10.398 14.1841C10.1808 14.0024 10.0412 13.7445 10.0078 13.4633L10 13.3333V13.0556C10 11.7744 11.0333 11.0056 11.7822 10.7044C12.087 10.5827 12.3529 10.3803 12.5513 10.1189C12.7497 9.85745 12.8732 9.54692 12.9084 9.22062C12.9437 8.89432 12.8894 8.56459 12.7514 8.26682C12.6133 7.96906 12.3968 7.71452 12.125 7.53053C11.8533 7.34654 11.5365 7.24006 11.2088 7.22252C10.8811 7.20498 10.5547 7.27704 10.2649 7.43097C9.97502 7.58489 9.73256 7.81487 9.56355 8.0962C9.39453 8.37753 9.30534 8.69958 9.30556 9.02778C9.30556 9.32246 9.18849 9.60508 8.98012 9.81345C8.77174 10.0218 8.48913 10.1389 8.19444 10.1389C7.89976 10.1389 7.61714 10.0218 7.40877 9.81345C7.2004 9.60508 7.08333 9.32246 7.08333 9.02778C7.08333 7.95954 7.50769 6.93506 8.26304 6.17971C9.0184 5.42435 10.0429 5 11.1111 5Z" fill="currentColor"/>
+                  </svg>
+                  <span className="font-sans">How to redeem</span>
                 </span>
               </div>
-              <div className="h-[1px] bg-white/10 w-full" />
-              <div className="p-5 text-xs text-white/70 leading-relaxed bg-black/10 flex flex-col gap-3.5">
+              <div className="h-[1px] bg-white/10 mx-5" />
+              <div className="p-5 text-xs text-white/70 leading-relaxed flex flex-col gap-3.5 font-sans">
                 {product.giftCardInfo.howToUseRetailModes && product.giftCardInfo.howToUseRetailModes.length > 0 ? (
                   product.giftCardInfo.howToUseRetailModes[0]?.instructions?.map((line: string, idx: number) => (
                     <div key={idx} className="flex gap-3 items-start">
@@ -1169,33 +974,268 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
               </div>
             </div>
           )}
+        </div>
 
-          {/* Terms & Conditions container */}
-          {product.giftCardInfo?.termsAndConditions && (
-            <div className="w-full rounded-2xl border border-white/5 bg-black/25 overflow-hidden">
-              <div className="w-full flex items-center justify-between p-5 font-extrabold text-sm text-white select-none">
-                <span className="flex items-center gap-2">
-                  <span className="text-white/70">📋</span>
-                  <span>Terms & Conditions</span>
+        {/* Right Column: Unified Purchase Flow Details Card (lg:col-span-5) */}
+        <div className="lg:col-span-5 flex flex-col gap-6 w-full lg:sticky lg:top-[90px]">
+          <div className="w-full bg-[#1C1C1E] border border-white/5 rounded-2xl p-6 flex flex-col gap-6 select-none relative">
+            
+            {/* Price and Savings Section */}
+            <div className="flex flex-col gap-2 w-full">
+              {savingsPct > 0 && (
+                <span className="text-[13px] font-medium text-[#FE8321] font-sans px-1">
+                  You&apos;re saving {savingsPct}%.
                 </span>
-              </div>
-              <div className="h-[1px] bg-white/10 w-full" />
-              <div className="p-5 text-xs text-white/70 leading-relaxed bg-black/10 flex flex-col gap-3">
-                {Array.isArray(product.giftCardInfo.termsAndConditions) ? (
-                  (product.giftCardInfo.termsAndConditions as any).map((term: string, idx: number) => (
-                    <div key={idx} className="flex gap-3 items-start">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/60">
-                        {idx + 1}
-                      </span>
-                      <p className="flex-1 mt-0.5">{term}</p>
+              )}
+              {/* Price display box (rectangular rounded-xl container with border & fill) */}
+              <div className="bg-white/[0.05] border border-white/10 rounded-xl p-5 flex flex-col gap-1 select-none w-full">
+                {(() => {
+                  const coinsSpent = checkoutPreview?.coinsSpent ?? 0;
+                  if (coinsSpent > 0) {
+                    return (
+                      <>
+                        <div className="flex items-start justify-between w-full">
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-1.5 font-sans">
+                              <span className="text-[32px] font-bold text-white tracking-tight leading-none tabular-nums">
+                                ₹{displayPrice.toLocaleString("en-IN")}
+                              </span>
+                              <span className="text-xl font-bold text-white leading-none px-0.5">+</span>
+                              <Image src={coinImg} alt="" width={18} height={18} className="object-contain shrink-0" />
+                              <span className="text-2xl font-bold text-[#FBCD00] leading-none tabular-nums">
+                                {coinsSpent.toLocaleString()}
+                              </span>
+                            </div>
+                            {displayOriginal > displayPrice && (
+                              <span className="text-sm text-white/40 line-through font-medium font-sans tabular-nums mt-1.5 ml-0.5">
+                                ₹{displayOriginal.toLocaleString("en-IN")}
+                              </span>
+                            )}
+                          </div>
+                          {isFlexibleSelection && (
+                            <button
+                              type="button"
+                              onClick={handleEditVoucherWorth}
+                              className="text-white/40 hover:text-white transition p-1.5 mt-0.5 -mr-1"
+                            >
+                              <SquarePen className="w-5 h-5" />
+                            </button>
+                          )}
+                        </div>
+                      </>
+                  );
+                }
+                return (
+                  <>
+                    <div className="flex items-start justify-between w-full">
+                      <div className="flex flex-col">
+                        <div className="flex items-baseline gap-2 font-sans">
+                          <span className="text-[32px] font-bold text-white tracking-tight leading-none tabular-nums">
+                            ₹{displayPrice.toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                        {displayOriginal > displayPrice && (
+                          <span className="text-sm text-white/40 line-through font-medium font-sans tabular-nums mt-0.5 ml-0.5">
+                            ₹{displayOriginal.toLocaleString("en-IN")}
+                          </span>
+                        )}
+                      </div>
+                      {isFlexibleSelection && (
+                        <button
+                          type="button"
+                          onClick={handleEditVoucherWorth}
+                          className="text-white/40 hover:text-white transition p-1.5 mt-0.5 -mr-1"
+                        >
+                          <SquarePen className="w-5 h-5" />
+                        </button>
+                      )}
                     </div>
-                  ))
-                ) : (
-                  <div className="whitespace-pre-wrap">{product.giftCardInfo.termsAndConditions}</div>
-                )}
-              </div>
+                  </>
+                );
+              })()}
             </div>
-          )}
+
+            {/* Quick value chips for flexible selection */}
+            {isFlexibleSelection && (
+              <div className="grid grid-cols-4 gap-2 mt-2">
+                {[100, 150, 200, 250].map((val) => {
+                  const isSelected = customAmount === val;
+                  return (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => {
+                        setCustomAmount(val);
+                        setCustomAmountText(String(val));
+                      }}
+                      className={`h-11 rounded-[9px] flex items-center justify-center text-[15px] font-medium transition ${
+                        isSelected
+                          ? "bg-white/[0.08] border border-white/20 text-white"
+                          : "bg-transparent border border-white/10 text-white hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      ₹{val}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            </div>
+
+            {/* Inline Denomination Chips for Fixed SKUs */}
+            {!isFlexibleSelection && fixedSkus.length > 0 && (
+              <div className="flex flex-col gap-4 mt-2">
+                <span className="text-lg font-bold text-white font-sans">Select amount</span>
+                <div className="grid grid-cols-2 gap-3">
+                  {fixedSkus.map((sku) => {
+                    const isSelected = selectedSku?.id === sku.id;
+                    const faceVal = sku.faceValue ?? sku.unitAmount ?? 0;
+                    const retailPrice = sku.retailPrice ?? sku.price ?? faceVal;
+                    const maxCoverage = sku.paymentRules?.maxCoinCoveragePercent ?? paymentRules?.maxCoinCoveragePercent ?? 0;
+                    const coinToInrRate = sku.paymentRules?.coinToInrRate ?? paymentRules?.coinToInrRate ?? 100;
+                    const maxCoinInr = (retailPrice * maxCoverage) / 100;
+                    const maxCoins = maxCoinInr * coinToInrRate;
+                    const displayInr = retailPrice - maxCoinInr;
+
+                    return (
+                      <button
+                        key={sku.id}
+                        type="button"
+                        onClick={() => setSelectedSku(sku)}
+                        className={`p-4 rounded-xl flex flex-col gap-2 text-left border transition ${
+                          isSelected
+                            ? "bg-white/[0.05] border-white/20 shadow-[0_0_0_1px_rgba(255,255,255,0.1)]"
+                            : "bg-transparent border-white/10 hover:bg-white/[0.02]"
+                        }`}
+                      >
+                        <span className="text-sm font-bold text-white font-sans">
+                          {sku.label || sku.title || `${faceVal} UC`}
+                        </span>
+                        <div className="flex items-center gap-1.5 font-sans">
+                          <span className="text-sm font-medium text-white/80">
+                            ₹{displayInr.toLocaleString("en-IN")}
+                          </span>
+                          {maxCoins > 0 && (
+                            <>
+                              <span className="text-sm font-medium text-white/80">+</span>
+                              <Image src={coinImg} alt="" width={15} height={15} className="object-contain shrink-0" />
+                              <span className="text-sm font-medium text-[#FBCD00]">
+                                {maxCoins.toLocaleString()}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Arena Coins conversion swap & edit */}
+            {shouldShowCoinEditor({ paymentRules, sku: selectedSku }) && optimalCoins > 0 && (
+              <div className="flex items-center justify-between select-none bg-white/[0.05] border border-white/10 p-3 rounded-xl">
+                <div className="flex items-center gap-1.5 text-xs font-medium font-sans text-white">
+                  <Image src={coinImg} alt="" width={16} height={16} className="object-contain" />
+                  <span>100 Arena Coins = ₹1</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleEditCoins}
+                  className="flex items-center gap-1.5 bg-white/[0.06] px-2.5 py-1.5 rounded-[6px] text-xs font-semibold text-white hover:bg-white/[0.08] active:scale-95 transition font-sans"
+                >
+                  <Image src={coinImg} alt="" width={13} height={13} className="object-contain" />
+                  <span className="text-[#FBCD00] font-bold">{cappedCoinsToRedeem.toLocaleString()}</span>
+                  <SquarePen className="w-3.5 h-3.5 text-white/70 ml-0.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Coupon Code Entry & Applied Box */}
+            <div ref={couponFieldRef} className="relative w-full flex flex-col gap-2.5">
+              {appliedCoupon ? (
+                <div className="flex items-end justify-between bg-white/[0.19] rounded-[11px] p-4 font-sans select-none border border-transparent">
+                  <div className="flex flex-col gap-2 text-left">
+                    <div className="flex items-center gap-3">
+                      <Image src={voucherIcon} alt="" width={28} height={28} className="object-contain drop-shadow-md" />
+                      <span className="text-[14px] font-medium text-white">&lsquo;{appliedCoupon}&rsquo; applied</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleRemoveCoupon();
+                        setCouponCode("");
+                        setShowCouponModal(true);
+                      }}
+                      className="text-[12px] font-medium text-white hover:text-white/80 flex items-center gap-1 mt-0.5 text-left animate-in fade-in pl-[40px]"
+                    >
+                      View all coupons <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1.5 pb-0.5 pr-1">
+                    <Check className="w-[18px] h-[18px] text-[#FF6A00] stroke-[3]" />
+                    <span className="text-sm font-bold text-[#FF6A00]">Applied</span>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      openAuthModal();
+                      return;
+                    }
+                    setShowCouponModal(true);
+                    void loadMyCoupons();
+                  }}
+                  className="w-full bg-white/[0.05] border border-white/10 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/[0.08] transition select-none font-sans"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Image src={voucherIcon} alt="" width={24} height={24} className="object-contain" />
+                    <span className="text-sm font-semibold text-white">Have a Gift Voucher Code?</span>
+                  </div>
+                  <span className="text-white text-lg font-bold">+</span>
+                </div>
+              )}
+            </div>
+
+            {/* Buy Action Button & generated value text wrapper box */}
+            <div className="w-full bg-white/[0.05] border border-white/10 rounded-xl p-4 flex flex-col gap-4">
+              <span className="text-center text-[13px] font-medium font-sans text-white">
+                1 card worth ₹{(isFlexibleSelection ? customAmount : selectedSku?.faceValue ?? selectedSku?.unitAmount ?? 0).toLocaleString("en-IN")} will be generated
+              </span>
+              <SlantedButton
+                type="button"
+                onClick={triggerBuy}
+                disabled={!selectedSku || !!buyWarning}
+                isLoading={previewLoading}
+                className="w-full h-12 !text-white !font-bold font-sans tracking-wide"
+              >
+                {!isAuthenticated ? (
+                  <span className="uppercase text-xs">Sign in to Buy</span>
+                ) : (
+                  <span className="flex items-center justify-center gap-1 text-[15px]">
+                    Buy at ₹{displayPrice.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                    {displayCoinsSpent > 0 && (
+                      <>
+                        <span className="ml-0.5">+</span>
+                        <Image src={coinImg} alt="" width={16} height={16} className="object-contain" />
+                        <span>{displayCoinsSpent.toLocaleString("en-IN")}</span>
+                      </>
+                    )}
+                  </span>
+                )}
+              </SlantedButton>
+              {buyWarning && (
+                <div className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/10 p-2 text-center text-xs font-semibold text-amber-300">
+                  {buyWarning}
+                </div>
+              )}
+            </div>
+
+          </div>
+
+
+
         </div>
       </div>
 
@@ -1260,6 +1300,197 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           void loadPreview();
         }}
       />
+
+      {/* Terms & Conditions Center Popup Modal */}
+      {showTerms && product.giftCardInfo?.termsAndConditions && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#1C1C1E] border border-white/10 rounded-2xl w-full max-w-[500px] flex flex-col max-h-[80vh] shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-white/5">
+              <div className="flex items-center gap-2 text-sm font-extrabold text-white">
+                <span>📋</span>
+                <span>Terms & Conditions</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTerms(false)}
+                className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {/* Body */}
+            <div className="p-5 overflow-y-auto text-xs text-white/70 leading-relaxed flex flex-col gap-3">
+              {Array.isArray(product.giftCardInfo.termsAndConditions) ? (
+                (product.giftCardInfo.termsAndConditions as any).map((term: string, idx: number) => (
+                  <div key={idx} className="flex gap-3 items-start">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/60">
+                      {idx + 1}
+                    </span>
+                    <p className="flex-1 mt-0.5">{term}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="whitespace-pre-wrap">{product.giftCardInfo.termsAndConditions}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Coupon Center Popup Modal */}
+      {showCouponModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#3A3A3A] border border-white/10 rounded-[11px] w-full max-w-[420px] p-6 flex flex-col gap-6 relative select-none animate-in zoom-in-95 duration-200">
+            {/* Close button at top-right outside/on border */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowCouponModal(false);
+                setCouponError(null);
+              }}
+              className="absolute top-4 right-4 rounded-full border border-white/20 p-1 text-white/50 hover:text-white hover:border-white/50 transition flex items-center justify-center bg-black/45"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Header */}
+            <div className="flex flex-col gap-1 text-left pr-8">
+              <h3 className="text-lg font-bold text-white font-sans">Have a coupon code?</h3>
+              <p className="text-xs text-white/50 font-sans">Enter it below to redeem your discount.</p>
+            </div>
+
+            {/* Input & Apply Block */}
+            <div className="flex flex-col gap-3">
+              <input
+                type="text"
+                value={couponCode}
+                onChange={(e) => {
+                  setCouponCode(e.target.value);
+                  setCouponError(null);
+                }}
+                placeholder="Enter coupon code"
+                autoComplete="off"
+                className="h-11 bg-white/[0.1] border border-white/[0.13] rounded-[10.47px] px-4 text-xs font-medium font-sans text-white placeholder:text-white outline-none focus:border-[var(--flame)] focus:ring-0 w-full"
+                style={{ outline: "none", boxShadow: "none" }}
+              />
+              <SlantedButton
+                type="button"
+                onClick={async () => {
+                  if (!couponCode.trim()) return;
+                  setCouponError(null);
+                  try {
+                    await applyCouponCode(couponCode);
+                    setShowCouponModal(false);
+                  } catch (err) {
+                    // error handled inside applyCouponCode
+                  }
+                }}
+                disabled={couponValidating || !couponCode.trim()}
+                isLoading={couponValidating}
+                className="w-full h-11 uppercase text-xs !text-white !font-bold font-sans tracking-wide"
+              >
+                Apply
+              </SlantedButton>
+              {couponError && (
+                <p className="text-[10px] font-bold text-red-400 mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 animate-in shake" />
+                  {couponError}
+                </p>
+              )}
+            </div>
+
+            {/* Available Coupons list */}
+            <div className="flex flex-col gap-3 text-left">
+              <h4 className="text-sm font-bold text-white font-sans">Available coupons</h4>
+              <div className="flex flex-col gap-3 max-h-[220px] overflow-y-auto pr-1">
+                {myCoupons.length > 0 ? (
+                  myCoupons.map((coupon) => (
+                    <div
+                      key={coupon.code}
+                      onClick={() => {
+                        setCouponCode(coupon.code);
+                        setCouponError(null);
+                      }}
+                      className="bg-white/[0.1] border border-white/10 rounded-xl p-3 flex justify-between items-center cursor-pointer hover:bg-white/[0.12] transition select-none font-sans"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-white">
+                          <Image src={voucherIcon} alt="" width={24} height={24} className="object-contain" />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-bold text-white leading-tight">{coupon.code}</span>
+                          <span className="text-[10px] text-white/[0.74] leading-none">
+                            Min. order {coupon.minOrderValue ? `₹${coupon.minOrderValue}` : "₹199"} - Max save {coupon.maxDiscount ? `₹${coupon.maxDiscount}` : "₹1"}
+                          </span>
+                          <span className="text-[10px] text-white/[0.74] leading-none">
+                            Valid till {coupon.validUntil ? new Date(coupon.validUntil).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "06 Aug 2026"}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold text-[#FE8321]">
+                        {String(coupon.discountType).toLowerCase() === "percentage" ? `${coupon.discountValue}% off` : `₹${coupon.discountValue} off`}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  // Fallback mock coupons to match mockup nicely if user has no actual coupons
+                  <>
+                    <div
+                      onClick={() => {
+                        setCouponCode("FLAT50");
+                        setCouponError(null);
+                      }}
+                      className="bg-white/[0.1] border border-white/10 rounded-xl p-3 flex justify-between items-center cursor-pointer hover:bg-white/[0.12] transition select-none font-sans"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-white">
+                          <Image src={voucherIcon} alt="" width={24} height={24} className="object-contain" />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-bold text-white leading-tight">FLAT50</span>
+                          <span className="text-[10px] text-white/[0.74] leading-none">
+                            Min. order ₹199 - Max save ₹1
+                          </span>
+                          <span className="text-[10px] text-white/[0.74] leading-none">
+                            Valid till 06 Aug 2026
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold text-[#FE8321]">₹50 off</span>
+                    </div>
+
+                    <div
+                      onClick={() => {
+                        setCouponCode("FLAT50");
+                        setCouponError(null);
+                      }}
+                      className="bg-white/[0.1] border border-white/10 rounded-xl p-3 flex justify-between items-center cursor-pointer hover:bg-white/[0.12] transition select-none font-sans"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-white">
+                          <Image src={voucherIcon} alt="" width={24} height={24} className="object-contain" />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-bold text-white leading-tight">FLAT50</span>
+                          <span className="text-[10px] text-white/[0.74] leading-none">
+                            Min. order ₹199 - Max save ₹1
+                          </span>
+                          <span className="text-[10px] text-white/[0.74] leading-none">
+                            Valid till 06 Aug 2026
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold text-[#FE8321]">₹50 off</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

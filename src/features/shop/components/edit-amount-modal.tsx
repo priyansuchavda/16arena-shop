@@ -345,14 +345,14 @@ export function EditAmountModal({
 
           <div className="flex justify-between items-start"></div>
 
-          <div className="mx-auto flex flex-col items-center justify-center bg-white/10 backdrop-blur-md border border-white/15 rounded-[16px] px-5 py-3 shadow-[0_8px_32px_0_rgba(0,0,0,0.15)] relative z-10">
-            <span className="text-white/80 text-[10px] font-bold uppercase tracking-[0.08em] mb-1">
-              1 Card worth
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center bg-white/10 backdrop-blur-md border border-white/15 rounded-[18px] px-7 py-4.5 shadow-[0_8px_32px_0_rgba(0,0,0,0.15)] z-10">
+            <span className="text-white/80 text-[11.5px] font-semibold tracking-[0.06em] mb-1.5 font-heading">
+              1 Card Worth
             </span>
-            <span className="text-white text-3xl font-black leading-none tabular-nums flex items-center">
+            <span className="text-white text-[36px] font-medium leading-none tabular-nums flex items-center font-sans">
               ₹{localAmount.toLocaleString("en-IN")}
               <span
-                className="inline-block w-[2px] h-7 bg-white ml-0.5"
+                className="inline-block w-[2px] h-8 bg-white ml-0.5"
                 style={{ animation: "blink-caret 1s step-end infinite" }}
               />
             </span>

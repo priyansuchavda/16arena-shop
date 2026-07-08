@@ -234,6 +234,11 @@ export type ShopProductDetail = {
     cardType?: string;
     denominationType?: string;
     howToUseInstructions?: string;
+    howToUseRetailModes?: {
+      retailMode: string;
+      retailModeName: string;
+      instructions: string[];
+    }[];
     termsAndConditions?: string;
     amountRestrictions?: ShopAmountRestrictions;
   } | null;

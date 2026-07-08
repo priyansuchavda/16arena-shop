@@ -1,0 +1,179 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import Image from "next/image";
+import { X } from "lucide-react";
+import coinImg from "@/assets/png/coin.png";
+
+type EditCoinsModalProps = {
+  open: boolean;
+  onClose: () => void;
+  maxCoins: number;
+  initialCoins: number;
+  onConfirm: (coins: number) => void;
+};
+
+export function EditCoinsModal({
+  open,
+  onClose,
+  maxCoins,
+  initialCoins,
+  onConfirm,
+}: EditCoinsModalProps) {
+  const [localText, setLocalText] = useState(String(initialCoins));
+  const [localCoins, setLocalCoins] = useState(initialCoins);
+
+  useEffect(() => {
+    if (open) {
+      setLocalText(String(initialCoins));
+      setLocalCoins(initialCoins);
+    }
+  }, [open, initialCoins]);
+
+  if (!open) return null;
+
+  const handleKeypadPress = (key: string) => {
+    let current = localText;
+    if (key === "clear") {
+      current = "";
+    } else if (key === "backspace") {
+      current = current.slice(0, -1);
+    } else {
+      const maxLength = Math.max(7, String(maxCoins).length);
+      if (current.length >= maxLength) {
+        return;
+      }
+      if (current === "0" || current === "") {
+        current = key;
+      } else {
+        current = current + key;
+      }
+    }
+
+    setLocalText(current);
+    const num = parseInt(current, 10);
+    if (!Number.isNaN(num)) {
+      setLocalCoins(num);
+    } else {
+      setLocalCoins(0);
+    }
+  };
+
+  const handleUseMax = () => {
+    setLocalCoins(maxCoins);
+    setLocalText(String(maxCoins));
+  };
+
+  const hasError = localCoins > maxCoins;
+
+  return (
+    <div
+      className="fixed inset-0 z-[150] bg-black/80 flex items-center justify-center p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[480px] bg-[#141414] border border-white/10 rounded-[28px] p-6 shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col gap-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <span className="text-white text-base font-extrabold">Arena Coins to use</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleUseMax}
+              className="text-[11px] bg-white/5 border border-white/10 px-3 py-1.5 rounded-[8px] text-white/90 font-bold hover:bg-white/10 active:scale-95 transition"
+            >
+              Use max
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 active:scale-95 transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Display Center Area */}
+        <div className="flex flex-col items-center justify-center gap-1.5 py-2 select-none">
+          <div className="flex items-center gap-2">
+            <Image src={coinImg} alt="Arena Coin" width={32} height={32} />
+            <span className="text-4xl font-extrabold text-[#F5A623] tabular-nums">
+              {localCoins.toLocaleString()}
+            </span>
+          </div>
+          <span className="text-white/40 text-xs font-semibold">
+            {localCoins.toLocaleString()} Arena Coins = ₹{(localCoins / 100).toFixed(2)} off
+          </span>
+        </div>
+
+        {/* Custom Numeric Keypad */}
+        <div className="grid grid-cols-3 gap-x-6 gap-y-4 w-full max-w-[360px] mx-auto my-2">
+          {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((num) => (
+            <button
+              key={num}
+              type="button"
+              onClick={() => handleKeypadPress(num)}
+              className="h-12 flex items-center justify-center text-2xl font-bold text-white/90 hover:bg-white/5 active:scale-90 transition rounded-xl"
+            >
+              {num}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => handleKeypadPress("clear")}
+            className="h-12 flex items-center justify-center text-sm font-bold text-white/50 hover:bg-white/5 hover:text-white active:scale-90 transition rounded-xl"
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            onClick={() => handleKeypadPress("0")}
+            className="h-12 flex items-center justify-center text-2xl font-bold text-white/90 hover:bg-white/5 active:scale-90 transition rounded-xl"
+          >
+            0
+          </button>
+          <button
+            type="button"
+            onClick={() => handleKeypadPress("backspace")}
+            className="h-12 flex items-center justify-center text-white/70 hover:bg-white/5 hover:text-white active:scale-90 transition rounded-xl"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="22"
+              height="22"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" />
+              <line x1="18" y1="9" x2="12" y2="15" />
+              <line x1="12" y1="9" x2="18" y2="15" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Error message inside keypad sheet if amount out of bounds */}
+        {hasError && (
+          <div className="text-center text-xs font-bold text-red-400">
+            Maximum allowed is {maxCoins.toLocaleString()} coins
+          </div>
+        )}
+
+        {/* Apply Button */}
+        <button
+          type="button"
+          onClick={() => onConfirm(localCoins)}
+          disabled={hasError}
+          className="w-full h-12 bg-gradient-to-r from-[var(--flame)] via-[var(--flame-deep)] to-[var(--flame)] hover:brightness-105 text-black text-sm font-extrabold uppercase tracking-wider rounded-xl active:scale-[0.98] transition shadow-[0_12px_24px_-10px_rgba(255,68,0,0.4)] disabled:opacity-40"
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+}

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Image from "next/image";
-import { AlertCircle, ChevronDown, ChevronUp, Copy, Check, Info, Loader2, Sparkles, Tag as TagIcon, ArrowRight } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, Copy, Check, Info, Loader2, Sparkles, Tag as TagIcon, ArrowRight, Pencil, ChevronRight, SquarePen, Zap, ShieldCheck } from "lucide-react";
 import coinImg from "@/assets/png/coin.png";
 import { HudPanel } from "./hud";
 import { ScrollRow } from "./scroll-row";
@@ -12,6 +12,8 @@ import { useAuthStore, useUserSummary } from "@/features/auth";
 import { shopApi, buildCheckoutRequest } from "../api";
 import { PaymentSummarySheet } from "./payment-summary-sheet";
 import { CouponSuggestionsList } from "./coupon-suggestions-list";
+import { EditAmountModal } from "./edit-amount-modal";
+import { EditCoinsModal } from "./edit-coins-modal";
 import {
   ShopProductDetail,
   ShopSku,
@@ -91,6 +93,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     return amountRestrictions ? amountRestrictions.minVoucherAmount : 0;
   });
   const [amountError, setAmountError] = useState<string | null>(null);
+  const [showEditAmountModal, setShowEditAmountModal] = useState(false);
 
   // Mobile product detail always checks out quantity 1.
   const cartQuantity = 1;
@@ -109,12 +112,14 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   // Coins settings
   const [applyCoins, setApplyCoins] = useState(true);
   const [customCoins, setCustomCoins] = useState<number | null>(null);
+  const [showEditCoinsModal, setShowEditCoinsModal] = useState(false);
 
   // Accordions states
   const [showHowToRedeem, setShowHowToRedeem] = useState(true);
   const [showTerms, setShowTerms] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [isReadMore, setIsReadMore] = useState(false);
+  const [activeRetailModeIdx, setActiveRetailModeIdx] = useState(0);
 
   // Checkout Preview cache
   const [checkoutPreview, setCheckoutPreview] = useState<CheckoutPreview | null>(null);
@@ -130,30 +135,20 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
   const voucherFaceValue = isFlexibleSelection && customAmount > 0 ? customAmount : null;
 
-  // Handle custom amount input validation
-  const handleCustomAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, "");
-    setCustomAmountText(val);
-
-    if (!val) {
-      setAmountError("Please enter an amount");
-      setCustomAmount(0);
-      return;
-    }
-
-    const num = parseInt(val, 10);
-    setCustomAmount(num);
-
-    if (amountRestrictions) {
-      if (num < amountRestrictions.minVoucherAmount) {
+  // Handle custom amount validation automatically when customAmount changes
+  useEffect(() => {
+    if (isFlexibleSelection && amountRestrictions && customAmount > 0) {
+      if (customAmount < amountRestrictions.minVoucherAmount) {
         setAmountError(`Minimum amount is ₹${amountRestrictions.minVoucherAmount}`);
-      } else if (num > amountRestrictions.maxVoucherAmount) {
+      } else if (customAmount > amountRestrictions.maxVoucherAmount) {
         setAmountError(`Maximum amount is ₹${amountRestrictions.maxVoucherAmount}`);
       } else {
         setAmountError(null);
       }
+    } else {
+      setAmountError(null);
     }
-  };
+  }, [customAmount, isFlexibleSelection, amountRestrictions]);
 
   // Computes optimal coins
   const subtotal = useMemo(() => {
@@ -464,7 +459,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
   const handleSelectCoupon = (code: string) => {
     setCouponCode(code);
-    void applyCouponCode(code);
+    setShowCouponList(false);
   };
 
   const applyCouponCode = async (rawCode: string) => {
@@ -483,7 +478,25 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
       if (!isApplied && (preview.discountAmount ?? preview.totalDiscount ?? 0) <= 0) {
         setAppliedCoupon(null);
-        setCouponError("This coupon could not be applied.");
+        let couponsList = myCoupons;
+        if (couponsList.length === 0) {
+          try {
+            couponsList = await shopApi.getMyCoupons();
+            setMyCoupons(couponsList);
+          } catch {
+            // ignore
+          }
+        }
+        const matchedCoupon = couponsList.find(
+          (c) => c.code.toUpperCase() === code.toUpperCase()
+        );
+        if (matchedCoupon && matchedCoupon.minOrderValue != null && matchedCoupon.minOrderValue > 0) {
+          setCouponError(
+            `To apply this coupon, minimum order value required is ₹${matchedCoupon.minOrderValue.toLocaleString("en-IN")}`
+          );
+        } else {
+          setCouponError("This coupon could not be applied.");
+        }
         return;
       }
 
@@ -509,6 +522,14 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     setCouponError(null);
     setShowCouponList(false);
     schedulePreviewOnly();
+  };
+
+  const handleEditVoucherWorth = () => {
+    setShowEditAmountModal(true);
+  };
+
+  const handleEditCoins = () => {
+    setShowEditCoinsModal(true);
   };
 
   useEffect(() => {
@@ -567,454 +588,402 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           />
         </div>
       )}
+          <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-12 relative z-10 pt-6">
+        {/* Left Column: Product Info & Purchase Flow (lg:col-span-7) */}
+        <div className="lg:col-span-7 flex flex-col gap-6 w-full max-w-[560px]">
+          {/* Brand Premium Card Design */}
+          <div className="relative w-full aspect-[1.85/1] rounded-[14px] overflow-hidden border border-white/10 p-6 flex flex-col justify-between shadow-2xl transition hover:scale-[1.01]"
+            style={{
+              background: `linear-gradient(135deg, ${g.accent} 0%, ${g.accent2} 100%)`,
+              boxShadow: `0 20px 50px -15px ${rgba(g.accent, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.15)`
+            }}>
+            <div className="flex justify-between items-start">
+            </div>
 
-      <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-12 relative z-10 pt-6">
-            {/* Block A: Product Info & Card Graphic */}
-            <div className="lg:col-span-7 order-1 flex flex-col gap-6">
+            <div className="mx-auto flex flex-col items-center justify-center bg-white/10 backdrop-blur-md border border-white/15 rounded-[16px] px-5 py-3 shadow-[0_8px_32px_0_rgba(0,0,0,0.15)] select-none">
+              <span className="text-white/80 text-[10px] font-bold uppercase tracking-[0.08em] mb-1">Voucher worth</span>
+              <div className="flex items-center gap-2">
+                <span className="text-white text-3xl font-black leading-none tabular-nums">
+                  ₹{(isFlexibleSelection ? customAmount : selectedSku?.faceValue ?? selectedSku?.unitAmount ?? 0).toLocaleString("en-IN")}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleEditVoucherWorth}
+                  className="p-1 rounded-md text-white/70 hover:bg-white/10 hover:text-white active:scale-90 transition"
+                  title="Select Denomination"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
 
-              {/* Brand Premium Card Design */}
-              <div className="relative w-full max-w-[560px] aspect-[1.85/1] rounded-[14px] overflow-hidden border border-white/10 p-6 flex flex-col justify-between shadow-2xl transition hover:scale-[1.01]"
-                style={{
-                  background: `linear-gradient(135deg, ${g.accent} 0%, ${g.accent2} 100%)`,
-                  boxShadow: `0 20px 50px -15px ${rgba(g.accent, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.15)`
-                }}>
-                {(selectedSku?.savingsPercent ?? product.savingsPercent ?? 5) > 0 && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-[#25C26E] text-white text-[12.5px] font-extrabold px-6 py-2 rounded-b-[6px] shadow-sm z-10 whitespace-nowrap">
-                    {selectedSku?.savingsPercent ?? product.savingsPercent ?? 5}% off with Arena Coins
-                  </div>
-                )}
-                <div className="flex justify-between items-start">
+            <div className="flex items-center gap-3">
+              {product.logoUrl && (
+                <div className="relative w-8 h-8 rounded-full overflow-hidden border border-white/15 bg-black/10">
+                  <Image src={product.logoUrl} alt="" fill className="object-cover" />
                 </div>
+              )}
+              <span className="text-xs font-bold uppercase tracking-[0.05em] text-white/90">
+                {product.brandName ?? product.name}
+              </span>
+            </div>
+          </div>
 
-                <div className="flex flex-col gap-1 items-start">
-                  <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/70">Voucher Worth</span>
-                  <span className="text-[34px] font-black leading-none text-white tabular-nums">
-                    ₹{(isFlexibleSelection ? customAmount : selectedSku?.faceValue ?? selectedSku?.unitAmount ?? 0).toLocaleString("en-IN")}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  {product.logoUrl && (
-                    <div className="relative w-8 h-8 rounded-full overflow-hidden border border-white/15 bg-black/10">
-                      <Image src={product.logoUrl} alt="" fill className="object-cover" />
+          {/* Badge & Info */}
+          <div className="flex flex-col gap-2 items-start mt-2">
+            {(selectedSku?.savingsPercent ?? product.savingsPercent ?? 5) > 0 && (
+              <span className="px-2 py-0.5 bg-[#25C26E] text-white text-[10px] font-black rounded uppercase select-none w-fit">
+                {selectedSku?.savingsPercent ?? product.savingsPercent ?? 5}% Off
+              </span>
+            )}
+            <h1 className="text-3xl font-black text-white leading-tight">
+              {product.name}
+            </h1>
+            <span className="text-sm font-extrabold text-[var(--flame)]">
+              Get for {savingsPct > 0 ? `${savingsPct}% off` : "best price"}
+            </span>
+            {(() => {
+              const coinsSpent = checkoutPreview?.coinsSpent ?? 0;
+              if (coinsSpent > 0) {
+                return (
+                  <div className="flex flex-col gap-1.5 mt-1 select-none">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[32px] font-black text-white tabular-nums">
+                        ₹{displayPrice.toLocaleString("en-IN")}
+                      </span>
+                      <span className="text-xl font-black text-white/50">+</span>
+                      <Image src={coinImg} alt="" width={18} height={18} className="-mt-0.5" />
+                      <span className="text-2xl font-black text-[#F5A623] tabular-nums">
+                        {coinsSpent.toLocaleString()}
+                      </span>
                     </div>
+                    {displayOriginal > displayPrice && (
+                      <span className="text-xs text-white/40 line-through font-semibold tabular-nums ml-0.5">
+                        ₹{displayOriginal.toLocaleString("en-IN")}
+                      </span>
+                    )}
+                  </div>
+                );
+              }
+              return (
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className="text-[32px] font-black text-white tabular-nums">
+                    ₹{displayPrice.toLocaleString("en-IN")}
+                  </span>
+                  {displayOriginal > displayPrice && (
+                    <span className="text-sm text-white/40 line-through font-semibold tabular-nums">
+                      ₹{displayOriginal.toLocaleString("en-IN")}
+                    </span>
                   )}
-                  <span className="text-xs font-bold uppercase tracking-[0.05em] text-white/90">
-                    {product.brandName ?? product.name}
-                  </span>
                 </div>
-              </div>
+              );
+            })()}
+          </div>
 
-              {/* Title and Descriptions */}
-              <div className="max-w-[560px]">
-                {(() => {
-                  const fullDescription = [product.description, product.about].filter(Boolean).join("\n\n");
-                  if (!fullDescription) return null;
-                  return (
-                    <>
-                      <p
-                        className={`mt-3 text-sm text-[var(--muted)] leading-relaxed whitespace-pre-wrap ${!isReadMore ? "line-clamp-2" : ""}`}
-                      >
-                        {fullDescription}
+
+          {/* Coupon & Coins Single Container */}
+          <div className="w-full bg-[#1C1C1E] border border-white/5 rounded-2xl flex flex-col p-4 gap-3.5 select-none relative">
+            {/* Top Area: Apply Coupon */}
+            <div ref={couponFieldRef} className="relative w-full flex flex-col gap-2.5">
+              <div className="flex items-center gap-3">
+                <TagIcon className="w-5 h-5 text-[var(--flame)]" />
+                <span className="text-sm font-extrabold text-white">Apply coupon</span>
+              </div>
+              
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between bg-green-500/5 border border-green-500/20 rounded-xl p-3">
+                  <div>
+                    <p className="text-xs font-bold text-white">Code &apos;{appliedCoupon}&apos; applied</p>
+                    {(checkoutPreview?.discountAmount ?? checkoutPreview?.totalDiscount ?? 0) > 0 && (
+                      <p className="text-[10px] text-white/60 mt-0.5">
+                        Saved ₹{(checkoutPreview!.discountAmount ?? checkoutPreview!.totalDiscount).toLocaleString("en-IN")}
                       </p>
-                      <button
-                        onClick={() => setIsReadMore(!isReadMore)}
-                        className="mt-2 text-[13px] font-bold text-white hover:text-[var(--flame)] transition-colors"
-                      >
-                        {isReadMore ? "View less" : "View more"}
-                      </button>
-                    </>
-                  );
-                })()}
-              </div>
-
-              {/* Core Voucher Badges */}
-              <div className="mt-4 grid grid-cols-3 gap-3 max-w-[560px]">
-                {/* REDEEM */}
-                <div className="flex flex-col items-center justify-center text-center p-3 rounded-xl border border-white/5 bg-white/[0.01]">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                      <line x1="12" y1="18" x2="12.01" y2="18"></line>
-                    </svg>
+                    )}
                   </div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-white mt-3">REDEEM</span>
-                  <span className="text-xs font-semibold text-white/50 mt-1">
-                    {product.giftCardInfo?.redemptionType === "ONLINE" ? "Online" : "Online"}
-                  </span>
-                </div>
-
-                {/* EXPIRY */}
-                <div className="flex flex-col items-center justify-center text-center p-3 rounded-xl border border-white/5 bg-white/[0.01]">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                      <line x1="16" y1="2" x2="16" y2="6"></line>
-                      <line x1="8" y1="2" x2="8" y2="6"></line>
-                      <line x1="3" y1="10" x2="21" y2="10"></line>
-                    </svg>
-                  </div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-white mt-3">EXPIRY</span>
-                  <span className="text-xs font-semibold text-white/50 mt-1">
-                    {product.giftCardInfo?.expiryLabel || "1 Year"}
-                  </span>
-                </div>
-
-                {/* USAGE */}
-                <div className="flex flex-col items-center justify-center text-center p-3 rounded-xl border border-white/5 bg-white/[0.01]">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
-                      <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
-                    </svg>
-                  </div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-white mt-3">USAGE</span>
-                  <span className="text-xs font-semibold text-white/50 mt-1">
-                    {product.giftCardInfo?.cardType || "One Time"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Terms & Conditions Text Button */}
-              {product.giftCardInfo?.termsAndConditions && (
-                <div className="mt-4 max-w-[560px]">
                   <button
                     type="button"
-                    onClick={() => setShowTerms(true)}
-                    className="text-xs font-semibold text-white hover:text-white/80 underline decoration-white underline-offset-4 transition"
+                    onClick={handleRemoveCoupon}
+                    className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold rounded-xl hover:bg-red-500/20 transition active:scale-95"
                   >
-                    View all T&Cs
+                    Remove
                   </button>
                 </div>
-              )}
-            </div>
-
-            {/* Block B: Buy & Denomination Panel */}
-            <div className="lg:col-span-5 lg:sticky lg:top-[90px] w-full order-2 lg:row-span-2">
-              <HudPanel cut={14} border="var(--line)" fill="var(--carbon)" className="w-full">
-                <div className="p-6 flex flex-col gap-5">
-
-                  {/* Denomination Choices */}
-                  <div>
-                    <label className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] block mb-3">
-                      Select Denomination
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {fixedSkus.map((sku) => {
-                        const active = selectedSku?.id === sku.id;
-                        return (
-                          <button
-                            key={sku.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedSku(sku);
-                              setCustomCoins(null);
-                            } }
-                            className={`flex flex-col items-center p-3 rounded-xl border transition text-center ${active
-                              ? "border-[var(--flame)] bg-[var(--flame)]/[0.08] text-white shadow-[0_0_15px_rgba(254,131,33,0.1)]"
-                              : "border-white/5 bg-black/30 text-[var(--muted)] hover:border-white/20"}`}
-                          >
-                            <span className="text-sm font-extrabold text-white">
-                              ₹{resolveSkuRetailPrice(sku).toLocaleString("en-IN")}
-                            </span>
-                            {sku.savingsPercent ? (
-                              <span className="text-[9px] text-[var(--win)] font-semibold mt-0.5">Save {sku.savingsPercent}%</span>
-                            ) : (
-                              <span className="text-[9px] text-white/30 mt-0.5">Voucher</span>
-                            )}
-                          </button>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    id="live-coupon-code"
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCouponCode(val);
+                      if (val.trim() === "") {
+                        setShowCouponList(true);
+                      } else {
+                        const hasMatch = myCoupons.some((c) =>
+                          c.code.toUpperCase().startsWith(val.trim().toUpperCase())
                         );
-                      })}
-
-                      {flexibleSku && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedSku(flexibleSku);
-                            setCustomCoins(null);
-                          } }
-                          className={`flex flex-col items-center justify-center p-3 rounded-xl border transition text-center ${isFlexibleSelection
-                            ? "border-[var(--flame)] bg-[var(--flame)]/[0.08] text-white shadow-[0_0_15px_rgba(254,131,33,0.1)]"
-                            : "border-white/5 bg-black/30 text-[var(--muted)] hover:border-white/20"}`}
-                        >
-                          <span className="text-sm font-extrabold text-white">Custom</span>
-                          <span className="text-[9px] text-[var(--flame)] font-semibold mt-0.5">Any Amount</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Dynamic Input (for custom voucher values) */}
-                  {isFlexibleSelection && amountRestrictions && (
-                    <div className="animate-in slide-in-from-top-2 duration-150 p-4 rounded-xl border border-white/5 bg-black/30">
-                      <label htmlFor="custom-voucher-amount" className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] flex justify-between mb-2">
-                        <span>Enter Custom Amount</span>
-                        <span className="text-[var(--flame)]">Min: ₹{amountRestrictions.minVoucherAmount} - Max: ₹{amountRestrictions.maxVoucherAmount}</span>
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-white text-base">₹</span>
-                        <input
-                          id="custom-voucher-amount"
-                          type="text"
-                          value={customAmountText}
-                          onChange={handleCustomAmountChange}
-                          maxLength={String(amountRestrictions.maxVoucherAmount).length}
-                          className="w-full h-11 bg-black/40 border border-white/10 rounded-xl pl-8 pr-4 text-sm text-white font-bold outline-none focus:border-[var(--flame)]/60 transition"
-                          placeholder={`${amountRestrictions.minVoucherAmount}`} />
-                      </div>
-                      {amountError && (
-                        <div className="flex items-center gap-1 mt-2 text-xs font-semibold text-red-400">
-                          <AlertCircle className="w-3.5 h-3.5" />
-                          <span>{amountError}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Coupon Validate */}
-                  <div>
-                    <label htmlFor="live-coupon-code" className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)] block mb-2">
-                      Coupon Code
-                    </label>
-                    <div className="relative" ref={couponFieldRef}>
-                      <div className="flex gap-2">
-                        <input
-                          id="live-coupon-code"
-                          type="text"
-                          value={couponCode}
-                          onChange={(e) => setCouponCode(e.target.value)}
-                          onFocus={handleCouponInputFocus}
-                          onClick={handleCouponInputFocus}
-                          disabled={appliedCoupon !== null}
-                          placeholder="VOUCHER50"
-                          autoComplete="off"
-                          className="flex-1 h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs font-semibold text-white placeholder:text-white/20 outline-none focus:border-[var(--flame)] focus:ring-0 focus-visible:outline-none"
-                          style={{ outline: "none", boxShadow: "none" }} />
-                        {appliedCoupon ? (
-                          <button
-                            type="button"
-                            onClick={handleRemoveCoupon}
-                            className="h-11 px-4 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold rounded-xl active:scale-95 transition"
-                          >
-                            Remove
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={handleApplyCoupon}
-                            disabled={couponValidating || !couponCode.trim()}
-                            className="h-11 px-4 bg-white/5 border border-white/10 text-white text-xs font-bold rounded-xl hover:bg-white/10 active:scale-95 transition disabled:opacity-40"
-                          >
-                            {couponValidating ? "Checking…" : "Apply"}
-                          </button>
-                        )}
-                      </div>
-                      {showCouponList && !appliedCoupon && (
-                        <CouponSuggestionsList
-                          coupons={myCoupons}
-                          loading={couponsLoading}
-                          error={couponsError}
-                          onSelect={handleSelectCoupon}
-                          onClose={() => setShowCouponList(false)}
-                        />
-                      )}
-                    </div>
-                    {appliedCoupon && !couponError && (
-                      <p className="text-[10px] font-bold text-[var(--win)] mt-1.5 flex items-center gap-1">
-                        ✓ Code &apos;{appliedCoupon}&apos; applied
-                        {(checkoutPreview?.discountAmount ?? checkoutPreview?.totalDiscount ?? 0) > 0 && (
-                          <span className="text-white/60">
-                            — save ₹
-                            {(checkoutPreview!.discountAmount ?? checkoutPreview!.totalDiscount).toLocaleString(
-                              "en-IN"
-                            )}
-                          </span>
-                        )}
-                      </p>
-                    )}
-                    {couponError && (
-                      <p className="text-[10px] font-bold text-red-400 mt-1.5 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />
-                        {couponError}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Arena Coins coverage selector */}
-                  {shouldShowCoinEditor({ paymentRules, sku: selectedSku }) &&
-                    optimalCoins > 0 && (
-                    <div className="p-4 rounded-xl border border-white/5 bg-black/25">
-                      <div className="flex justify-between items-center mb-3">
-                        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted)]">Redeem Arena Coins</span>
-                        <button
-                          type="button"
-                          onClick={() => setApplyCoins(!applyCoins)}
-                          className={`text-xs font-bold ${applyCoins ? "text-[var(--flame)]" : "text-white/40"} transition`}
-                        >
-                          {applyCoins ? "Redeeming" : "Off"}
-                        </button>
-                      </div>
-
-                      <div className="flex items-center justify-between mb-3 text-xs">
-                        <span className="text-white/50">Your Balance:</span>
-                        <span className="text-[var(--coin)] font-bold flex items-center gap-1">
-                          <Image src={coinImg} alt="" width={13} height={13} />
-                          {coinsBalance.toLocaleString()}
-                        </span>
-                      </div>
-
-                      {applyCoins && (
-                        <div className="flex flex-col gap-2">
-                          <div className="flex justify-between text-[10px] text-white/50 font-bold uppercase">
-                            <span>Coins to Spend</span>
-                            <span className="text-[var(--coin)]">{cappedCoinsToRedeem.toLocaleString()}</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0"
-                            max={optimalCoins}
-                            value={cappedCoinsToRedeem}
-                            onChange={(e) => {
-                              const next = parseInt(e.target.value, 10);
-                              setCustomCoins(next);
-                              setApplyCoins(next > 0);
-                            }}
-                            className="w-full accent-[var(--flame)] cursor-pointer h-1 rounded-lg bg-white/10 outline-none" />
-                          <div className="flex justify-between text-[9px] text-white/30">
-                            <span>0</span>
-                            <span>
-                              {maxCoinCoveragePct != null && maxCoinCoveragePct > 0
-                                ? `Max ${formatPercent(maxCoinCoveragePct)}% · ${optimalCoins.toLocaleString()} coins`
-                                : `Max: ${optimalCoins.toLocaleString()}`}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* You Pay Price Card */}
-                  <div className="p-4 bg-black/30 border border-white/5 rounded-2xl relative overflow-hidden">
-                    {previewLoading && (
-                      <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-2xl">
-                        <Loader2 className="w-6 h-6 text-[var(--flame)] animate-spin" />
-                      </div>
-                    )}
-
-                    <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--muted)]">Total Payable</span>
-
-                    <div className="mt-2 flex items-baseline gap-2">
-                      <span className="text-3xl font-black text-white tabular-nums leading-none">
-                        ₹{displayPrice.toLocaleString()}
-                      </span>
-                      {displayCoinsSpent > 0 && (
-                        <>
-                          <span className="text-xl text-white/30 font-light leading-none">+</span>
-                          <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg border border-white/5 leading-none">
-                            <Image src={coinImg} alt="Coins" width={14} height={14} />
-                            <span className="text-xs font-bold text-[var(--coin)] tabular-nums">
-                              {displayCoinsSpent.toLocaleString()}
-                            </span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {!isAuthenticated ? (
-                      <p className="mt-2 text-[10px] font-semibold text-[var(--flame)]">
-                        Sign in to checkout
-                      </p>
-                    ) : previewLoading && !checkoutPreview ? (
-                      <p className="mt-2 text-[10px] font-semibold text-white/40">
-                        Calculating price…
-                      </p>
-                    ) : null}
-                    {previewError && (
-                      <p className="mt-2 text-[10px] font-semibold text-red-400">{previewError}</p>
-                    )}
-
-                    <div className="mt-3.5 flex items-center justify-between border-t border-white/5 pt-3 text-[10px] font-bold uppercase">
-                      <span className="text-[var(--muted)] tracking-wider">Estimated Savings:</span>
-                      <span className="font-extrabold tracking-wider text-[var(--win)]">
-                        {savingsPct > 0 ? `SAVE ${savingsPct}%` : `BEST VALUE`}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Buy Action */}
-                  <div className="mt-1">
-                    <button
-                      type="button"
-                      onClick={triggerBuy}
-                      disabled={!selectedSku || !!buyWarning || previewLoading}
-                      className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--flame)] via-[var(--flame-deep)] to-[var(--flame)] text-sm font-extrabold uppercase tracking-wider text-black shadow-[0_12px_24px_-10px_rgba(255,68,0,0.4)] transition hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      {previewLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : !isAuthenticated ? (
-                        <span>Sign in to Buy</span>
-                      ) : buyButtonLabel.kind === "coins_only" ? (
-                        <span className="inline-flex items-center gap-1">
-                          Buy with
-                          <Image src={coinImg} alt="" width={16} height={16} />
-                          {buyButtonLabel.coinsSpent.toLocaleString()}
-                        </span>
-                      ) : buyButtonLabel.kind === "hybrid" ? (
-                        <span className="inline-flex items-center gap-1">
-                          Buy at ₹{buyButtonLabel.totalPayable.toLocaleString("en-IN")} +
-                          <Image src={coinImg} alt="" width={16} height={16} />
-                          {buyButtonLabel.coinsSpent.toLocaleString()}
-                        </span>
-                      ) : buyButtonLabel.kind === "inr_only" ? (
-                        <span>Buy at ₹{buyButtonLabel.totalPayable.toLocaleString("en-IN")}</span>
-                      ) : (
-                        <span>Buy Now</span>
-                      )}
-                      {!previewLoading && <ArrowRight className="h-4 w-4 text-black" />}
-                    </button>
-                  </div>
-
-                  {/* Warnings and Info flags */}
-                  {buyWarning && (
-                    <div className="mt-1 rounded-lg border border-amber-500/25 bg-amber-500/10 p-2 text-center text-xs font-semibold text-amber-300">
-                      {buyWarning}
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.06em] text-[var(--muted)] font-medium mt-1">
-                    <ZapIcon size={12} className="text-[var(--flame)]" />
-                    Instant Delivery · Secure Razorpay Checkout Gateway
-                  </div>
-
-                </div>
-              </HudPanel>
-            </div>
-
-            {/* Block C: Instructions & Accordions */}
-            <div className="lg:col-span-7 order-3 lg:order-3 flex flex-col gap-4">
-              <hr className="my-2 border-white/5 max-w-[560px]" />
-
-              {/* How to use Accordion */}
-              {product.giftCardInfo?.howToUseInstructions && (
-                <div className="max-w-[560px] rounded-2xl border border-white/5 bg-[#121212]/30 overflow-hidden">
+                        setShowCouponList(hasMatch);
+                      }
+                    }}
+                    onFocus={handleCouponInputFocus}
+                    onClick={handleCouponInputFocus}
+                    placeholder="Enter coupon code"
+                    autoComplete="off"
+                    className="flex-1 h-11 bg-black/40 border border-white/10 rounded-xl px-4 text-xs font-semibold text-white placeholder:text-white/20 outline-none focus:border-[var(--flame)] focus:ring-0 focus-visible:outline-none"
+                    style={{ outline: "none", boxShadow: "none" }}
+                  />
                   <button
-                    onClick={() => setShowHowToRedeem(!showHowToRedeem)}
-                    className="w-full flex items-center justify-between p-4 font-bold text-sm text-white hover:bg-white/[0.02] transition"
+                    type="button"
+                    onClick={handleApplyCoupon}
+                    disabled={couponValidating || !couponCode.trim()}
+                    className="h-11 px-4 bg-white/5 border border-white/10 text-white text-xs font-bold rounded-xl hover:bg-white/10 active:scale-95 transition disabled:opacity-40"
                   >
-                    <span className="flex items-center gap-2">💡 How to Redeem</span>
-                    {showHowToRedeem ? <ChevronUp className="w-4 h-4 text-white/50" /> : <ChevronDown className="w-4 h-4 text-white/50" />}
+                    {couponValidating ? "Checking…" : "Apply"}
                   </button>
-                  {showHowToRedeem && (
-                    <div className="p-4 pt-0 text-xs text-[var(--muted)] leading-relaxed border-t border-white/5 bg-black/10">
-                      <div className="whitespace-pre-line">
-                        {product.giftCardInfo.howToUseInstructions}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
+              {showCouponList && !appliedCoupon && (
+                <CouponSuggestionsList
+                  coupons={myCoupons.filter((c) =>
+                    c.code.toUpperCase().startsWith(couponCode.trim().toUpperCase())
+                  )}
+                  loading={couponsLoading}
+                  error={couponsError}
+                  onSelect={handleSelectCoupon}
+                  onClose={() => setShowCouponList(false)}
+                />
+              )}
+              
+              {couponError && (
+                <p className="text-[10px] font-bold text-red-400 mt-0.5 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {couponError}
+                </p>
+              )}
+            </div>
 
+            {/* Divider Line */}
+            {shouldShowCoinEditor({ paymentRules, sku: selectedSku }) && optimalCoins > 0 && (
+              <div className="h-[1px] bg-white/5 w-full" />
+            )}
+
+            {/* Bottom Area: Arena Coins */}
+            {shouldShowCoinEditor({ paymentRules, sku: selectedSku }) && optimalCoins > 0 && (
+              <div className="flex items-center justify-between select-none">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-white/70">
+                  <Image src={coinImg} alt="" width={16} height={16} />
+                  <span>100 Arena Coins = ₹1</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleEditCoins}
+                  className="flex items-center gap-2 bg-black/45 border border-white/5 px-2.5 py-1.5 rounded-[8px] text-xs font-bold text-white hover:bg-white/5 active:scale-95 transition"
+                >
+                  <Image src={coinImg} alt="" width={13} height={13} />
+                  <span className="text-[var(--coin)] font-extrabold">{cappedCoinsToRedeem.toLocaleString()}</span>
+                  <SquarePen className="w-3.5 h-3.5 text-white/70 ml-0.5" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Buy Action Button */}
+          <div className="w-full">
+            <button
+              type="button"
+              onClick={triggerBuy}
+              disabled={!selectedSku || !!buyWarning || previewLoading}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--flame)] via-[var(--flame-deep)] to-[var(--flame)] text-sm font-extrabold uppercase tracking-wider text-black shadow-[0_12px_24px_-10px_rgba(255,68,0,0.4)] transition hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {previewLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : !isAuthenticated ? (
+                <span>Sign in to Buy</span>
+              ) : buyButtonLabel.kind === "coins_only" ? (
+                <span className="inline-flex items-center gap-1">
+                  Buy with
+                  <Image src={coinImg} alt="" width={16} height={16} />
+                  {buyButtonLabel.coinsSpent.toLocaleString()}
+                </span>
+              ) : buyButtonLabel.kind === "hybrid" ? (
+                <span className="inline-flex items-center gap-1">
+                  Buy at ₹{buyButtonLabel.totalPayable.toLocaleString("en-IN")} +
+                  <Image src={coinImg} alt="" width={16} height={16} />
+                  {buyButtonLabel.coinsSpent.toLocaleString()}
+                </span>
+              ) : buyButtonLabel.kind === "inr_only" ? (
+                <span>Buy at ₹{buyButtonLabel.totalPayable.toLocaleString("en-IN")}</span>
+              ) : (
+                <span>Buy Now</span>
+              )}
+              {!previewLoading && <ArrowRight className="h-4 w-4 text-black" />}
+            </button>
+            {buyWarning && (
+              <div className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/10 p-2 text-center text-xs font-semibold text-amber-300">
+                {buyWarning}
+              </div>
+            )}
+            <div className="mt-4 p-4 border border-white/5 bg-[#1C1C1E]/50 rounded-2xl grid grid-cols-3 gap-3 items-center select-none">
+              {/* Instant Delivery */}
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-[var(--flame)] shrink-0" fill="var(--flame)" />
+                <div className="flex flex-col text-left">
+                  <span className="text-[10px] font-extrabold text-white leading-tight">Instant Delivery</span>
+                  <span className="text-[8px] text-white/40 mt-0.5 font-medium leading-none">Get your code instantly</span>
+                </div>
+              </div>
+              
+              {/* 100% Secure */}
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#F5A623] shrink-0" fill="#F5A623" fillOpacity={0.15} />
+                <div className="flex flex-col text-left">
+                  <span className="text-[10px] font-extrabold text-white leading-tight">100% Secure</span>
+                  <span className="text-[8px] text-white/40 mt-0.5 font-medium leading-none">Safe & trusted payment</span>
+                </div>
+              </div>
+
+              {/* Official vouchers */}
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#F5A623] shrink-0" fill="#F5A623" fillOpacity={0.15} />
+                <div className="flex flex-col text-left">
+                  <span className="text-[10px] font-extrabold text-white leading-tight">Official vouchers</span>
+                  <span className="text-[8px] text-white/40 mt-0.5 font-medium leading-none">Genuine & Reliable</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Informational Cards & Instructions (lg:col-span-5) */}
+        <div className="lg:col-span-5 flex flex-col gap-6 w-full lg:sticky lg:top-[90px]">
+          {/* Info cards (Redeem, Expiry, Usage) */}
+          <div className="grid grid-cols-3 gap-3 w-full">
+            {/* REDEEM */}
+            <div className="flex flex-col items-center justify-center text-center p-3 rounded-2xl border border-white/5 bg-black/25">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                  <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                </svg>
+              </div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-white mt-3">REDEEM</span>
+              <span className="text-[10px] font-semibold text-white/40 mt-1">
+                {product.giftCardInfo?.redemptionType === "ONLINE" ? "Online" : "Online"}
+              </span>
+            </div>
+
+            {/* EXPIRY */}
+            <div className="flex flex-col items-center justify-center text-center p-3 rounded-2xl border border-white/5 bg-black/25">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+              </div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-white mt-3">EXPIRY</span>
+              <span className="text-[10px] font-semibold text-white/40 mt-1">
+                {product.giftCardInfo?.expiryLabel || "1 Year"}
+              </span>
+            </div>
+
+            {/* USAGE */}
+            <div className="flex flex-col items-center justify-center text-center p-3 rounded-2xl border border-white/5 bg-black/25">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
+                  <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
+                </svg>
+              </div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-white mt-3">USAGE</span>
+              <span className="text-[10px] font-semibold text-white/40 mt-1">
+                {product.giftCardInfo?.cardType || "One Time"}
+              </span>
+            </div>
+          </div>
+
+          {/* How to Redeem container */}
+          {(product.giftCardInfo?.howToUseInstructions || (product.giftCardInfo?.howToUseRetailModes && product.giftCardInfo.howToUseRetailModes.length > 0)) && (
+            <div className="w-full rounded-2xl border border-white/5 bg-black/25 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowHowToRedeem(!showHowToRedeem)}
+                className="w-full flex items-center justify-between p-5 font-extrabold text-sm text-white hover:bg-white/[0.01] transition"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="text-white/70">❓</span>
+                  <span>How to redeem</span>
+                </span>
+                {showHowToRedeem ? <ChevronUp className="w-4 h-4 text-white/50" /> : <ChevronDown className="w-4 h-4 text-white/50" />}
+              </button>
+
+              {showHowToRedeem && (
+                <>
+                  <div className="h-[1px] bg-white/10 w-full" />
+                  <div className="p-5 text-xs text-white/70 leading-relaxed bg-black/10 flex flex-col gap-3.5">
+                    {product.giftCardInfo.howToUseRetailModes && product.giftCardInfo.howToUseRetailModes.length > 0 ? (
+                      product.giftCardInfo.howToUseRetailModes[0]?.instructions?.map((line: string, idx: number) => (
+                        <div key={idx} className="flex gap-3 items-start">
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/60">
+                            {idx + 1}
+                          </span>
+                          <p className="flex-1 mt-0.5">{line}</p>
+                        </div>
+                      ))
+                    ) : (
+                      product.giftCardInfo.howToUseInstructions?.split("\n").filter(Boolean).map((line, idx) => {
+                        const cleaned = line.replace(/^\d+[\.\-\s]*/, "");
+                        return (
+                          <div key={idx} className="flex gap-3 items-start">
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/60">
+                              {idx + 1}
+                            </span>
+                            <p className="flex-1 mt-0.5">{cleaned}</p>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Terms & Conditions collapsible container */}
+          {product.giftCardInfo?.termsAndConditions && (
+            <div className="w-full rounded-2xl border border-white/5 bg-black/25 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowTerms(!showTerms)}
+                className="w-full flex items-center justify-between p-5 font-extrabold text-sm text-white hover:bg-white/[0.01] transition"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="text-white/70">📋</span>
+                  <span>Terms & Conditions</span>
+                </span>
+                {showTerms ? <ChevronUp className="w-4 h-4 text-white/50" /> : <ChevronDown className="w-4 h-4 text-white/50" />}
+              </button>
+              {showTerms && (
+                <div className="p-5 pt-5 text-xs text-white/70 leading-relaxed border-t border-white/5 bg-black/10 flex flex-col gap-3">
+                  {Array.isArray(product.giftCardInfo.termsAndConditions) ? (
+                    (product.giftCardInfo.termsAndConditions as any).map((term: string, idx: number) => (
+                      <div key={idx} className="flex gap-3 items-start">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/60">
+                          {idx + 1}
+                        </span>
+                        <p className="flex-1 mt-0.5">{term}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="whitespace-pre-wrap">{product.giftCardInfo.termsAndConditions}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1039,43 +1008,41 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           cartItemIds={cartItemIds}
         />
       )}
-      {/* Terms & Conditions Modal Dialog */}
-      {showTerms && product.giftCardInfo?.termsAndConditions && (
-        <div
-          className="fixed inset-0 z-[160] flex items-center justify-center bg-black/75 backdrop-blur-[4px] p-4 animate-in fade-in duration-200"
-          onClick={() => setShowTerms(false)}
-        >
-          <div
-            className="w-full max-w-[500px] bg-[#141414] border border-white/10 rounded-[24px] p-6 shadow-2xl animate-in slide-in-from-bottom-8 duration-300 flex flex-col max-h-[80vh]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">Terms & Conditions</h3>
-              <button
-                type="button"
-                onClick={() => setShowTerms(false)}
-                className="text-white/50 hover:text-white transition"
-              >
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
-            <div className="h-[1px] bg-white/10 w-full mb-4" />
-            <div className="overflow-y-auto pr-1 text-xs text-white/70 leading-relaxed font-sans">
-              {Array.isArray(product.giftCardInfo.termsAndConditions) ? (
-                <ul className="list-disc pl-4 space-y-2">
-                  {(product.giftCardInfo.termsAndConditions as any).map((term: string, index: number) => (
-                    <li key={index}>{term}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="whitespace-pre-wrap">{product.giftCardInfo.termsAndConditions}</p>
-              )}
-            </div>
-          </div>
-        </div>
+
+      {selectedSku && (
+        <EditAmountModal
+          open={showEditAmountModal}
+          onClose={() => setShowEditAmountModal(false)}
+          product={product}
+          sku={selectedSku}
+          fixedSkus={fixedSkus}
+          isFlexibleSelection={isFlexibleSelection}
+          initialAmountText={customAmountText}
+          amountRestrictions={amountRestrictions}
+          onConfirm={(amountText, amount, selSku) => {
+            setShowEditAmountModal(false);
+            if (selSku) {
+              setSelectedSku(selSku);
+              setCustomCoins(null);
+            }
+            setCustomAmountText(amountText);
+            setCustomAmount(amount);
+            void loadPreview();
+          }}
+        />
       )}
+      <EditCoinsModal
+        open={showEditCoinsModal}
+        onClose={() => setShowEditCoinsModal(false)}
+        maxCoins={optimalCoins}
+        initialCoins={customCoins ?? optimalCoins}
+        onConfirm={(coins) => {
+          setShowEditCoinsModal(false);
+          setCustomCoins(coins);
+          setApplyCoins(coins > 0);
+          void loadPreview();
+        }}
+      />
     </div>
   );
 }

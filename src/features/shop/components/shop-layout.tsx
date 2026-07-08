@@ -213,14 +213,20 @@ function ShopTopBar({
           }}
         />
       )}
-      <div className="relative z-10 shop-content-width flex items-center justify-between gap-4">
-        {/* Left Section: Logo */}
-        <div className="flex lg:flex-1 justify-start shrink-0">
+      <div className="relative z-10 shop-content-width flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        {/* Logo and Mobile Header Row */}
+        <div className="flex w-full lg:w-auto items-center justify-between lg:flex-1 shrink-0">
           <ArenaLogo className="shrink-0 cursor-pointer" height={28} onClick={onSelectAll} />
+          
+          {/* Mobile Right Section: Coins & Profile */}
+          <div className="flex lg:hidden items-center gap-2.5 shrink-0">
+            <WalletCoinChip balance={coins} />
+            <ProfileChip />
+          </div>
         </div>
 
         {/* Middle Section: Centered Search Bar */}
-        <div ref={dropdownRef} className="relative flex-1 lg:flex-initial w-full lg:max-w-[600px] mx-2 lg:mx-0">
+        <div ref={dropdownRef} className="relative w-full lg:max-w-[600px] lg:mx-0">
           <form onSubmit={handleSearchSubmit}>
             <label className="flex h-[52px] w-full items-center gap-3 rounded-[10px] border border-[var(--line)] bg-[var(--surface)] px-4 transition-colors hover:border-white focus-within:border-white focus-within:ring-1 focus-within:ring-white/15 cursor-text">
               <SearchIcon className="shrink-0 text-[var(--faint)]" />
@@ -294,8 +300,8 @@ function ShopTopBar({
           )}
         </div>
 
-        {/* Right Section: Coins, Profile */}
-        <div className="flex lg:flex-1 justify-end items-center gap-2.5 shrink-0">
+        {/* Desktop Right Section: Coins, Profile */}
+        <div className="hidden lg:flex lg:flex-1 justify-end items-center gap-2.5 shrink-0">
           <WalletCoinChip balance={coins} />
           <ProfileChip />
         </div>
@@ -350,7 +356,7 @@ export function ShopLayout({
             <div
               className={[
                 "shop-content-width px-5 py-1.5 lg:px-10",
-                categoryMode && "lg:hidden",
+                categoryMode ? "lg:hidden" : "hidden",
               ]
                 .filter(Boolean)
                 .join(" ")}

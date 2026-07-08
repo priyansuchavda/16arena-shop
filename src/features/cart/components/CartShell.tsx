@@ -36,7 +36,14 @@ export function CartShell() {
   const router = useRouter();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const { data: userSummary } = useUserSummary();
-  const { handleCheckout, loading: checkoutLoading, error: checkoutError } = useCheckout();
+  const {
+    handleCheckout,
+    cancelPendingOrder,
+    loading: checkoutLoading,
+    error: checkoutError,
+    pendingOrderId,
+  } = useCheckout();
+  const [cancellingOrder, setCancellingOrder] = useState(false);
 
   const [cart, setCart] = useState<CartData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -183,8 +190,24 @@ export function CartShell() {
       allowHybridInrPayment,
       productName: primaryItem.productName,
       customVoucherAmount: parseCustomVoucherAmount(primaryItem.deliveryInfo),
+      previewHint: preview,
     });
   };
+
+  const handleCancelPendingOrder = async () => {
+    if (!pendingOrderId || cancellingOrder) return;
+    setCancellingOrder(true);
+    try {
+      await cancelPendingOrder(pendingOrderId);
+      await loadCart();
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to cancel order."));
+    } finally {
+      setCancellingOrder(false);
+    }
+  };
+
+  const awaitingRetry = Boolean(pendingOrderId);
 
   if (!isAuthenticated) {
     return (
@@ -400,10 +423,20 @@ export function CartShell() {
               </div>
             )}
 
+            {awaitingRetry && (preview?.coinsSpent ?? coinsToRedeem) > 0 && (
+              <p className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-200">
+                Arena Coins stay on this order until you complete payment or cancel.
+              </p>
+            )}
+
             <button
               type="button"
               onClick={triggerCheckout}
-              disabled={checkoutLoading || previewLoading || !!previewError}
+              disabled={
+                checkoutLoading ||
+                cancellingOrder ||
+                (!awaitingRetry && (previewLoading || !!previewError))
+              }
               className="mt-5 flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#ff973c] to-[#ff6a00] px-5 py-4 text-sm font-black text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {checkoutLoading ? (
@@ -411,10 +444,23 @@ export function CartShell() {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Processing…
                 </>
+              ) : awaitingRetry ? (
+                "Retry payment"
               ) : (
                 payButtonLabel(totalPayable)
               )}
             </button>
+
+            {awaitingRetry && (
+              <button
+                type="button"
+                onClick={() => void handleCancelPendingOrder()}
+                disabled={checkoutLoading || cancellingOrder}
+                className="mt-3 w-full rounded-xl border border-white/15 py-3 text-xs font-bold uppercase tracking-wide text-white/70 transition hover:bg-white/5 disabled:opacity-50"
+              >
+                {cancellingOrder ? "Cancelling…" : "Cancel order"}
+              </button>
+            )}
           </div>
         </div>
       </div>

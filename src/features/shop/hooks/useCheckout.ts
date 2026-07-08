@@ -2,10 +2,22 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { buildCheckoutRequest, shopApi } from "../api";
 import { useAuthStore } from "@/features/auth";
 import { getApiErrorMessage } from "../services/shop-api-client";
 import { confirmCheckoutPreview } from "../utils/confirm-checkout";
+import {
+  isPaymentCancelledError,
+  openRazorpayCheckout,
+  PAYMENT_CANCELLED_MESSAGE,
+} from "../utils/razorpay-checkout";
+
+export {
+  PAYMENT_CANCELLED_MESSAGE,
+  PaymentCancelledError,
+  isPaymentCancelledError,
+} from "../utils/razorpay-checkout";
 
 export type CheckoutParams = {
   skuId?: string;
@@ -24,132 +36,100 @@ export type CheckoutParams = {
   previewHint?: import("../types/shop.types").CheckoutPreview | null;
 };
 
-declare global {
-  interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => {
-      open: () => void;
-      on: (event: string, handler: (response: unknown) => void) => void;
-    };
-  }
-}
-
-function loadRazorpayScript(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (window.Razorpay) {
-      resolve(true);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
+async function refreshWalletAndOrders(queryClient: ReturnType<typeof useQueryClient>) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["auth", "userSummary"] }),
+    queryClient.invalidateQueries({ queryKey: ["shop", "orders"] }),
+  ]);
 }
 
 export const useCheckout = () => {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsResync, setNeedsResync] = useState(false);
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+  const [pendingProductName, setPendingProductName] = useState<string | null>(null);
 
   const navigateToSuccess = useCallback(
     (orderId: string) => {
+      setPendingOrderId(null);
+      setPendingProductName(null);
       router.push(`/shop/orders/${orderId}/success`);
     },
     [router]
   );
 
-  const openRazorpayCheckout = useCallback(
-    async ({
-      orderId,
-      payment,
-      productName,
-    }: {
-      orderId: string;
-      payment: {
-        gatewayOrderId: string;
-        amount: number;
-        currency?: string;
-        orderNumber?: string;
-        razorpayKeyId?: string;
-        keyId?: string;
-      };
-      productName: string;
-    }) => {
-      const razorpayKeyId = payment.razorpayKeyId ?? payment.keyId;
-      if (!razorpayKeyId) {
-        throw new Error("Razorpay is not configured on the server.");
-      }
-      if (!payment.gatewayOrderId) {
-        throw new Error("Payment gateway order id missing.");
-      }
-
-      const scriptLoaded = await loadRazorpayScript();
-      if (!scriptLoaded) {
-        throw new Error("Failed to load Razorpay payment SDK.");
-      }
-
-      return new Promise<void>((resolve, reject) => {
-        const options: Record<string, unknown> = {
-          key: razorpayKeyId,
-          amount: Math.round(payment.amount * 100),
-          currency: payment.currency ?? "INR",
-          order_id: payment.gatewayOrderId,
-          name: "16Arena Shop",
-          description: payment.orderNumber ?? productName,
-          prefill: {
-            contact: user?.phoneNumber ?? "",
-            email: user?.email ?? "",
-          },
-          theme: { color: "#fe8321" },
-          handler: async (response: {
-            razorpay_order_id: string;
-            razorpay_payment_id: string;
-            razorpay_signature: string;
-          }) => {
-            try {
-              await shopApi.verifyPayment({
-                orderId,
-                razorpayOrderId: response.razorpay_order_id,
-                razorpayPaymentId: response.razorpay_payment_id,
-                razorpaySignature: response.razorpay_signature,
-              });
-              resolve();
-            } catch (verifyErr) {
-              reject(verifyErr);
-            }
-          },
-          modal: {
-            ondismiss: () => {
-              reject(new Error("Payment cancelled."));
-            },
-          },
-        };
-
-        const RazorpayCtor = window.Razorpay;
-        if (!RazorpayCtor) {
-          reject(new Error("Razorpay SDK unavailable."));
-          return;
-        }
-
-        const rzp = new RazorpayCtor(options);
-        rzp.on("payment.failed", (response: unknown) => {
-          const failed = response as { error?: { description?: string } };
-          reject(
-            new Error(failed?.error?.description ?? "Payment failed. Please try again.")
-          );
-        });
-        rzp.open();
+  const launchRazorpay = useCallback(
+    async (orderId: string, productName: string) => {
+      const payment = await shopApi.initiatePayment(orderId);
+      await openRazorpayCheckout({
+        orderId,
+        payment,
+        productName,
+        contact: user?.phoneNumber ?? "",
+        email: user?.email ?? "",
       });
     },
     [user]
   );
 
+  const resumePayment = useCallback(
+    async (orderId: string, productName: string) => {
+      setLoading(true);
+      setError(null);
+      setPendingOrderId(orderId);
+      setPendingProductName(productName);
+
+      try {
+        await launchRazorpay(orderId, productName);
+        navigateToSuccess(orderId);
+      } catch (err) {
+        if (isPaymentCancelledError(err)) {
+          setError(PAYMENT_CANCELLED_MESSAGE);
+        } else {
+          setError(getApiErrorMessage(err, "Payment could not be completed. Please try again."));
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [launchRazorpay, navigateToSuccess]
+  );
+
+  const cancelPendingOrder = useCallback(
+    async (orderId?: string | null) => {
+      const id = orderId ?? pendingOrderId;
+      if (!id) return;
+
+      setLoading(true);
+      try {
+        await shopApi.cancelOrder(id);
+      } catch (cancelErr) {
+        console.error("Failed to cancel order:", cancelErr);
+        throw cancelErr;
+      } finally {
+        setPendingOrderId(null);
+        setPendingProductName(null);
+        setError(null);
+        setNeedsResync(true);
+        setLoading(false);
+        await refreshWalletAndOrders(queryClient);
+      }
+    },
+    [pendingOrderId, queryClient]
+  );
+
   const handleCheckout = useCallback(
     async (params: CheckoutParams) => {
+      // Resume existing payment-initiated order instead of placing again.
+      if (pendingOrderId) {
+        await resumePayment(pendingOrderId, pendingProductName ?? params.productName);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       let orderId: string | null = null;
@@ -199,39 +179,51 @@ export const useCheckout = () => {
           throw new Error("Failed to create order. Please try again.");
         }
 
+        setPendingOrderId(orderId);
+        setPendingProductName(params.productName);
+
         const totalPaid = createdOrder.totalPaid ?? finalPreview.totalPayable ?? 0;
 
         if (totalPaid > 0) {
-          const payment = await shopApi.initiatePayment(orderId);
-          await openRazorpayCheckout({
-            orderId,
-            payment,
-            productName: params.productName,
-          });
+          await launchRazorpay(orderId, params.productName);
         }
 
         navigateToSuccess(orderId);
       } catch (err) {
         if (orderId) {
+          setPendingOrderId(orderId);
+          setPendingProductName(params.productName);
           setNeedsResync(true);
-          try {
-            await shopApi.cancelOrder(orderId);
-          } catch (cancelErr) {
-            console.error("Failed to cancel order after payment error:", cancelErr);
+          if (isPaymentCancelledError(err)) {
+            setError(PAYMENT_CANCELLED_MESSAGE);
+          } else {
+            setError(getApiErrorMessage(err, "Checkout failed. Please try again."));
           }
+          return;
         }
         setError(getApiErrorMessage(err, "Checkout failed. Please try again."));
       } finally {
         setLoading(false);
       }
     },
-    [navigateToSuccess, openRazorpayCheckout, needsResync]
+    [
+      launchRazorpay,
+      navigateToSuccess,
+      needsResync,
+      pendingOrderId,
+      pendingProductName,
+      resumePayment,
+    ]
   );
 
   return {
     handleCheckout,
+    resumePayment,
+    cancelPendingOrder,
     loading,
     error,
     setError,
+    pendingOrderId,
+    pendingProductName,
   };
 };

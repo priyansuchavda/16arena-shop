@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { buildInvoicePageUrl } from "@/features/invoices/utils/invoice-url";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -19,13 +20,24 @@ import {
   Loader2,
   Receipt,
   MessageSquare,
-  FileText,
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
 import { shopApi } from "@/features/shop";
 import { ShopAccountShell } from "@/features/shop/components/shop-account-shell";
 import { ShopOrder, ShopOrderItem } from "@/features/shop/types/shop.types";
+import {
+  canCompleteOrCancelPayment,
+  isOrderStatusTerminal,
+  ORDER_POLL_INTERVAL_MS,
+} from "@/features/shop/utils/checkout.utils";
+import {
+  PAYMENT_CANCELLED_MESSAGE,
+  initiateAndOpenRazorpay,
+  isPaymentCancelledError,
+} from "@/features/shop/utils/razorpay-checkout";
+import { useAuthStore } from "@/features/auth";
+import { getApiErrorMessage } from "@/features/shop/services/shop-api-client";
 import coinImg from "@/assets/png/coin.png";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -73,6 +85,8 @@ function StatusChip({ status }: { status: string }) {
     cancelled:          { label: "Cancelled",         color: "text-white/50", bg: "bg-white/5",         border: "border-white/10",            Icon: XCircle },
     payment_failed:     { label: "Payment Failed",    color: "text-red-400",   bg: "bg-red-500/10",     border: "border-red-500/25",           Icon: XCircle },
     fulfillment_failed: { label: "Fulfillment Failed",color: "text-red-400",   bg: "bg-red-500/10",     border: "border-red-500/25",           Icon: AlertCircle },
+    payment_initiated:  { label: "Awaiting Payment",  color: "text-[var(--flame)]", bg: "bg-[var(--flame)]/10", border: "border-[var(--flame)]/25", Icon: Clock },
+    pending:            { label: "Pending Payment",   color: "text-[var(--flame)]", bg: "bg-[var(--flame)]/10", border: "border-[var(--flame)]/25", Icon: Clock },
   };
   const c = config[s] ?? { label: status.replace(/_/g, " "), color: "text-[var(--flame)]", bg: "bg-[var(--flame)]/10", border: "border-[var(--flame)]/25", Icon: Clock };
   return (
@@ -351,22 +365,52 @@ function HeroCard({ order }: { order: ShopOrder }) {
 
 export function OrderDetailShell({ orderId }: { orderId: string }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
   const [order, setOrder] = useState<ShopOrder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [revealedIndexes, setRevealedIndexes] = useState<Set<number>>(new Set());
+  const [actionLoading, setActionLoading] = useState<"pay" | "cancel" | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionInfo, setActionInfo] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadOrder = useCallback(async () => {
-    setIsLoading(true);
+  const loadOrder = useCallback(async (showSpinner = true) => {
+    if (showSpinner) setIsLoading(true);
     try {
       const o = await shopApi.getOrder(orderId);
       setOrder(o);
+      return o;
     } finally {
-      setIsLoading(false);
+      if (showSpinner) setIsLoading(false);
     }
   }, [orderId]);
 
-  useEffect(() => { loadOrder(); }, [loadOrder]);
+  useEffect(() => { void loadOrder(); }, [loadOrder]);
+
+  useEffect(() => {
+    if (!order || isOrderStatusTerminal(order.status)) return;
+    if (
+      !canCompleteOrCancelPayment(order.status) &&
+      order.status.toLowerCase() !== "payment_success"
+    ) {
+      return;
+    }
+
+    const tick = async () => {
+      const next = await shopApi.getOrder(orderId);
+      if (next) setOrder(next);
+      if (next && !isOrderStatusTerminal(next.status)) {
+        pollRef.current = setTimeout(() => void tick(), ORDER_POLL_INTERVAL_MS);
+      }
+    };
+
+    pollRef.current = setTimeout(() => void tick(), ORDER_POLL_INTERVAL_MS);
+    return () => {
+      if (pollRef.current) clearTimeout(pollRef.current);
+    };
+  }, [order?.status, orderId]);
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text).catch(() => {});
@@ -380,6 +424,54 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
       next.has(index) ? next.delete(index) : next.add(index);
       return next;
     });
+  };
+
+  const handleCompletePayment = async () => {
+    if (!order || actionLoading) return;
+    setActionLoading("pay");
+    setActionError(null);
+    setActionInfo(null);
+    try {
+      const productName =
+        order.items[0]?.productName ?? order.items[0]?.brandName ?? "Order";
+      await initiateAndOpenRazorpay({
+        orderId: order.id,
+        productName,
+        contact: user?.phoneNumber ?? "",
+        email: user?.email ?? "",
+      });
+      router.push(`/shop/orders/${order.id}/success`);
+    } catch (err) {
+      if (isPaymentCancelledError(err)) {
+        setActionInfo(PAYMENT_CANCELLED_MESSAGE);
+      } else {
+        setActionError(
+          getApiErrorMessage(err, "Payment could not be completed. Please try again.")
+        );
+      }
+      await loadOrder(false);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!order || actionLoading) return;
+    setActionLoading("cancel");
+    setActionError(null);
+    setActionInfo(null);
+    try {
+      await shopApi.cancelOrder(order.id);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["auth", "userSummary"] }),
+        queryClient.invalidateQueries({ queryKey: ["shop", "orders"] }),
+      ]);
+      router.push("/orders");
+    } catch (err) {
+      setActionError(getApiErrorMessage(err, "Failed to cancel order."));
+      setActionLoading(null);
+      await loadOrder(false);
+    }
   };
 
   // ─── Loading ─────────────────────────────────────────────────────────────
@@ -419,12 +511,12 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
   // ─── Build credential rows ────────────────────────────────────────────────
 
   const credFields = buildCredentialFields(order.items);
+  const needsPayment = canCompleteOrCancelPayment(order.status);
   const isPending = ["pending", "processing", "payment_initiated", "payment_success"].includes(order.status.toLowerCase());
   const hasDeliveredVouchers = order.items.some((item) =>
     (item.vouchers && item.vouchers.length > 0) || item.voucherCode || (item.voucherDetails && item.voucherDetails.length > 0)
   );
 
-  const item = order.items[0];
   const transactionId = order.orderNumber || order.id;
   const savingsPercent =
     order.subtotal > 0 && order.coinsDiscount > 0
@@ -465,8 +557,50 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
                 <p className="text-[11px] text-white/30 font-semibold">{formatDate(order.createdAt)}</p>
               </div>
 
-              {/* ── Credentials Section ── */}
-              {isPending ? (
+              {/* ── Credentials / pending payment actions ── */}
+              {needsPayment ? (
+                <div className="flex flex-col gap-3">
+                  <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/10">
+                    <p className="text-[12px] text-amber-100 leading-snug">
+                      Payment is incomplete. Your Arena Coins stay on this order until you complete
+                      payment or cancel — cancel to release them back to your balance.
+                    </p>
+                  </div>
+                  {actionInfo && (
+                    <p className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white/80">
+                      {actionInfo}
+                    </p>
+                  )}
+                  {actionError && (
+                    <p className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">
+                      {actionError}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void handleCompletePayment()}
+                    disabled={!!actionLoading}
+                    className="w-full rounded-xl bg-gradient-to-r from-[#ff973c] to-[#ff6a00] py-3.5 text-xs font-bold text-black transition active:scale-95 hover:opacity-90 disabled:opacity-50"
+                  >
+                    {actionLoading === "pay" ? (
+                      <span className="inline-flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Opening payment…
+                      </span>
+                    ) : (
+                      "Complete payment"
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleCancelOrder()}
+                    disabled={!!actionLoading}
+                    className="w-full rounded-xl border border-white/15 py-3 text-xs font-bold uppercase tracking-wide text-white/70 transition hover:bg-white/5 disabled:opacity-50"
+                  >
+                    {actionLoading === "cancel" ? "Cancelling…" : "Cancel order"}
+                  </button>
+                </div>
+              ) : isPending ? (
                 <div className="p-5 flex items-center gap-3 bg-white/5 rounded-xl border border-white/10">
                   <Loader2 className="w-5 h-5 text-[var(--flame)] animate-spin shrink-0" />
                   <p className="text-[12px] text-white/70 leading-snug">
@@ -491,13 +625,14 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
                 </div>
               ) : null}
 
-              {/* Buy Again button */}
-              <button
-                onClick={() => router.push("/")}
-                className="w-full rounded-xl bg-gradient-to-r from-[#ff973c] to-[#ff6a00] py-3.5 text-xs font-bold text-black transition active:scale-95 hover:opacity-90 mt-1"
-              >
-                Buy Again
-              </button>
+              {!needsPayment && (
+                <button
+                  onClick={() => router.push("/")}
+                  className="w-full rounded-xl bg-gradient-to-r from-[#ff973c] to-[#ff6a00] py-3.5 text-xs font-bold text-black transition active:scale-95 hover:opacity-90 mt-1"
+                >
+                  Buy Again
+                </button>
+              )}
             </div>
           </SectionCard>
         </div>

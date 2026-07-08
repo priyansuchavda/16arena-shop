@@ -3,14 +3,32 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, ClipboardList, Copy, Check, Calendar, Receipt, AlertCircle, Loader2 } from "lucide-react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { shopApi } from "@/features/shop";
 import { ShopAccountShell } from "@/features/shop/components/shop-account-shell";
+import {
+  canCompleteOrCancelPayment,
+  ORDER_POLL_INTERVAL_MS,
+} from "@/features/shop/utils/checkout.utils";
+import {
+  initiateAndOpenRazorpay,
+  isPaymentCancelledError,
+  PAYMENT_CANCELLED_MESSAGE,
+} from "@/features/shop/utils/razorpay-checkout";
+import { useAuthStore } from "@/features/auth";
+import { getApiErrorMessage } from "@/features/shop/services/shop-api-client";
 import coinImg from "@/assets/png/coin.png";
 
 export function OrdersShell() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [actionOrderId, setActionOrderId] = useState<string | null>(null);
+  const [actionType, setActionType] = useState<"pay" | "cancel" | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const {
     data,
@@ -19,6 +37,7 @@ export function OrdersShell() {
     isFetchingNextPage,
     isLoading,
     isError,
+    refetch,
   } = useInfiniteQuery({
     queryKey: ["shop", "orders"],
     queryFn: ({ pageParam = 1 }) => shopApi.fetchOrders(pageParam, 20),
@@ -27,6 +46,13 @@ export function OrdersShell() {
       return loadedCount < lastPage.totalCount ? allPages.length + 1 : undefined;
     },
     initialPageParam: 1,
+    refetchInterval: (query) => {
+      const pages = query.state.data?.pages ?? [];
+      const hasPendingPayment = pages.some((page) =>
+        page.orders.some((order) => canCompleteOrCancelPayment(order.status))
+      );
+      return hasPendingPayment ? ORDER_POLL_INTERVAL_MS * 2 : false;
+    },
   });
 
   // Attach infinite scroll listener (triggers past 85% viewport height)
@@ -46,6 +72,62 @@ export function OrdersShell() {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 1500);
+  };
+
+  const handleCompletePayment = async (
+    e: React.MouseEvent,
+    orderId: string,
+    productName: string
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (actionOrderId) return;
+    setActionOrderId(orderId);
+    setActionType("pay");
+    setActionMessage(null);
+    try {
+      await initiateAndOpenRazorpay({
+        orderId,
+        productName,
+        contact: user?.phoneNumber ?? "",
+        email: user?.email ?? "",
+      });
+      router.push(`/shop/orders/${orderId}/success`);
+    } catch (err) {
+      if (isPaymentCancelledError(err)) {
+        setActionMessage(PAYMENT_CANCELLED_MESSAGE);
+      } else {
+        setActionMessage(
+          getApiErrorMessage(err, "Payment could not be completed. Please try again.")
+        );
+      }
+      await refetch();
+    } finally {
+      setActionOrderId(null);
+      setActionType(null);
+    }
+  };
+
+  const handleCancelOrder = async (e: React.MouseEvent, orderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (actionOrderId) return;
+    setActionOrderId(orderId);
+    setActionType("cancel");
+    setActionMessage(null);
+    try {
+      await shopApi.cancelOrder(orderId);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["auth", "userSummary"] }),
+        queryClient.invalidateQueries({ queryKey: ["shop", "orders"] }),
+      ]);
+      await refetch();
+    } catch (err) {
+      setActionMessage(getApiErrorMessage(err, "Failed to cancel order."));
+    } finally {
+      setActionOrderId(null);
+      setActionType(null);
+    }
   };
 
   const formatDate = (isoString: string) => {
@@ -132,17 +214,29 @@ export function OrdersShell() {
         </div>
       ) : (
         <div className="flex flex-col gap-5">
+          {actionMessage && (
+            <p className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white/80">
+              {actionMessage}
+            </p>
+          )}
           {allOrders.map((order) => {
             const dateStr = formatDate(order.createdAt);
             const status = order.status.toLowerCase();
             const isFulfilled = status === "fulfilled";
             const isPending = ["pending", "processing", "payment_initiated", "payment_success"].includes(status);
+            const needsPayment = canCompleteOrCancelPayment(order.status);
+            const productName =
+              order.items[0]?.productName ?? order.items[0]?.brandName ?? "Order";
+            const busy = actionOrderId === order.id;
             
             return (
-              <Link
+              <div
                 key={order.id}
+                className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-lg transition-all duration-200 hover:border-white/15 hover:bg-[#181818]/50"
+              >
+              <Link
                 href={`/orders/${order.id}`}
-                className="block overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-lg transition-all duration-200 hover:border-white/15 hover:bg-[#181818]/50"
+                className="block"
               >
                 {/* Order Header */}
                 <div className="p-4 border-b border-white/5 bg-[#161616]/40 flex flex-wrap justify-between items-center gap-3">
@@ -265,6 +359,27 @@ export function OrdersShell() {
                   </div>
                 </div>
               </Link>
+              {needsPayment && (
+                <div className="p-4 border-t border-white/5 flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={(e) => void handleCompletePayment(e, order.id, productName)}
+                    disabled={busy}
+                    className="flex-1 rounded-xl bg-gradient-to-r from-[#ff973c] to-[#ff6a00] py-3 text-xs font-bold text-black transition hover:opacity-90 disabled:opacity-50"
+                  >
+                    {busy && actionType === "pay" ? "Opening payment…" : "Complete payment"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => void handleCancelOrder(e, order.id)}
+                    disabled={busy}
+                    className="flex-1 rounded-xl border border-white/15 py-3 text-xs font-bold uppercase tracking-wide text-white/70 transition hover:bg-white/5 disabled:opacity-50"
+                  >
+                    {busy && actionType === "cancel" ? "Cancelling…" : "Cancel order"}
+                  </button>
+                </div>
+              )}
+              </div>
             );
           })}
 

@@ -171,6 +171,19 @@ export function NotificationsShell() {
   const { today, yesterday, older } = groupNotifications(filteredNotifications);
   const hasMore = data ? page < data.totalPages : false;
 
+  // Infinite scroll detector
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!hasMore || isFetching) return;
+      const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+      if (scrollTop + clientHeight >= scrollHeight - 200) {
+        setPage((p) => p + 1);
+      }
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [hasMore, isFetching]);
+
   const renderNotificationGroup = (title: string, list: NotificationModel[]) => {
     if (list.length === 0) return null;
     return (
@@ -283,18 +296,6 @@ export function NotificationsShell() {
           {renderNotificationGroup("Today", today)}
           {renderNotificationGroup("Yesterday", yesterday)}
           {renderNotificationGroup("Older", older)}
-
-          {hasMore && !isFetching && (
-            <div className="mt-8 flex justify-center">
-              <button
-                type="button"
-                onClick={() => setPage((p) => p + 1)}
-                className="flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-6 py-2.5 text-xs font-bold text-white transition hover:bg-white/5 active:scale-95"
-              >
-                Load More Notifications
-              </button>
-            </div>
-          )}
 
           {isFetching && (
             <div className="mt-8 flex justify-center">

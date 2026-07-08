@@ -14,6 +14,7 @@ import { PaymentSummarySheet } from "./payment-summary-sheet";
 import { CouponSuggestionsList } from "./coupon-suggestions-list";
 import { EditAmountModal } from "./edit-amount-modal";
 import { EditCoinsModal } from "./edit-coins-modal";
+import { SlantedButton } from "@/shared/components/ui/slanted-button";
 import {
   ShopProductDetail,
   ShopSku,
@@ -45,6 +46,153 @@ import {
 } from "../utils/checkout.utils";
 import { resolveSkuRetailPrice } from "../utils/normalize-product";
 
+function useLogoColors(
+  logoUrl: string | null,
+  fallbackColors: { accent: string; accent2: string }
+) {
+  const [colors, setColors] = useState(fallbackColors);
+
+  useEffect(() => {
+    if (!logoUrl) {
+      setColors(fallbackColors);
+      return;
+    }
+
+    const img = new window.Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          setColors(fallbackColors);
+          return;
+        }
+
+        canvas.width = 30;
+        canvas.height = 30;
+        ctx.drawImage(img, 0, 0, 30, 30);
+
+        const imgData = ctx.getImageData(0, 0, 30, 30).data;
+        
+        let rSum = 0, gSum = 0, bSum = 0, count = 0;
+        for (let i = 0; i < imgData.length; i += 4) {
+          const r = imgData[i];
+          const g = imgData[i + 1];
+          const b = imgData[i + 2];
+          const a = imgData[i + 3];
+
+          if (a > 100) {
+            const isGrey = Math.abs(r - g) < 20 && Math.abs(g - b) < 20 && Math.abs(r - b) < 20;
+            const isWhite = r > 230 && g > 230 && b > 230;
+            const isBlack = r < 25 && g < 25 && b < 25;
+            if (!isWhite && !isBlack && (!isGrey || count === 0)) {
+              rSum += r;
+              gSum += g;
+              bSum += b;
+              count++;
+            }
+          }
+        }
+
+        if (count > 0) {
+          const rAvg = Math.round(rSum / count);
+          const gAvg = Math.round(gSum / count);
+          const bAvg = Math.round(bSum / count);
+
+          const accent = `rgb(${rAvg}, ${gAvg}, ${bAvg})`;
+          const accent2 = `rgb(${Math.max(0, Math.round(rAvg * 0.4))}, ${Math.max(0, Math.round(gAvg * 0.4))}, ${Math.max(0, Math.round(bAvg * 0.4))})`;
+
+          setColors({ accent, accent2 });
+        } else {
+          setColors(fallbackColors);
+        }
+      } catch (err) {
+        console.error("Failed to extract color from logo:", err);
+        setColors(fallbackColors);
+      }
+    };
+    img.onerror = () => {
+      setColors(fallbackColors);
+    };
+    img.src = logoUrl;
+  }, [logoUrl, fallbackColors.accent, fallbackColors.accent2]);
+
+  return colors;
+}
+
+function useTransparentLogo(logoUrl: string | null) {
+  const [processedUrl, setProcessedUrl] = useState<string | null>(logoUrl);
+
+  useEffect(() => {
+    if (!logoUrl) {
+      setProcessedUrl(null);
+      return;
+    }
+
+    const img = new window.Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          setProcessedUrl(logoUrl);
+          return;
+        }
+
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+
+        // Get background color from top-left pixel
+        const bgR = data[0];
+        const bgG = data[1];
+        const bgB = data[2];
+        const bgA = data[3];
+
+        if (bgA > 50) {
+          const threshold = 40; // color distance threshold
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
+
+            // Calculate Euclidean distance in RGB space
+            const dist = Math.sqrt(
+              Math.pow(r - bgR, 2) +
+              Math.pow(g - bgG, 2) +
+              Math.pow(b - bgB, 2)
+            );
+
+            if (dist < threshold) {
+              data[i + 3] = 0; // Make transparent
+            }
+          }
+          ctx.putImageData(imgData, 0, 0);
+          setProcessedUrl(canvas.toDataURL());
+        } else {
+          setProcessedUrl(logoUrl);
+        }
+      } catch (err) {
+        console.error("Failed to make logo transparent:", err);
+        setProcessedUrl(logoUrl);
+      }
+    };
+    img.onerror = () => {
+      setProcessedUrl(logoUrl);
+    };
+    img.src = logoUrl;
+  }, [logoUrl]);
+
+  return processedUrl;
+}
+
+
 function rgba(hex: string, opacity: number) {
   const cleanHex = hex.replace("#", "");
   const r = parseInt(cleanHex.substring(0, 2), 16);
@@ -65,7 +213,34 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
 
   // Extract color tokens
-  const g = gradientFor(product.brandName ?? product.name);
+  const fallbackG = useMemo(() => gradientFor(product.brandName ?? product.name), [product]);
+  const g = useLogoColors(product.logoUrl ?? null, fallbackG);
+  const transparentLogoUrl = useTransparentLogo(product.logoUrl ?? null);
+
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [cardWidth, setCardWidth] = useState(0);
+
+  useEffect(() => {
+    if (!cardRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        setCardWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(cardRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const flatStop = useMemo(() => {
+    if (cardWidth <= 0) return 0.10;
+    const logoInset = 10;
+    const logoMaxWidth = 188;
+    const logoEndFraction = (logoInset + logoMaxWidth) / cardWidth;
+    const gradientStartBias = 0.76;
+    
+    return Math.min(0.42, Math.max(0.08, logoEndFraction * gradientStartBias));
+  }, [cardWidth]);
+
   const fixedSkus = useMemo(() => splitFixedSkus(product), [product]);
   const flexibleSku = useMemo(() => resolveFlexibleSku(product), [product]);
 
@@ -217,42 +392,15 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     return true;
   };
 
-  const getCoinsToRedeem = (coinsOverride?: number | null) => {
-    if (coinsOverride !== undefined && coinsOverride !== null) {
-      if (coinsOverride <= 0) return 0;
-      return Math.min(coinsOverride, optimalCoins);
-    }
-    return coinsToRedeem;
-  };
-
-  const getCappedCoins = (coinsOverride?: number | null) => {
-    const requested = getCoinsToRedeem(coinsOverride);
-    return capCoinsToRedeem({
-      requested,
-      coinsBalance,
-      maxCoinsAllowed: ruleCoinCap,
-    });
-  };
-
-  const buildPreviewRequest = (
-    couponCodeOverride?: string | null,
-    coinsOverride?: number | null
-  ) => {
-    const finalCoins = getCappedCoins(coinsOverride);
-    const finalAllowHybrid = resolveAllowHybridInrPayment({
-      coinsToRedeem: finalCoins,
-      maxCoinsAllowed: ruleCoinCap,
-      paymentRules,
-    });
-    return buildCheckoutRequest({
+  const buildPreviewRequest = (couponCodeOverride?: string | null) =>
+    buildCheckoutRequest({
       cartItemIds: null,
-      coinsToRedeem: finalCoins,
+      coinsToRedeem: cappedCoinsToRedeem,
       couponCode: couponCodeOverride !== undefined ? couponCodeOverride : appliedCoupon,
-      allowHybridInrPayment: finalAllowHybrid,
+      allowHybridInrPayment,
       quantity: cartQuantity,
       isSquad: cartQuantity >= 5,
     });
-  };
 
   const applyPreviewResult = (preview: CheckoutPreview) => {
     setCheckoutPreview(preview);
@@ -267,11 +415,10 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   };
 
   const requestCheckoutPreview = async (
-    couponCodeOverride?: string | null,
-    coinsOverride?: number | null
+    couponCodeOverride?: string | null
   ): Promise<CheckoutPreview | null> => {
     const preview = await previewCheckoutWithHybridRetry(
-      buildPreviewRequest(couponCodeOverride, coinsOverride),
+      buildPreviewRequest(couponCodeOverride),
       (request) => shopApi.checkoutPreview(request)
     );
     applyPreviewResult(preview);
@@ -287,9 +434,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     }
   };
 
-  const syncCartAndPreview = async (
-    coinsOverride: number | null = null
-  ): Promise<CheckoutPreview | null> => {
+  const syncCartAndPreview = async (): Promise<CheckoutPreview | null> => {
     if (!canFetchCheckoutPreview() || !selectedSku) return null;
 
     setPreviewLoading(true);
@@ -314,7 +459,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
       await revalidateCouponIfNeeded();
 
-      return await requestCheckoutPreview(undefined, coinsOverride);
+      return await requestCheckoutPreview();
     } catch (err: unknown) {
       const message =
         err instanceof Error
@@ -328,16 +473,14 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     }
   };
 
-  const previewCheckoutOnly = async (
-    coinsOverride: number | null = null
-  ): Promise<CheckoutPreview | null> => {
+  const previewCheckoutOnly = async (): Promise<CheckoutPreview | null> => {
     if (!canFetchCheckoutPreview() || !cartSyncedRef.current) return null;
 
     setPreviewLoading(true);
     setPreviewError(null);
 
     try {
-      return await requestCheckoutPreview(undefined, coinsOverride);
+      return await requestCheckoutPreview();
     } catch (err: unknown) {
       const message =
         err instanceof Error
@@ -381,15 +524,11 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
   const loadPreview = async ({
     syncCart = false,
-    coinsOverride = null,
-  }: {
-    syncCart?: boolean;
-    coinsOverride?: number | null;
-  } = {}): Promise<CheckoutPreview | null> => {
+  }: { syncCart?: boolean } = {}): Promise<CheckoutPreview | null> => {
     if (syncCart || !cartSyncedRef.current) {
-      return syncCartAndPreview(coinsOverride);
+      return syncCartAndPreview();
     }
-    return previewCheckoutOnly(coinsOverride);
+    return previewCheckoutOnly();
   };
 
   // Reset cart sync when selection changes; debounced sync+preview (mobile _schedulePreview).
@@ -628,15 +767,61 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
         {/* Left Column: Product Info & Purchase Flow (lg:col-span-7) */}
         <div className="lg:col-span-7 flex flex-col gap-6 w-full max-w-[560px]">
           {/* Brand Premium Card Design */}
-          <div className="relative w-full aspect-[1.85/1] rounded-[14px] overflow-hidden border border-white/10 p-6 flex flex-col justify-between shadow-2xl transition hover:scale-[1.01]"
+           <div
+            ref={cardRef}
+            className="relative w-full aspect-[1.85/1] rounded-[14px] overflow-hidden border border-white/10 p-6 flex flex-col justify-between"
             style={{
-              background: `linear-gradient(135deg, ${g.accent} 0%, ${g.accent2} 100%)`,
-              boxShadow: `0 20px 50px -15px ${rgba(g.accent, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.15)`
-            }}>
+              background: `linear-gradient(to top right, ${g.accent} 0%, ${g.accent} ${flatStop * 100}%, ${g.accent2} 100%)`,
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15)"
+            }}
+          >
+            {/* Specular Sheen Reflections Overlay */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
+              {/* Ellipse 1 */}
+              <div 
+                className="absolute rounded-full"
+                style={{
+                  left: '20%',
+                  top: '38%',
+                  width: '140%',
+                  height: '34%',
+                  transform: 'rotate(45deg)',
+                  filter: 'blur(21px)',
+                  background: 'linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.36) 50%, rgba(255,255,255,0) 100%)',
+                }}
+              />
+              {/* Ellipse 2 */}
+              <div 
+                className="absolute rounded-full"
+                style={{
+                  left: '18%',
+                  top: '34%',
+                  width: '72%',
+                  height: '14%',
+                  transform: 'rotate(45deg)',
+                  filter: 'blur(20px)',
+                  background: 'linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0) 100%)',
+                }}
+              />
+              {/* Ellipse 3 */}
+              <div 
+                className="absolute rounded-full"
+                style={{
+                  left: '52%',
+                  top: '-4%',
+                  width: '42%',
+                  height: '10%',
+                  transform: 'rotate(45deg)',
+                  filter: 'blur(16px)',
+                  background: 'linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%)',
+                }}
+              />
+            </div>
+
             <div className="flex justify-between items-start">
             </div>
 
-            <div className="mx-auto flex flex-col items-center justify-center bg-white/10 backdrop-blur-md border border-white/15 rounded-[16px] px-5 py-3 shadow-[0_8px_32px_0_rgba(0,0,0,0.15)] select-none">
+            <div className="mx-auto flex flex-col items-center justify-center bg-white/10 backdrop-blur-md border border-white/15 rounded-[16px] px-5 py-3 shadow-[0_8px_32px_0_rgba(0,0,0,0.15)] select-none relative z-10">
               <span className="text-white/80 text-[10px] font-bold uppercase tracking-[0.08em] mb-1">Voucher worth</span>
               <div className="flex items-center gap-2">
                 <span className="text-white text-3xl font-black leading-none tabular-nums">
@@ -645,23 +830,31 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                 <button
                   type="button"
                   onClick={handleEditVoucherWorth}
-                  className="p-1 rounded-md text-white/70 hover:bg-white/10 hover:text-white active:scale-90 transition"
+                  className="p-1 rounded-md text-white/70 hover:bg-white/10 hover:text-white active:scale-90 transition flex items-center justify-center"
                   title="Select Denomination"
                 >
-                  <Pencil className="w-4 h-4" />
+                  <svg width="18" height="18" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-[18px] h-[18px]">
+                    <path fillRule="evenodd" clipRule="evenodd" d="M0 5.48539C0 4.03057 0.577923 2.63534 1.60663 1.60663C2.63534 0.577923 4.03057 0 5.48539 0H11.2938C11.5933 0 11.8806 0.118988 12.0924 0.330787C12.3042 0.542586 12.4232 0.829848 12.4232 1.12938C12.4232 1.42891 12.3042 1.71617 12.0924 1.92797C11.8806 2.13977 11.5933 2.25876 11.2938 2.25876H5.48539C4.62963 2.25876 3.80892 2.5987 3.20381 3.20381C2.5987 3.80892 2.25876 4.62963 2.25876 5.48539V17.1022C2.25876 17.9579 2.5987 18.7786 3.20381 19.3837C3.80892 19.9888 4.62963 20.3288 5.48539 20.3288H17.1022C17.9579 20.3288 18.7786 19.9888 19.3837 19.3837C19.9888 18.7786 20.3288 17.9579 20.3288 17.1022V11.2938C20.3288 10.9942 20.4478 10.707 20.6596 10.4952C20.8714 10.2834 21.1586 10.1644 21.4582 10.1644C21.7577 10.1644 22.045 10.2834 22.2568 10.4952C22.4686 10.707 22.5876 10.9942 22.5876 11.2938V17.1022C22.5876 18.557 22.0096 19.9522 20.9809 20.9809C19.9522 22.0096 18.557 22.5876 17.1022 22.5876H5.48539C4.03057 22.5876 2.63534 22.0096 1.60663 20.9809C0.577923 19.9522 0 18.557 0 17.1022V5.48539Z" fill="currentColor"/>
+                    <path fillRule="evenodd" clipRule="evenodd" d="M14.8374 12.6684L12.3472 14.1705L11.1805 12.2358L13.6708 10.7338L13.6708 10.7338ZM14.8374 12.6684L12.3472 14.1705L11.1805 12.2358L13.6708 10.7338L13.6742 10.7315C13.7696 10.674 13.8576 10.605 13.9362 10.5259L19.5944 4.8384C19.6511 4.78126 19.7057 4.72212 19.7581 4.66109C20.132 4.22515 20.6854 3.36231 20.0156 2.6892C19.4498 2.11999 18.6389 2.65758 18.1138 3.11949C17.9729 3.24368 17.8373 3.37367 17.7072 3.50913L17.6688 3.54753L12.0897 9.15489C11.9572 9.28657 11.8534 9.44422 11.7847 9.61793L10.8541 11.9591C10.8365 12.0032 10.8332 12.0517 10.8446 12.0977C10.8561 12.1438 10.8818 12.185 10.918 12.2157C10.9543 12.2463 10.9993 12.2647 11.0466 12.2683C11.0939 12.272 11.14 12.2606 11.1805 12.2358L12.3472 14.1705C10.3086 15.3992 7.87483 13.3347 8.75575 11.1234L9.68748 8.78332C9.86889 8.32603 10.1417 7.9106 10.4893 7.56246L16.0673 1.95397L16.1001 1.92122C16.2661 1.75182 16.824 1.18035 17.5005 0.769257C17.8698 0.54677 18.4594 0.252002 19.1878 0.195533C20.0235 0.1289 20.9158 0.392045 21.616 1.09565C22.1519 1.62509 22.489 2.32311 22.5703 3.07206C22.6262 3.65583 22.537 4.24437 22.3105 4.78532C21.983 5.59509 21.4364 6.19027 21.1958 6.43083L15.5377 12.1184C15.3268 12.3299 15.0934 12.5133 14.8374 12.6684ZM19.8666 4.62043C19.8666 4.62043 19.862 4.62382 19.8519 4.62721L19.8666 4.62043Z" fill="currentColor"/>
+                  </svg>
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              {product.logoUrl && (
-                <div className="relative w-8 h-8 rounded-full overflow-hidden border border-white/15 bg-black/10">
-                  <Image src={product.logoUrl} alt="" fill className="object-cover" />
-                </div>
+            <div className="flex items-center gap-3 relative z-10">
+              {transparentLogoUrl ? (
+                <Image
+                  src={transparentLogoUrl}
+                  alt=""
+                  width={240}
+                  height={80}
+                  className="h-20 w-auto object-contain translate-y-3.5"
+                />
+              ) : (
+                <span className="text-xs font-bold uppercase tracking-[0.05em] text-white/90">
+                  {product.brandName ?? product.name}
+                </span>
               )}
-              <span className="text-xs font-bold uppercase tracking-[0.05em] text-white/90">
-                {product.brandName ?? product.name}
-              </span>
             </div>
           </div>
 
@@ -669,7 +862,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           <div className="flex flex-col gap-2 items-start mt-2">
             {(selectedSku?.savingsPercent ?? product.savingsPercent ?? 5) > 0 && (
               <span className="px-2 py-0.5 bg-[#25C26E] text-white text-[10px] font-black rounded uppercase select-none w-fit">
-                {selectedSku?.savingsPercent ?? product.savingsPercent ?? 5}% Off
+                Get {selectedSku?.savingsPercent ?? product.savingsPercent ?? 5}% Off
               </span>
             )}
             <h1 className="text-3xl font-black text-white leading-tight">
@@ -694,7 +887,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                       </span>
                     </div>
                     {displayOriginal > displayPrice && (
-                      <span className="text-xs text-white/40 line-through font-semibold tabular-nums ml-0.5">
+                      <span className="text-base text-white/60 line-through font-semibold tabular-nums ml-0.5">
                         ₹{displayOriginal.toLocaleString("en-IN")}
                       </span>
                     )}
@@ -707,7 +900,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                     ₹{displayPrice.toLocaleString("en-IN")}
                   </span>
                   {displayOriginal > displayPrice && (
-                    <span className="text-sm text-white/40 line-through font-semibold tabular-nums">
+                    <span className="text-lg text-white/60 line-through font-semibold tabular-nums">
                       ₹{displayOriginal.toLocaleString("en-IN")}
                     </span>
                   )}
@@ -827,15 +1020,14 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
           {/* Buy Action Button */}
           <div className="w-full">
-            <button
+            <SlantedButton
               type="button"
               onClick={triggerBuy}
-              disabled={!selectedSku || !!buyWarning || previewLoading}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--flame)] via-[var(--flame-deep)] to-[var(--flame)] text-sm font-extrabold uppercase tracking-wider text-black shadow-[0_12px_24px_-10px_rgba(255,68,0,0.4)] transition hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={!selectedSku || !!buyWarning}
+              isLoading={previewLoading}
+              className="w-full h-12 uppercase text-xs"
             >
-              {previewLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : !isAuthenticated ? (
+              {!isAuthenticated ? (
                 <span>Sign in to Buy</span>
               ) : buyButtonLabel.kind === "coins_only" ? (
                 <span className="inline-flex items-center gap-1">
@@ -854,8 +1046,8 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
               ) : (
                 <span>Buy Now</span>
               )}
-              {!previewLoading && <ArrowRight className="h-4 w-4 text-black" />}
-            </button>
+              <ArrowRight className="h-4 w-4 text-black ml-1.5" />
+            </SlantedButton>
             {buyWarning && (
               <div className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/10 p-2 text-center text-xs font-semibold text-amber-300">
                 {buyWarning}
@@ -944,80 +1136,64 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           {/* How to Redeem container */}
           {(product.giftCardInfo?.howToUseInstructions || (product.giftCardInfo?.howToUseRetailModes && product.giftCardInfo.howToUseRetailModes.length > 0)) && (
             <div className="w-full rounded-2xl border border-white/5 bg-black/25 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setShowHowToRedeem(!showHowToRedeem)}
-                className="w-full flex items-center justify-between p-5 font-extrabold text-sm text-white hover:bg-white/[0.01] transition"
-              >
+              <div className="w-full flex items-center justify-between p-5 font-extrabold text-sm text-white select-none">
                 <span className="flex items-center gap-2">
                   <span className="text-white/70">❓</span>
                   <span>How to redeem</span>
                 </span>
-                {showHowToRedeem ? <ChevronUp className="w-4 h-4 text-white/50" /> : <ChevronDown className="w-4 h-4 text-white/50" />}
-              </button>
-
-              {showHowToRedeem && (
-                <>
-                  <div className="h-[1px] bg-white/10 w-full" />
-                  <div className="p-5 text-xs text-white/70 leading-relaxed bg-black/10 flex flex-col gap-3.5">
-                    {product.giftCardInfo.howToUseRetailModes && product.giftCardInfo.howToUseRetailModes.length > 0 ? (
-                      product.giftCardInfo.howToUseRetailModes[0]?.instructions?.map((line: string, idx: number) => (
-                        <div key={idx} className="flex gap-3 items-start">
-                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/60">
-                            {idx + 1}
-                          </span>
-                          <p className="flex-1 mt-0.5">{line}</p>
-                        </div>
-                      ))
-                    ) : (
-                      product.giftCardInfo.howToUseInstructions?.split("\n").filter(Boolean).map((line, idx) => {
-                        const cleaned = line.replace(/^\d+[\.\-\s]*/, "");
-                        return (
-                          <div key={idx} className="flex gap-3 items-start">
-                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/60">
-                              {idx + 1}
-                            </span>
-                            <p className="flex-1 mt-0.5">{cleaned}</p>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Terms & Conditions collapsible container */}
-          {product.giftCardInfo?.termsAndConditions && (
-            <div className="w-full rounded-2xl border border-white/5 bg-black/25 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setShowTerms(!showTerms)}
-                className="w-full flex items-center justify-between p-5 font-extrabold text-sm text-white hover:bg-white/[0.01] transition"
-              >
-                <span className="flex items-center gap-2">
-                  <span className="text-white/70">📋</span>
-                  <span>Terms & Conditions</span>
-                </span>
-                {showTerms ? <ChevronUp className="w-4 h-4 text-white/50" /> : <ChevronDown className="w-4 h-4 text-white/50" />}
-              </button>
-              {showTerms && (
-                <div className="p-5 pt-5 text-xs text-white/70 leading-relaxed border-t border-white/5 bg-black/10 flex flex-col gap-3">
-                  {Array.isArray(product.giftCardInfo.termsAndConditions) ? (
-                    (product.giftCardInfo.termsAndConditions as any).map((term: string, idx: number) => (
+              </div>
+              <div className="h-[1px] bg-white/10 w-full" />
+              <div className="p-5 text-xs text-white/70 leading-relaxed bg-black/10 flex flex-col gap-3.5">
+                {product.giftCardInfo.howToUseRetailModes && product.giftCardInfo.howToUseRetailModes.length > 0 ? (
+                  product.giftCardInfo.howToUseRetailModes[0]?.instructions?.map((line: string, idx: number) => (
+                    <div key={idx} className="flex gap-3 items-start">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/60">
+                        {idx + 1}
+                      </span>
+                      <p className="flex-1 mt-0.5">{line}</p>
+                    </div>
+                  ))
+                ) : (
+                  product.giftCardInfo.howToUseInstructions?.split("\n").filter(Boolean).map((line, idx) => {
+                    const cleaned = line.replace(/^\d+[\.\-\s]*/, "");
+                    return (
                       <div key={idx} className="flex gap-3 items-start">
                         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/60">
                           {idx + 1}
                         </span>
-                        <p className="flex-1 mt-0.5">{term}</p>
+                        <p className="flex-1 mt-0.5">{cleaned}</p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="whitespace-pre-wrap">{product.giftCardInfo.termsAndConditions}</div>
-                  )}
-                </div>
-              )}
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Terms & Conditions container */}
+          {product.giftCardInfo?.termsAndConditions && (
+            <div className="w-full rounded-2xl border border-white/5 bg-black/25 overflow-hidden">
+              <div className="w-full flex items-center justify-between p-5 font-extrabold text-sm text-white select-none">
+                <span className="flex items-center gap-2">
+                  <span className="text-white/70">📋</span>
+                  <span>Terms & Conditions</span>
+                </span>
+              </div>
+              <div className="h-[1px] bg-white/10 w-full" />
+              <div className="p-5 text-xs text-white/70 leading-relaxed bg-black/10 flex flex-col gap-3">
+                {Array.isArray(product.giftCardInfo.termsAndConditions) ? (
+                  (product.giftCardInfo.termsAndConditions as any).map((term: string, idx: number) => (
+                    <div key={idx} className="flex gap-3 items-start">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/60">
+                        {idx + 1}
+                      </span>
+                      <p className="flex-1 mt-0.5">{term}</p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="whitespace-pre-wrap">{product.giftCardInfo.termsAndConditions}</div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -1081,7 +1257,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           setShowEditCoinsModal(false);
           setCustomCoins(coins);
           setApplyCoins(coins > 0);
-          void loadPreview({ coinsOverride: coins });
+          void loadPreview();
         }}
       />
     </div>

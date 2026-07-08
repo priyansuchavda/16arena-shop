@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { AlertCircle, Loader2, X } from "lucide-react";
 import coinImg from "@/assets/png/coin.png";
+import { SlantedButton } from "@/shared/components/ui/slanted-button";
 import { shopApi, buildCheckoutRequest } from "../api";
 import { useCheckout } from "../hooks/useCheckout";
 import type { CheckoutPreview, ShopProductDetail, ShopSku } from "../types/shop.types";
@@ -231,7 +232,7 @@ export function PaymentSummarySheet({
         aria-label="Close payment summary"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-t-3xl border border-white/10 bg-[#121212] shadow-2xl sm:rounded-3xl">
+      <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-t-3xl border border-white/10 bg-[#161616] shadow-2xl sm:rounded-3xl">
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
@@ -264,7 +265,7 @@ export function PaymentSummarySheet({
             </div>
           )}
 
-          <div className="space-y-2 rounded-2xl border border-white/10 bg-black/30 p-4 text-sm">
+          <div className="space-y-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 text-sm">
             <Row label="Subtotal" value={`₹${(preview?.subtotal ?? fallbackSubtotal).toLocaleString("en-IN")}`} />
             {(preview?.totalDiscount ?? 0) > 0 && (
               <Row
@@ -309,21 +310,15 @@ export function PaymentSummarySheet({
         </div>
 
         <div className="border-t border-white/10 p-5">
-          <button
+          <SlantedButton
             type="button"
             onClick={onPay}
-            disabled={loading || previewLoading || !!disabledReason || !!previewError || !preview}
-            className="flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-[var(--flame)] to-[var(--flame-deep)] text-sm font-extrabold uppercase tracking-wider text-black transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={previewLoading || !!disabledReason || !!previewError || !preview}
+            isLoading={loading}
+            className="w-full h-12 uppercase text-xs"
           >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing…
-              </>
-            ) : (
-              payLabel
-            )}
-          </button>
+            {payLabel}
+          </SlantedButton>
         </div>
       </div>
     </div>

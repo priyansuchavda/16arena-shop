@@ -126,7 +126,10 @@
   }
   html {
     @apply font-sans;
-    scrollbar-gutter: stable;
+    scrollbar-width: none;          /* Firefox */
+  }
+  html::-webkit-scrollbar {
+    display: none;                  /* Chrome / Safari / Edge */
   }
   /* PolySans for headings & big display type; Hubot for everything else. */
   h1,
@@ -475,4 +478,9 @@
 
 .animate-shake {
   animation: shake 0.4s ease-in-out;
+}
+
+@keyframes blink-caret {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }

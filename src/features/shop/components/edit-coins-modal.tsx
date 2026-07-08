@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { X } from "lucide-react";
 import coinImg from "@/assets/png/coin.png";
+import { SlantedButton } from "@/shared/components/ui/slanted-button";
 
 type EditCoinsModalProps = {
   open: boolean;
@@ -164,15 +165,14 @@ export function EditCoinsModal({
           </div>
         )}
 
-        {/* Apply Button */}
-        <button
+        <SlantedButton
           type="button"
           onClick={() => onConfirm(localCoins)}
           disabled={hasError}
-          className="w-full h-12 bg-gradient-to-r from-[var(--flame)] via-[var(--flame-deep)] to-[var(--flame)] hover:brightness-105 text-black text-sm font-extrabold uppercase tracking-wider rounded-xl active:scale-[0.98] transition shadow-[0_12px_24px_-10px_rgba(255,68,0,0.4)] disabled:opacity-40"
+          className="w-full h-12 uppercase text-xs"
         >
           Apply
-        </button>
+        </SlantedButton>
       </div>
     </div>
   );

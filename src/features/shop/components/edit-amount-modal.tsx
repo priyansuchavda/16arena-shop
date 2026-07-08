@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import { X, Check } from "lucide-react";
 import type { ShopProductDetail, ShopSku, ShopAmountRestrictions } from "../types/shop.types";
 import { gradientFor } from "../utils/mappers";
+import { SlantedButton } from "@/shared/components/ui/slanted-button";
 
 function rgba(hex: string, opacity: number) {
   if (!hex || hex.length < 7) return `rgba(255, 255, 255, ${opacity})`;
@@ -13,6 +14,153 @@ function rgba(hex: string, opacity: number) {
   const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
+
+function useLogoColors(
+  logoUrl: string | null,
+  fallbackColors: { accent: string; accent2: string }
+) {
+  const [colors, setColors] = useState(fallbackColors);
+
+  useEffect(() => {
+    if (!logoUrl) {
+      setColors(fallbackColors);
+      return;
+    }
+
+    const img = new window.Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          setColors(fallbackColors);
+          return;
+        }
+
+        canvas.width = 30;
+        canvas.height = 30;
+        ctx.drawImage(img, 0, 0, 30, 30);
+
+        const imgData = ctx.getImageData(0, 0, 30, 30).data;
+        
+        let rSum = 0, gSum = 0, bSum = 0, count = 0;
+        for (let i = 0; i < imgData.length; i += 4) {
+          const r = imgData[i];
+          const g = imgData[i + 1];
+          const b = imgData[i + 2];
+          const a = imgData[i + 3];
+
+          if (a > 100) {
+            const isGrey = Math.abs(r - g) < 20 && Math.abs(g - b) < 20 && Math.abs(r - b) < 20;
+            const isWhite = r > 230 && g > 230 && b > 230;
+            const isBlack = r < 25 && g < 25 && b < 25;
+            if (!isWhite && !isBlack && (!isGrey || count === 0)) {
+              rSum += r;
+              gSum += g;
+              bSum += b;
+              count++;
+            }
+          }
+        }
+
+        if (count > 0) {
+          const rAvg = Math.round(rSum / count);
+          const gAvg = Math.round(gSum / count);
+          const bAvg = Math.round(bSum / count);
+
+          const accent = `rgb(${rAvg}, ${gAvg}, ${bAvg})`;
+          const accent2 = `rgb(${Math.max(0, Math.round(rAvg * 0.4))}, ${Math.max(0, Math.round(gAvg * 0.4))}, ${Math.max(0, Math.round(bAvg * 0.4))})`;
+
+          setColors({ accent, accent2 });
+        } else {
+          setColors(fallbackColors);
+        }
+      } catch (err) {
+        console.error("Failed to extract color from logo:", err);
+        setColors(fallbackColors);
+      }
+    };
+    img.onerror = () => {
+      setColors(fallbackColors);
+    };
+    img.src = logoUrl;
+  }, [logoUrl, fallbackColors.accent, fallbackColors.accent2]);
+
+  return colors;
+}
+
+function useTransparentLogo(logoUrl: string | null) {
+  const [processedUrl, setProcessedUrl] = useState<string | null>(logoUrl);
+
+  useEffect(() => {
+    if (!logoUrl) {
+      setProcessedUrl(null);
+      return;
+    }
+
+    const img = new window.Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          setProcessedUrl(logoUrl);
+          return;
+        }
+
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+
+        // Get background color from top-left pixel
+        const bgR = data[0];
+        const bgG = data[1];
+        const bgB = data[2];
+        const bgA = data[3];
+
+        if (bgA > 50) {
+          const threshold = 40; // color distance threshold
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
+
+            // Calculate Euclidean distance in RGB space
+            const dist = Math.sqrt(
+              Math.pow(r - bgR, 2) +
+              Math.pow(g - bgG, 2) +
+              Math.pow(b - bgB, 2)
+            );
+
+            if (dist < threshold) {
+              data[i + 3] = 0; // Make transparent
+            }
+          }
+          ctx.putImageData(imgData, 0, 0);
+          setProcessedUrl(canvas.toDataURL());
+        } else {
+          setProcessedUrl(logoUrl);
+        }
+      } catch (err) {
+        console.error("Failed to make logo transparent:", err);
+        setProcessedUrl(logoUrl);
+      }
+    };
+    img.onerror = () => {
+      setProcessedUrl(logoUrl);
+    };
+    img.src = logoUrl;
+  }, [logoUrl]);
+
+  return processedUrl;
+}
+
 
 type EditAmountModalProps = {
   open: boolean;
@@ -44,6 +192,14 @@ export function EditAmountModal({
   });
   const [localSelectedSku, setLocalSelectedSku] = useState<ShopSku>(sku);
 
+  // All hooks must be above the early return
+  const fallbackG = useMemo(() => gradientFor(product.brandName ?? product.name), [product]);
+  const g = useLogoColors(product.logoUrl ?? null, fallbackG);
+  const transparentLogoUrl = useTransparentLogo(product.logoUrl ?? null);
+
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [cardWidth, setCardWidth] = useState(0);
+
   useEffect(() => {
     if (open) {
       setLocalText(initialAmountText);
@@ -53,9 +209,27 @@ export function EditAmountModal({
     }
   }, [open, initialAmountText, sku]);
 
-  if (!open) return null;
+  useEffect(() => {
+    if (!cardRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        setCardWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(cardRef.current);
+    return () => observer.disconnect();
+  }, [open]);
 
-  const g = gradientFor(product.brandName ?? product.name);
+  const flatStop = useMemo(() => {
+    if (cardWidth <= 0) return 0.10;
+    const logoInset = 10;
+    const logoMaxWidth = 188;
+    const logoEndFraction = (logoInset + logoMaxWidth) / cardWidth;
+    const gradientStartBias = 0.76;
+    return Math.min(0.42, Math.max(0.08, logoEndFraction * gradientStartBias));
+  }, [cardWidth]);
+
+  if (!open) return null;
 
   // Check validations (only relevant for flexible mode)
   let hasError = false;
@@ -119,37 +293,85 @@ export function EditAmountModal({
 
         {/* Card inside modal */}
         <div
-          className="relative w-full max-w-[560px] aspect-[1.85/1] rounded-[14px] overflow-hidden border border-white/10 p-6 flex flex-col justify-between shadow-2xl mx-auto select-none"
+          ref={cardRef}
+          className="relative w-full max-w-[560px] aspect-[1.85/1] rounded-[14px] overflow-hidden border border-white/10 p-6 flex flex-col justify-between mx-auto select-none"
           style={{
-            background: `linear-gradient(135deg, ${g.accent} 0%, ${g.accent2} 100%)`,
-            boxShadow: `0 20px 50px -15px ${rgba(g.accent, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.15)`,
+            background: `linear-gradient(to top right, ${g.accent} 0%, ${g.accent} ${flatStop * 100}%, ${g.accent2} 100%)`,
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15)"
           }}
         >
-          {(localSelectedSku.savingsPercent ?? product.savingsPercent ?? 5) > 0 && (
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-[#25C26E] text-white text-[12.5px] font-extrabold px-6 py-2 rounded-b-[6px] shadow-sm z-10 whitespace-nowrap">
-              {localSelectedSku.savingsPercent ?? product.savingsPercent ?? 5}% off with Arena Coins
-            </div>
-          )}
+          {/* Specular Sheen Reflections Overlay */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
+            {/* Ellipse 1 */}
+            <div 
+              className="absolute rounded-full"
+              style={{
+                left: '20%',
+                top: '38%',
+                width: '140%',
+                height: '34%',
+                transform: 'rotate(45deg)',
+                filter: 'blur(21px)',
+                background: 'linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.36) 50%, rgba(255,255,255,0) 100%)',
+              }}
+            />
+            {/* Ellipse 2 */}
+            <div 
+              className="absolute rounded-full"
+              style={{
+                left: '18%',
+                top: '34%',
+                width: '72%',
+                height: '14%',
+                transform: 'rotate(45deg)',
+                filter: 'blur(20px)',
+                background: 'linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0) 100%)',
+              }}
+            />
+            {/* Ellipse 3 */}
+            <div 
+              className="absolute rounded-full"
+              style={{
+                left: '52%',
+                top: '-4%',
+                width: '42%',
+                height: '10%',
+                transform: 'rotate(45deg)',
+                filter: 'blur(16px)',
+                background: 'linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%)',
+              }}
+            />
+          </div>
+
           <div className="flex justify-between items-start"></div>
 
-          <div className="mx-auto flex flex-col items-center justify-center bg-white/10 backdrop-blur-md border border-white/15 rounded-[16px] px-5 py-3 shadow-[0_8px_32px_0_rgba(0,0,0,0.15)]">
+          <div className="mx-auto flex flex-col items-center justify-center bg-white/10 backdrop-blur-md border border-white/15 rounded-[16px] px-5 py-3 shadow-[0_8px_32px_0_rgba(0,0,0,0.15)] relative z-10">
             <span className="text-white/80 text-[10px] font-bold uppercase tracking-[0.08em] mb-1">
               1 Card worth
             </span>
-            <span className="text-white text-3xl font-black leading-none tabular-nums">
+            <span className="text-white text-3xl font-black leading-none tabular-nums flex items-center">
               ₹{localAmount.toLocaleString("en-IN")}
+              <span
+                className="inline-block w-[2px] h-7 bg-white ml-0.5"
+                style={{ animation: "blink-caret 1s step-end infinite" }}
+              />
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            {product.logoUrl && (
-              <div className="relative w-8 h-8 rounded-full overflow-hidden border border-white/15 bg-black/10">
-                <Image src={product.logoUrl} alt="" fill className="object-cover" />
-              </div>
+          <div className="flex items-center gap-3 relative z-10">
+            {transparentLogoUrl ? (
+              <Image
+                src={transparentLogoUrl}
+                alt=""
+                width={240}
+                height={80}
+                className="h-20 w-auto object-contain translate-y-3.5"
+              />
+            ) : (
+              <span className="text-xs font-bold uppercase tracking-[0.05em] text-white/90">
+                {product.brandName ?? product.name}
+              </span>
             )}
-            <span className="text-xs font-bold uppercase tracking-[0.05em] text-white/90">
-              {product.brandName ?? product.name}
-            </span>
           </div>
         </div>
 
@@ -258,15 +480,14 @@ export function EditAmountModal({
           </div>
         )}
 
-        {/* View Discounted Price Action Button */}
-        <button
+        <SlantedButton
           type="button"
           onClick={() => onConfirm(localText, localAmount, localSelectedSku)}
           disabled={hasError || localAmount <= 0}
-          className="w-full h-12 bg-gradient-to-r from-[var(--flame)] via-[var(--flame-deep)] to-[var(--flame)] hover:brightness-105 text-black text-sm font-extrabold uppercase tracking-wider rounded-xl active:scale-[0.98] transition shadow-[0_12px_24px_-10px_rgba(255,68,0,0.4)] disabled:opacity-40"
+          className="w-full h-12 uppercase text-xs"
         >
           View discounted price
-        </button>
+        </SlantedButton>
       </div>
     </div>
   );

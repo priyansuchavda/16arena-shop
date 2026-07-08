@@ -96,10 +96,7 @@ function ShopTopBar({
     setSearchLoading(true);
     const delayDebounceFn = setTimeout(async () => {
       try {
-        let liveProducts: ApiProduct[] = [];
-        if (trimmed.length >= 3) {
-          liveProducts = await shopApi.searchProducts(trimmed);
-        }
+        const liveProducts = await shopApi.searchProducts(trimmed);
 
         const combined: SearchItem[] = [];
         const seenSlugs = new Set<string>();

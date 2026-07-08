@@ -131,11 +131,6 @@ export function ShopShell({
     );
     setSearchResults(localMatches);
 
-    if (trimmed.length < 3) {
-      setSearchLoading(false);
-      return;
-    }
-
     setSearchLoading(true);
     const delayDebounceFn = setTimeout(async () => {
       try {

@@ -73,7 +73,7 @@ export const shopCatalogService = {
   },
 
   searchProducts: async (q: string, page = 1, pageSize = 20): Promise<ApiProduct[]> => {
-    if (q.trim().length < 3) return [];
+    if (q.trim().length < 1) return [];
     const { data } = await apiClient.get<{ data: { items?: ApiProduct[] } }>(
       `/v1/shop/products/search?q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`
     );

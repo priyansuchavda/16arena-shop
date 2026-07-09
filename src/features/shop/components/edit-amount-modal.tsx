@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Image from "next/image";
 import { X, Check } from "lucide-react";
 import type { ShopProductDetail, ShopSku, ShopAmountRestrictions } from "../types/shop.types";
@@ -191,6 +191,9 @@ export function EditAmountModal({
     return Number.isNaN(num) ? 0 : num;
   });
   const [localSelectedSku, setLocalSelectedSku] = useState<ShopSku>(sku);
+  const localTextRef = useRef(localText);
+  const localAmountRef = useRef(localAmount);
+  const localSelectedSkuRef = useRef(localSelectedSku);
 
   // All hooks must be above the early return
   const fallbackG = useMemo(() => gradientFor(product.brandName ?? product.name), [product]);
@@ -201,11 +204,27 @@ export function EditAmountModal({
   const [cardWidth, setCardWidth] = useState(0);
 
   useEffect(() => {
+    localTextRef.current = localText;
+  }, [localText]);
+
+  useEffect(() => {
+    localAmountRef.current = localAmount;
+  }, [localAmount]);
+
+  useEffect(() => {
+    localSelectedSkuRef.current = localSelectedSku;
+  }, [localSelectedSku]);
+
+  useEffect(() => {
     if (open) {
       setLocalText(initialAmountText);
+      localTextRef.current = initialAmountText;
       const num = parseFloat(initialAmountText);
-      setLocalAmount(Number.isNaN(num) ? 0 : num);
+      const nextAmount = Number.isNaN(num) ? 0 : num;
+      setLocalAmount(nextAmount);
+      localAmountRef.current = nextAmount;
       setLocalSelectedSku(sku);
+      localSelectedSkuRef.current = sku;
     }
   }, [open, initialAmountText, sku]);
 
@@ -229,45 +248,117 @@ export function EditAmountModal({
     return Math.min(0.42, Math.max(0.08, logoEndFraction * gradientStartBias));
   }, [cardWidth]);
 
-  if (!open) return null;
+  const applyText = useCallback((current: string) => {
+    setLocalText(current);
+    localTextRef.current = current;
+    const num = parseFloat(current);
+    const nextAmount = Number.isNaN(num) ? 0 : num;
+    setLocalAmount(nextAmount);
+    localAmountRef.current = nextAmount;
+  }, []);
+
+  const handleKeypadPress = useCallback(
+    (key: string) => {
+      let current = localTextRef.current;
+      if (key === "clear") {
+        current = "";
+      } else if (key === "backspace") {
+        current = current.slice(0, -1);
+      } else {
+        const maxLength = amountRestrictions
+          ? String(amountRestrictions.maxVoucherAmount).length
+          : 7;
+        if (current.length >= maxLength) {
+          return;
+        }
+        if (current === "0" || current === "") {
+          current = key;
+        } else {
+          current = current + key;
+        }
+      }
+
+      applyText(current);
+    },
+    [amountRestrictions, applyText]
+  );
 
   // Check validations (only relevant for flexible mode)
   let hasError = false;
   let errorMessage = "";
 
   if (isFlexibleSelection && amountRestrictions) {
-    if (localAmount < amountRestrictions.minVoucherAmount || localAmount > amountRestrictions.maxVoucherAmount) {
+    if (
+      localAmount < amountRestrictions.minVoucherAmount ||
+      localAmount > amountRestrictions.maxVoucherAmount
+    ) {
       hasError = true;
       errorMessage = `Amount must be between ₹${amountRestrictions.minVoucherAmount} and ₹${amountRestrictions.maxVoucherAmount}`;
     }
   }
 
-  const handleKeypadPress = (key: string) => {
-    let current = localText;
-    if (key === "clear") {
-      current = "";
-    } else if (key === "backspace") {
-      current = current.slice(0, -1);
-    } else {
-      const maxLength = amountRestrictions ? String(amountRestrictions.maxVoucherAmount).length : 7;
-      if (current.length >= maxLength) {
+  // Physical keyboard support for flexible amount entry.
+  useEffect(() => {
+    if (!open || !isFlexibleSelection) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
         return;
       }
-      if (current === "0" || current === "") {
-        current = key;
-      } else {
-        current = current + key;
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        return;
       }
-    }
-    
-    setLocalText(current);
-    const num = parseFloat(current);
-    if (!Number.isNaN(num)) {
-      setLocalAmount(num);
-    } else {
-      setLocalAmount(0);
-    }
-  };
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const amount = localAmountRef.current;
+        const text = localTextRef.current;
+        const selectedSku = localSelectedSkuRef.current;
+        const outOfRange =
+          !!amountRestrictions &&
+          (amount < amountRestrictions.minVoucherAmount ||
+            amount > amountRestrictions.maxVoucherAmount);
+        if (!outOfRange && amount > 0) {
+          onConfirm(text, amount, selectedSku);
+        }
+        return;
+      }
+      if (e.key === "Backspace") {
+        e.preventDefault();
+        handleKeypadPress("backspace");
+        return;
+      }
+      if (e.key === "Delete") {
+        e.preventDefault();
+        handleKeypadPress("clear");
+        return;
+      }
+      if (/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+        handleKeypadPress(e.key);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    open,
+    isFlexibleSelection,
+    amountRestrictions,
+    onClose,
+    onConfirm,
+    handleKeypadPress,
+  ]);
+
+  if (!open) return null;
 
   return (
     <div

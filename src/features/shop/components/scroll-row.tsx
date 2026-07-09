@@ -41,7 +41,15 @@ export function ScrollRow({
   const ref = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const alignedRow = getAlignedRowConfig(card);
+
+  // Pointer drag-to-scroll (featured-style, no autoplay).
+  const downRef = useRef(false);
+  const capturedRef = useRef(false);
+  const movedRef = useRef(false);
+  const startXRef = useRef(0);
+  const startScrollRef = useRef(0);
 
   const updateArrowState = useCallback(() => {
     const el = ref.current;
@@ -67,6 +75,67 @@ export function ScrollRow({
     }
 
     el.scrollBy({ left: dir * 320, behavior: "smooth" });
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Only primary button / touch.
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const el = ref.current;
+    if (!el) return;
+    downRef.current = true;
+    capturedRef.current = false;
+    movedRef.current = false;
+    startXRef.current = e.clientX;
+    startScrollRef.current = el.scrollLeft;
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!downRef.current) return;
+    const el = ref.current;
+    if (!el) return;
+    const dx = e.clientX - startXRef.current;
+    if (!capturedRef.current && Math.abs(dx) > 6) {
+      capturedRef.current = true;
+      movedRef.current = true;
+      setDragging(true);
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      // Stop browser from starting a native link/image drag ghost.
+      e.preventDefault();
+    }
+    if (capturedRef.current) {
+      e.preventDefault();
+      el.scrollLeft = startScrollRef.current - dx;
+    }
+  };
+
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!downRef.current) return;
+    downRef.current = false;
+    if (!capturedRef.current) return;
+    capturedRef.current = false;
+    setDragging(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  // Kill native HTML5 drag of <a>/<img> so the row can scroll instead.
+  const onDragStartCapture = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
+  // Suppress click on card links after a drag so we don't navigate mid-swipe.
+  const onClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!movedRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    movedRef.current = false;
   };
 
   useEffect(() => {
@@ -127,12 +196,22 @@ export function ScrollRow({
 
       <div
         ref={ref}
-        className={`shop-scroll flex overflow-x-auto px-0 pb-2 pt-2 ${
+        className={`shop-scroll flex overflow-x-auto px-0 pb-2 pt-2 select-none [-webkit-user-drag:none] ${
           alignedRow
-            ? "snap-x snap-mandatory scroll-smooth"
+            ? "snap-x snap-mandatory"
             : "-mx-1 gap-3 px-1"
-        }`}
-        style={alignedRow ? { gap: alignedRow.cardGap } : undefined}
+        } ${dragging ? "cursor-grabbing scroll-auto" : "cursor-grab scroll-smooth"}`}
+        style={{
+          ...(alignedRow ? { gap: alignedRow.cardGap } : {}),
+          // Own horizontal gestures; page can still scroll vertically outside.
+          touchAction: "pan-x",
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onDragStartCapture={onDragStartCapture}
+        onClickCapture={onClickCapture}
       >
         {items.map((p, i) =>
           alignedRow ? (

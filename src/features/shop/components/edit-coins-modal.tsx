@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { X } from "lucide-react";
 import coinImg from "@/assets/png/coin.png";
@@ -23,49 +23,113 @@ export function EditCoinsModal({
 }: EditCoinsModalProps) {
   const [localText, setLocalText] = useState(String(initialCoins));
   const [localCoins, setLocalCoins] = useState(initialCoins);
+  const localTextRef = useRef(localText);
+  const localCoinsRef = useRef(localCoins);
+
+  useEffect(() => {
+    localTextRef.current = localText;
+  }, [localText]);
+
+  useEffect(() => {
+    localCoinsRef.current = localCoins;
+  }, [localCoins]);
 
   useEffect(() => {
     if (open) {
-      setLocalText(String(initialCoins));
+      const next = String(initialCoins);
+      setLocalText(next);
+      localTextRef.current = next;
       setLocalCoins(initialCoins);
+      localCoinsRef.current = initialCoins;
     }
   }, [open, initialCoins]);
 
-  if (!open) return null;
+  const applyText = useCallback((current: string) => {
+    setLocalText(current);
+    localTextRef.current = current;
+    const num = parseInt(current, 10);
+    const nextCoins = Number.isNaN(num) ? 0 : num;
+    setLocalCoins(nextCoins);
+    localCoinsRef.current = nextCoins;
+  }, []);
 
-  const handleKeypadPress = (key: string) => {
-    let current = localText;
-    if (key === "clear") {
-      current = "";
-    } else if (key === "backspace") {
-      current = current.slice(0, -1);
-    } else {
-      const maxLength = Math.max(7, String(maxCoins).length);
-      if (current.length >= maxLength) {
+  const handleKeypadPress = useCallback(
+    (key: string) => {
+      let current = localTextRef.current;
+      if (key === "clear") {
+        current = "";
+      } else if (key === "backspace") {
+        current = current.slice(0, -1);
+      } else {
+        const maxLength = Math.max(7, String(maxCoins).length);
+        if (current.length >= maxLength) {
+          return;
+        }
+        if (current === "0" || current === "") {
+          current = key;
+        } else {
+          current = current + key;
+        }
+      }
+      applyText(current);
+    },
+    [maxCoins, applyText]
+  );
+
+  const hasError = localCoins > maxCoins;
+
+  // Physical keyboard support while the modal is open.
+  useEffect(() => {
+    if (!open) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
         return;
       }
-      if (current === "0" || current === "") {
-        current = key;
-      } else {
-        current = current + key;
-      }
-    }
 
-    setLocalText(current);
-    const num = parseInt(current, 10);
-    if (!Number.isNaN(num)) {
-      setLocalCoins(num);
-    } else {
-      setLocalCoins(0);
-    }
-  };
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const coins = localCoinsRef.current;
+        if (coins <= maxCoins) onConfirm(coins);
+        return;
+      }
+      if (e.key === "Backspace") {
+        e.preventDefault();
+        handleKeypadPress("backspace");
+        return;
+      }
+      if (e.key === "Delete") {
+        e.preventDefault();
+        handleKeypadPress("clear");
+        return;
+      }
+      if (/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+        handleKeypadPress(e.key);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, maxCoins, onClose, onConfirm, handleKeypadPress]);
+
+  if (!open) return null;
 
   const handleUseMax = () => {
     setLocalCoins(maxCoins);
     setLocalText(String(maxCoins));
   };
-
-  const hasError = localCoins > maxCoins;
 
   return (
     <div

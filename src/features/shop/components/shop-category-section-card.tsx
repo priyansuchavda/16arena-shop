@@ -69,6 +69,8 @@ export function ShopCategorySectionCard({ product }: { product: CardModel }) {
   return (
     <Link
       href={`/shop/${product.slug}`}
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
       className="shop-card-lift group relative flex w-full shrink-0 flex-col overflow-hidden rounded-[11px] border border-white/10 bg-white/[0.03]"
       style={{ height: CARD_HEIGHT, maxWidth: SECTION_CARD_WIDTH }}
     >
@@ -85,7 +87,8 @@ export function ShopCategorySectionCard({ product }: { product: CardModel }) {
             <img
               src={product.imageUrl}
               alt={product.brand}
-              className="h-full w-full object-cover transition-opacity duration-200 group-hover:opacity-90"
+              draggable={false}
+              className="pointer-events-none h-full w-full object-cover transition-opacity duration-200 group-hover:opacity-90"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center px-2 text-center text-sm font-extrabold text-white">

@@ -637,7 +637,7 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
                 />
               )}
               <div className="mx-5 my-2 h-px bg-white/[0.06]" />
-              <BillRow label="You paid" value={formatInr(cashPaid)} bold />
+              <BillRow label="You Paid" value={formatInr(cashPaid)} bold />
             </div>
           </SectionCard>
         </div>

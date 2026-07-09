@@ -25,30 +25,14 @@ function readBool(value: unknown, fallback = false): boolean {
 export function buildSkuPaymentRulesFromRaw(
   raw: Record<string, unknown>
 ): SkuPaymentRules {
-  const maxEstimate = readNumber(raw.maxCoinsAllowedEstimate);
-  const maxCoins = readNumber(raw.maxCoins, maxEstimate);
-  const minRequired = readNumber(
-    raw.minRequiredCoins ?? raw.minCoinsRequired,
-    maxCoins
-  );
-
   return {
-    allowCoinRedemption: raw.allowCoinRedemption !== false,
-    allowInrPayment: raw.allowInrPayment !== false,
+    allowCoinRedemption: readBool(raw.allowCoinRedemption, false),
+    allowInrPayment: readBool(raw.allowInrPayment, true),
     isCoinOnly: readBool(raw.isCoinOnly),
-    maxCoinsAllowedEstimate: maxEstimate,
-    maxCoins,
-    minRequiredCoins: minRequired,
-    maxCoinDiscountEstimate: readNumber(raw.maxCoinDiscountEstimate),
-    coinToInrRate: readNumber(raw.coinToInrRate, 0.01),
-    maxCoinCoveragePercent:
-      raw.maxCoinCoveragePercent != null
-        ? readNumber(raw.maxCoinCoveragePercent)
-        : undefined,
-    inrPayableAfterMaxCoins:
-      raw.inrPayableAfterMaxCoins != null
-        ? readNumber(raw.inrPayableAfterMaxCoins)
-        : undefined,
+    maxCoins: raw.maxCoins != null ? readNumber(raw.maxCoins) : undefined,
+    coinToInrRate: raw.coinToInrRate != null ? readNumber(raw.coinToInrRate) : undefined,
+    maxCoinCoveragePercent: raw.maxCoinCoveragePercent != null ? readNumber(raw.maxCoinCoveragePercent) : undefined,
+    inrPayableAfterMaxCoins: raw.inrPayableAfterMaxCoins != null ? readNumber(raw.inrPayableAfterMaxCoins) : undefined,
   };
 }
 
@@ -83,9 +67,7 @@ export function normalizeShopSku(raw: Record<string, unknown>): ShopSku {
     stockStatus,
     isPopular: readBool(raw.isPopular),
     sortOrder: readNumber(raw.sortOrder),
-    isDynamicDenomination: readBool(
-      raw.isDynamicDenomination ?? raw.dynamicDenomination
-    ),
+    isDynamicDenomination: readBool(raw.isDynamicDenomination),
     minFaceValue: raw.minFaceValue != null ? readNumber(raw.minFaceValue) : undefined,
     maxFaceValue: raw.maxFaceValue != null ? readNumber(raw.maxFaceValue) : undefined,
     perUnitPrice: raw.perUnitPrice != null ? readNumber(raw.perUnitPrice) : undefined,
@@ -97,13 +79,7 @@ export function normalizeShopSku(raw: Record<string, unknown>): ShopSku {
     allowCoinRedemption: flatPaymentRules.allowCoinRedemption,
     allowInrPayment: flatPaymentRules.allowInrPayment,
     isCoinOnly: flatPaymentRules.isCoinOnly,
-    coinPriceEstimate:
-      raw.coinPriceEstimate != null ? readNumber(raw.coinPriceEstimate) : undefined,
     maxCoins: raw.maxCoins != null ? readNumber(raw.maxCoins) : undefined,
-    maxCoinsAllowedEstimate:
-      raw.maxCoinsAllowedEstimate != null
-        ? readNumber(raw.maxCoinsAllowedEstimate)
-        : flatPaymentRules.maxCoinsAllowedEstimate,
     inrPayableAfterMaxCoins:
       raw.inrPayableAfterMaxCoins != null
         ? readNumber(raw.inrPayableAfterMaxCoins)
@@ -121,22 +97,6 @@ export function normalizeShopProductDetail(raw: Record<string, unknown>): ShopPr
     .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
     .map(normalizeShopSku);
 
-  const firstSku = skus[0];
-  const coinRulesRaw = (raw.coinRules as Record<string, unknown> | undefined) ?? {};
-  const coinRules: ShopCoinRules = {
-    coinToInrRate: readNumber(
-      coinRulesRaw.coinToInrRate ?? firstSku?.paymentRules?.coinToInrRate,
-      0.01
-    ),
-    maxCoveragePercent: readNumber(
-      coinRulesRaw.maxCoveragePercent ??
-        coinRulesRaw.maxCoinCoveragePercent ??
-        firstSku?.maxCoinCoveragePercent ??
-        firstSku?.paymentRules?.maxCoinCoveragePercent,
-      0
-    ),
-  };
-
   return {
     ...(raw as unknown as ShopProductDetail),
     id: String(raw.id ?? ""),
@@ -152,8 +112,22 @@ export function normalizeShopProductDetail(raw: Record<string, unknown>): ShopPr
     thumbnailImageUrl: (raw.thumbnailImageUrl as string | null) ?? null,
     isActive: raw.isActive !== false,
     isFeatured: readBool(raw.isFeatured),
-    coinRules,
+    denominationType: (raw.denominationType as string | undefined),
+    savingsPercent: raw.savingsPercent != null ? readNumber(raw.savingsPercent) : undefined,
+    effectiveCashbackPercent: raw.effectiveCashbackPercent != null ? readNumber(raw.effectiveCashbackPercent) : undefined,
+    amountRestrictions: raw.amountRestrictions as ShopProductDetail["amountRestrictions"],
     skus,
+    giftCardInfo: raw.giftCardInfo ? {
+      redemptionType: (raw.giftCardInfo as any)?.redemptionType,
+      redemptionLabel: (raw.giftCardInfo as any)?.redemptionLabel,
+      expiryLabel: (raw.giftCardInfo as any)?.expiryLabel,
+      usageSummary: (raw.giftCardInfo as any)?.usageSummary,
+      howToUseInstructions: (raw.giftCardInfo as any)?.howToUseInstructions,
+      termsAndConditions: Array.isArray((raw.giftCardInfo as any)?.termsAndConditions)
+        ? (raw.giftCardInfo as any).termsAndConditions
+        : undefined,
+      amountRestrictions: (raw.giftCardInfo as any)?.amountRestrictions,
+    } : null,
   };
 }
 

@@ -348,14 +348,12 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   const ruleCoinCap = useMemo(() => {
     if (!selectedSku) return 0;
     return resolveMaxCoinsAllowedForSelection({
-      product,
       sku: selectedSku,
       preview: checkoutPreview,
       coinsBalance,
-      subtotal,
       voucherFaceValue,
     });
-  }, [selectedSku, checkoutPreview, product, coinsBalance, subtotal, voucherFaceValue]);
+  }, [selectedSku, checkoutPreview, coinsBalance, voucherFaceValue]);
 
   const optimalCoins = useMemo(() => {
     return previewCoinCap(coinsBalance, ruleCoinCap);
@@ -742,10 +740,9 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
       resolveMaxCoinCoveragePercent({
         preview: checkoutPreview,
         sku: selectedSku,
-        productCoinRules: product.coinRules,
         paymentRules,
       }),
-    [checkoutPreview, selectedSku, product.coinRules, paymentRules]
+    [checkoutPreview, selectedSku, paymentRules]
   );
 
   const savingsPct = isFlexibleSelection
@@ -850,7 +847,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
               </div>
               <span className="text-[10px] font-bold font-sans uppercase tracking-wider text-white mt-3">USAGE</span>
               <span className="text-[10px] font-medium font-sans text-white/40 mt-1">
-                {product.giftCardInfo?.cardType || "One Time"}
+                {product.giftCardInfo?.usageSummary || "—"}
               </span>
             </div>
           </div>
@@ -869,7 +866,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           )}
 
           {/* How to Redeem container */}
-          {(product.giftCardInfo?.howToUseInstructions || (product.giftCardInfo?.howToUseRetailModes && product.giftCardInfo.howToUseRetailModes.length > 0)) && (
+          {(product.giftCardInfo?.howToUseInstructions) && (
             <div className="w-full rounded-2xl border border-white/5 bg-white/[0.06] overflow-hidden mt-4">
               <div className="w-full flex items-center justify-between p-5 font-bold text-sm text-white select-none">
                 <span className="flex items-center gap-2">
@@ -884,28 +881,17 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
               </div>
               <div className="h-[1px] bg-white/10 mx-5" />
               <div className="p-5 text-xs text-white/70 leading-relaxed flex flex-col gap-3.5 font-sans">
-                {product.giftCardInfo.howToUseRetailModes && product.giftCardInfo.howToUseRetailModes.length > 0 ? (
-                  product.giftCardInfo.howToUseRetailModes[0]?.instructions?.map((line: string, idx: number) => (
+                {product.giftCardInfo.howToUseInstructions?.split("\n").filter(Boolean).map((line, idx) => {
+                  const cleaned = line.replace(/^\d+[\.\-\s]*/, "");
+                  return (
                     <div key={idx} className="flex gap-3 items-start">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/60">
                         {idx + 1}
                       </span>
-                      <p className="flex-1 mt-0.5">{line}</p>
+                      <p className="flex-1 mt-0.5">{cleaned}</p>
                     </div>
-                  ))
-                ) : (
-                  product.giftCardInfo.howToUseInstructions?.split("\n").filter(Boolean).map((line, idx) => {
-                    const cleaned = line.replace(/^\d+[\.\-\s]*/, "");
-                    return (
-                      <div key={idx} className="flex gap-3 items-start">
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/60">
-                          {idx + 1}
-                        </span>
-                        <p className="flex-1 mt-0.5">{cleaned}</p>
-                      </div>
-                    );
-                  })
-                )}
+                  );
+                })}
               </div>
             </div>
           )}

@@ -37,8 +37,10 @@ export type ApiProduct = {
   featureColor?: string | null;
   /** Label text shown on the card's bottom bar, e.g. "Buy Giftcard at 15% off". */
   featureLabel?: string | null;
-  cashbackPercent: number | null;
   savingsPercent: number | null;
+  effectiveCashbackPercent?: number | null;
+  /** Legacy field — prefer effectiveCashbackPercent. */
+  cashbackPercent?: number | null;
   startingPrice: number | null;
   isFeatured: boolean;
   isActive: boolean;
@@ -180,12 +182,11 @@ export type SkuPaymentRules = {
   allowCoinRedemption: boolean;
   allowInrPayment: boolean;
   isCoinOnly: boolean;
-  maxCoinsAllowedEstimate: number;
+  /** Max coins that can be redeemed (API field only, no estimate fallback). */
   maxCoins?: number;
-  minRequiredCoins?: number;
-  maxCoinDiscountEstimate?: number;
-  effectiveMinRequiredCoins?: number;
+  /** Coins-to-INR exchange rate (e.g., 0.01 = 100 coins per rupee). */
   coinToInrRate?: number;
+  /** Max percentage of price that can be covered by coins. */
   maxCoinCoveragePercent?: number;
   /** INR remaining after applying max Arena Coins (category card hybrid price). */
   inrPayableAfterMaxCoins?: number;
@@ -217,10 +218,8 @@ export type ShopSku = {
   allowCoinRedemption: boolean;
   allowInrPayment: boolean;
   isCoinOnly: boolean;
-  coinPriceEstimate?: number;
-  /** Root-level maxCoins from API (Flutter ShopSku.maxCoins). */
+  /** Root-level maxCoins from API (max redeemable coins for this SKU). */
   maxCoins?: number;
-  maxCoinsAllowedEstimate?: number;
   /** INR remaining after max coin redemption — preferred hybrid footer price. */
   inrPayableAfterMaxCoins?: number;
   maxQuantity?: number;
@@ -248,28 +247,21 @@ export type ShopProductDetail = {
   thumbnailImageUrl?: string | null;
   isActive: boolean;
   isFeatured: boolean;
-  isFlexible?: boolean;
+  /** FIXED | FLEXIBLE | RANGE | VARIABLE (root product-level, not nested in giftCardInfo). */
   denominationType?: string;
   startingPrice?: number;
-  cashbackPercent?: number;
   savingsPercent?: number;
   effectiveCashbackPercent?: number;
   amountRestrictions?: ShopAmountRestrictions;
-  coinRules: ShopCoinRules;
   skus: ShopSku[];
   giftCardInfo?: {
     redemptionType?: string;
     redemptionLabel?: string;
     expiryLabel?: string;
-    cardType?: string;
-    denominationType?: string;
+    usageSummary?: string;
     howToUseInstructions?: string;
-    howToUseRetailModes?: {
-      retailMode: string;
-      retailModeName: string;
-      instructions: string[];
-    }[];
-    termsAndConditions?: string;
+    /** Array of terms and conditions (no heuristics). */
+    termsAndConditions?: string[];
     amountRestrictions?: ShopAmountRestrictions;
   } | null;
 };

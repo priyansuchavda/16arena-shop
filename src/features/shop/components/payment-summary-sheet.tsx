@@ -92,17 +92,13 @@ export function PaymentSummarySheet({
       preview,
       paymentRules: sku.paymentRules,
       sku,
-      coinRules: product.coinRules,
       coinsBalance,
-      subtotal: preview?.subtotal ?? fallbackSubtotal,
       voucherFaceValue,
     });
   }, [
     preview,
     sku,
-    product.coinRules,
     coinsBalance,
-    fallbackSubtotal,
     voucherFaceValue,
   ]);
 
@@ -149,9 +145,7 @@ export function PaymentSummarySheet({
       maxCoinsAllowed: resolveRuleCoinCap({
         paymentRules: sku.paymentRules,
         sku,
-        coinRules: product.coinRules,
         coinsBalance: initialCoinsBalance,
-        subtotal: fallbackSubtotal,
         voucherFaceValue,
       }),
       paymentRules: sku.paymentRules,
@@ -207,7 +201,6 @@ export function PaymentSummarySheet({
     initialPreview,
     isCartCheckout,
     sku,
-    product.coinRules,
     quantity,
     isFlexible,
     customVoucherAmount,
@@ -509,14 +502,14 @@ export function PaymentSummarySheet({
             {payLabel}
           </SlantedButton>
           {awaitingRetry && (
-            <button
+            <SlantedButton
               type="button"
               onClick={() => void handleClose()}
               disabled={loading || closing}
-              className="w-full rounded-xl border border-white/15 py-3 text-xs font-bold uppercase tracking-wide text-white/70 transition hover:bg-white/5 disabled:opacity-50"
+              className="w-full !from-white/5 !to-white/5 border border-white/15 hover:!brightness-110 text-white h-12 uppercase text-xs"
             >
               {closing ? "Cancelling…" : "Cancel order"}
-            </button>
+            </SlantedButton>
           )}
         </div>
       </div>

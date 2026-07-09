@@ -131,15 +131,14 @@ export function computeOptimalCoinsToRedeem({
 
   if (paymentRules) {
     if (paymentRules.isCoinOnly) {
-      return Math.min(coinsBalance, paymentRules.maxCoinsAllowedEstimate);
+      return Math.min(coinsBalance, paymentRules.maxCoins ?? 0);
     }
     if (!paymentRules.allowCoinRedemption) return 0;
-    return Math.min(coinsBalance, paymentRules.maxCoinsAllowedEstimate);
+    return Math.min(coinsBalance, paymentRules.maxCoins ?? 0);
   }
 
   const maxCoverage = resolveMaxCoinCoveragePercent({
     sku,
-    productCoinRules: rules,
     paymentRules,
   });
   if (maxCoverage == null || maxCoverage <= 0) return 0;

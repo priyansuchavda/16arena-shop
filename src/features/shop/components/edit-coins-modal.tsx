@@ -165,8 +165,12 @@ export function EditCoinsModal({
         <div className="flex flex-col items-center justify-center gap-1.5 py-2 select-none">
           <div className="flex items-center gap-2">
             <Image src={coinImg} alt="Arena Coin" width={32} height={32} />
-            <span className="text-4xl font-extrabold text-[#F5A623] tabular-nums">
+            <span className="text-4xl font-extrabold text-[#F5A623] tabular-nums flex items-center">
               {localCoins.toLocaleString()}
+              <span
+                className="inline-block w-[2px] h-10 bg-[#F5A623] ml-1"
+                style={{ animation: "blink-caret 1s step-end infinite" }}
+              />
             </span>
           </div>
           <span className="text-white/40 text-xs font-semibold">

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CoinIcon, StarIcon } from "@/shared/components/icons";
 import { rgba, TONE_STYLES } from "../services/product.service";
 import { type CardModel } from "../types/shop.types";
+import { formatPercent } from "../utils/checkout.utils";
 
 export function ProductCard({ product }: { product: CardModel }) {
   const tone = product.badge ? TONE_STYLES[product.badge.tone] : null;
@@ -54,11 +55,6 @@ export function ProductCard({ product }: { product: CardModel }) {
         <span className="truncate text-xs text-[var(--muted)]">{product.sub}</span>
         <div className="mt-[10px] flex items-center gap-[8px]">
           <span className="text-[16px] font-bold tabular-nums text-white">{product.priceStr}</span>
-          {product.originalStr && (
-            <span className="text-xs tabular-nums text-[var(--faint)] line-through">
-              {product.originalStr}
-            </span>
-          )}
           {product.cashbackPct != null && (
             <span className="ml-auto inline-flex items-center gap-1 rounded-[5px] bg-[var(--coin)]/[0.12] px-[6px] py-[3px] text-[11px] font-bold tabular-nums text-[var(--coin)]">
               +{product.cashbackPct}%
@@ -90,7 +86,7 @@ export function ProductCard({ product }: { product: CardModel }) {
           </span>
         ) : product.savePct != null ? (
           <span className="font-data text-[11px] font-bold uppercase tracking-[0.04em] text-[var(--win)]">
-            Save {product.savePct}%
+            Save {formatPercent(product.savePct)}%
           </span>
         ) : (
           <span />

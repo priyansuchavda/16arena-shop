@@ -4,9 +4,10 @@ import type {
   ApiProduct,
   ApiCategory,
   LiveSection,
+  ShopSku,
 } from "../types/shop.types";
-import { formatInr } from "./checkout.utils";
-import { sectionCardSavingsPercent } from "./shop-category-section-pricing";
+import { formatInr, formatPercent } from "./checkout.utils";
+import { productSavingsPercent } from "./shop-category-section-pricing";
 
 const BRAND_COLORS: Record<string, [string, string]> = {
   spotify: ["#1DB954", "#0c5226"],
@@ -46,54 +47,41 @@ export function gradientFor(seed: string): { accent: string; accent2: string } {
   return { accent: pair[0], accent2: pair[1] };
 }
 
-/** Matches Flutter: paymentRules.effectiveMaxCoins ?? sku.maxCoins */
-function effectiveSkuMaxCoins(sku: import("../types/shop.types").ShopSku): number {
-  const rules = sku.paymentRules;
-  if (rules?.maxCoins != null && rules.maxCoins > 0) return rules.maxCoins;
-  if (rules?.maxCoinsAllowedEstimate != null && rules.maxCoinsAllowedEstimate > 0) {
-    return rules.maxCoinsAllowedEstimate;
+function firstActiveSku(skus: ShopSku[]): ShopSku | undefined {
+  const activeSkus = skus
+    .filter((s) => s.isActive !== false)
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  return activeSkus.length > 0 ? activeSkus[0] : skus[0];
+}
+
+/** Matches Flutter ShopDealSection._captionForProduct. */
+export function productDealCaption(product: CardModel): string {
+  const featureLabel = product.featureLabel?.trim();
+  if (featureLabel) return featureLabel;
+
+  const savings = product.savePct;
+  if (savings != null && savings > 0) {
+    return `Buy ${product.name || product.brand} at ${formatPercent(savings)}% off`;
   }
-  if (sku.maxCoins != null && sku.maxCoins > 0) return sku.maxCoins;
-  if (sku.maxCoinsAllowedEstimate != null && sku.maxCoinsAllowedEstimate > 0) {
-    return sku.maxCoinsAllowedEstimate;
-  }
-  return sku.coinPriceEstimate ?? 0;
+
+  return product.name || product.brand;
 }
 
 export function apiToCard(p: ApiProduct, slugByCategoryId?: Map<string, string>): CardModel {
   const g = gradientFor(p.brandName ?? p.name);
+  const imageUrl = p.thumbnailImageUrl || p.logoUrl || p.heroImageUrl;
+  const save = productSavingsPercent(p.savingsPercent);
 
-  // Flutter productSummary when product.showSku + firstSku
   if (p.showSku && p.skus && p.skus.length > 0) {
-    const activeSkus = p.skus
-      .filter((s) => s.isActive !== false)
-      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    const sku = activeSkus.length > 0 ? activeSkus[0] : p.skus[0];
+    const sku = firstActiveSku(p.skus);
+    if (!sku) {
+      return buildFallbackCard(p, g, imageUrl, save, slugByCategoryId);
+    }
 
-    const save = sectionCardSavingsPercent(
-      sku.savingsPercent,
-      p.maxSavingsPercent,
-      p.savingsPercent
-    );
-
-    const isCoinOnly = sku.paymentRules?.isCoinOnly ?? sku.isCoinOnly ?? false;
-    const maxCoins = effectiveSkuMaxCoins(sku);
-    // Flutter: coinAmount = isCoinOnly ? effectiveMinRequiredCoins : maxCoins
-    const coinAmount = isCoinOnly
-      ? (sku.paymentRules?.minRequiredCoins ??
-        sku.paymentRules?.effectiveMinRequiredCoins ??
-        (maxCoins > 0 ? maxCoins : (sku.coinPriceEstimate ?? 0)))
-      : maxCoins;
-    // Prefer API inrPayableAfterMaxCoins for hybrid footer (INR after max coins).
-    const inrAfterCoins =
-      sku.inrPayableAfterMaxCoins ??
-      sku.paymentRules?.inrPayableAfterMaxCoins;
-    const price =
-      inrAfterCoins != null && inrAfterCoins >= 0
-        ? inrAfterCoins
-        : (sku.price ?? 0);
-    const displayLabel =
-      sku.displayLabel || sku.title || sku.label || p.name;
+    const isCoinOnly = sku.isCoinOnly ?? false;
+    const maxCoins = sku.maxCoins ?? 0;
+    const price = sku.inrPayableAfterMaxCoins ?? 0;
+    const displayLabel = sku.displayLabel || sku.title || sku.label || p.name;
 
     return {
       id: p.id,
@@ -105,16 +93,16 @@ export function apiToCard(p: ApiProduct, slugByCategoryId?: Map<string, string>)
       sub: p.categoryName,
       accent: g.accent,
       accent2: g.accent2,
-      imageUrl: p.logoUrl || p.heroImageUrl,
+      imageUrl,
       featureImageUrl: p.featuredImage ?? undefined,
       featureColor: p.featureColor ?? undefined,
       featureLabel: p.featureLabel ?? undefined,
       price: price > 0 ? price : undefined,
-      maxCoins: coinAmount > 0 ? coinAmount : undefined,
+      maxCoins: maxCoins > 0 ? maxCoins : undefined,
       isCoinOnly,
       priceStr: price > 0 ? formatInr(price) : "—",
       savePct: save,
-      coinAmount: coinAmount > 0 ? coinAmount : undefined,
+      coinAmount: maxCoins > 0 ? maxCoins : undefined,
       cashbackPct: p.cashbackPercent ?? undefined,
       wishlist: p.wishlistCount24h ?? undefined,
       badge: !save && p.isFeatured ? { tone: "new", label: "Featured" } : undefined,
@@ -123,8 +111,16 @@ export function apiToCard(p: ApiProduct, slugByCategoryId?: Map<string, string>)
     };
   }
 
-  // Flutter _productSummaryFallback — middle = name + subtitle, footer = Save X%
-  const save = sectionCardSavingsPercent(undefined, p.maxSavingsPercent, p.savingsPercent);
+  return buildFallbackCard(p, g, imageUrl, save, slugByCategoryId);
+}
+
+function buildFallbackCard(
+  p: ApiProduct,
+  g: { accent: string; accent2: string },
+  imageUrl: string | null | undefined,
+  save: number | undefined,
+  slugByCategoryId?: Map<string, string>
+): CardModel {
   return {
     id: p.id,
     slug: p.slug,
@@ -135,7 +131,7 @@ export function apiToCard(p: ApiProduct, slugByCategoryId?: Map<string, string>)
     sub: p.categoryName,
     accent: g.accent,
     accent2: g.accent2,
-    imageUrl: p.logoUrl || p.heroImageUrl,
+    imageUrl,
     featureImageUrl: p.featuredImage ?? undefined,
     featureColor: p.featureColor ?? undefined,
     featureLabel: p.featureLabel ?? undefined,
@@ -187,7 +183,7 @@ export function heroSlidesFromProducts(prods: ApiProduct[]): {
   const pool = featured.length ? featured : prods.filter((p) => p.isActive !== false);
   return pool.slice(0, 4).map((p) => {
     const g = gradientFor(p.brandName ?? p.name);
-    const save = Math.round(p.savingsPercent ?? p.maxSavingsPercent ?? 0);
+    const save = productSavingsPercent(p.savingsPercent) ?? 0;
     return {
       id: p.id,
       slug: p.slug,
@@ -195,7 +191,7 @@ export function heroSlidesFromProducts(prods: ApiProduct[]): {
       title: p.brandName || p.name,
       subtitle:
         save > 0
-          ? `Celebrate with bonus savings & cashback on every pack — up to ${save}% off!`
+          ? `Celebrate with bonus savings & cashback on every pack — up to ${formatPercent(save)}% off!`
           : "Instant digital delivery with Arena Coins cashback on every order.",
       cta: "GET NOW!",
       accent: g.accent,

@@ -85,31 +85,25 @@ export function ShopShell({
   const isHome = activeSlug === ALL_CATEGORY_SLUG;
 
   const heroChipCategories = useMemo(() => {
-    const hotDeals = { label: "Hot Deals", slug: "hot-deals", iconUrl: null as string | null };
-    const allCats = flattenCategories(categories).filter((c) => c.isActive && c.slug !== "hot-deals");
-    
+    const allCats = flattenCategories(categories).filter((c) => c.isActive);
+
     const sortedCats = [...allCats].sort((a, b) => {
       if (a.isHero && !b.isHero) return -1;
       if (!a.isHero && b.isHero) return 1;
       return a.sortOrder - b.sortOrder;
     });
 
-    const mappedCats = sortedCats.map((c) => ({
+    return sortedCats.map((c) => ({
       label: c.name,
       slug: c.slug,
       iconUrl: c.iconUrl,
     }));
-
-    return [hotDeals, ...mappedCats];
   }, [categories]);
 
-  const allChipCategories = useMemo(() => {
-    const hotDeals = { label: "Hot Deals", slug: "hot-deals", iconUrl: null as string | null };
-    const rest = categoryItems
-      .filter((c) => c.slug !== "hot-deals")
-      .map((c) => ({ label: c.label, slug: c.slug, iconUrl: c.iconUrl }));
-    return [hotDeals, ...rest];
-  }, [categoryItems]);
+  const allChipCategories = useMemo(
+    () => categoryItems.map((c) => ({ label: c.label, slug: c.slug, iconUrl: c.iconUrl })),
+    [categoryItems],
+  );
 
   const selectedChipSlug = activeSlug;
 
@@ -360,11 +354,7 @@ export function ShopShell({
               allCategories={allChipCategories}
               selectedSlug={selectedChipSlug}
               onCategoryTap={(slug) => {
-                if (slug === "hot-deals") {
-                  setActiveSlug(ALL_CATEGORY_SLUG);
-                } else {
-                  setActiveSlug(slug);
-                }
+                setActiveSlug(slug);
                 setSearchQuery("");
                 if (typeof window !== "undefined") {
                   window.history.replaceState(null, "", window.location.pathname);

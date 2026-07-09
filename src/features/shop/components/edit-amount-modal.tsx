@@ -5,6 +5,7 @@ import Image from "next/image";
 import { X, Check } from "lucide-react";
 import type { ShopProductDetail, ShopSku, ShopAmountRestrictions } from "../types/shop.types";
 import { gradientFor } from "../utils/mappers";
+import { formatPercent } from "../utils/checkout.utils";
 import { SlantedButton } from "@/shared/components/ui/slanted-button";
 
 function rgba(hex: string, opacity: number) {
@@ -537,7 +538,7 @@ export function EditAmountModal({
                     <span className="text-white text-base font-extrabold">₹{faceVal.toLocaleString("en-IN")}</span>
                     {item.savingsPercent ? (
                       <span className="text-[10px] font-bold text-[var(--win)] bg-[var(--win)]/[0.08] border border-[var(--win)]/10 px-1.5 py-0.5 rounded">
-                        {item.savingsPercent}% OFF
+                        {formatPercent(item.savingsPercent)}% OFF
                       </span>
                     ) : null}
                     {discountedPrice < originalPrice && (

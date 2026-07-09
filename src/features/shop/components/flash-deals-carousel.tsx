@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CardModel } from "@/features/shop/types/shop.types";
+import { productDealCaption } from "@/features/shop/utils/mappers";
 
 // Three tiers: center biggest, ±1 a little smaller, everything else equal.
 const CENTER = 220; // px — center (focused) square
@@ -166,7 +167,7 @@ export function FlashDealsCarousel({ items }: { items: CardModel[] }) {
         const isCenter = Math.round(rel) === 0;
 
         const imageSrc = product.featureImageUrl || product.imageUrl;
-        const label = product.featureLabel || product.name || product.brand;
+        const label = productDealCaption(product);
         const labelFill = product.featureColor
           ? normalizeColor(product.featureColor)
           : "#141414";

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { type CardModel } from "@/features/shop/types/shop.types";
+import { formatPercent } from "@/features/shop/utils/checkout.utils";
 import {
   SAVE_BADGE_GREEN,
   ShopCategorySectionCoinPriceRow,
@@ -56,7 +57,7 @@ export function ShopCategorySectionCard({ product }: { product: CardModel }) {
   const showSku = product.showSku === true;
   const saveLabel =
     product.savePct != null && product.savePct > 0
-      ? `Save ${product.savePct}%`
+      ? `Save ${formatPercent(product.savePct)}%`
       : null;
 
   // Flutter: Save badge only on showSku path; fallback puts Save in the footer.

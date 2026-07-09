@@ -53,12 +53,8 @@ export function formatHybridPriceRow(
   return { priceText, coinsText };
 }
 
-export function sectionCardSavingsPercent(
-  skuSavings?: number | null,
-  productMaxSavings?: number | null,
-  productSavings?: number | null
-): number | undefined {
-  const savings = skuSavings ?? productMaxSavings ?? productSavings;
+/** Product-list savings from API — no rounding or legacy fallbacks. */
+export function productSavingsPercent(savings?: number | null): number | undefined {
   if (savings == null || savings <= 0) return undefined;
-  return Math.round(savings);
+  return savings;
 }

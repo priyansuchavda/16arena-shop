@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { CardModel } from "@/features/shop/types/shop.types";
+import { productDealCaption } from "@/features/shop/utils/mappers";
 
 export const FOR_YOU_CARD_WIDTH = 341;
 export const FOR_YOU_CARD_HEIGHT = 206;
@@ -32,7 +33,7 @@ function normalizeColor(color: string): string {
 export function ShopForYouCard({ product }: { product: CardModel }) {
   const caption = product.brand;
   const imageSrc = product.featureImageUrl || product.imageUrl;
-  const footerText = product.featureLabel || product.name || product.brand;
+  const footerText = productDealCaption(product);
   const footerFill = product.featureColor
     ? normalizeColor(product.featureColor)
     : footerColor(product);

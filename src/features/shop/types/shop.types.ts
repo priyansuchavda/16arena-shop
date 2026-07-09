@@ -39,9 +39,7 @@ export type ApiProduct = {
   featureLabel?: string | null;
   cashbackPercent: number | null;
   savingsPercent: number | null;
-  maxSavingsPercent: number | null;
   startingPrice: number | null;
-  startingOriginalPrice: number | null;
   isFeatured: boolean;
   isActive: boolean;
   wishlistCount24h: number | null;
@@ -253,7 +251,6 @@ export type ShopProductDetail = {
   isFlexible?: boolean;
   denominationType?: string;
   startingPrice?: number;
-  startingOriginalPrice?: number;
   cashbackPercent?: number;
   savingsPercent?: number;
   effectiveCashbackPercent?: number;

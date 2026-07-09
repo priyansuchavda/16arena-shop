@@ -4,11 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { SwagCard } from "./swag-card";
 import { FOR_YOU_CARD_WIDTH, ShopForYouCard } from "./shop-for-you-card";
 import { SECTION_CARD_WIDTH, ShopCategorySectionCard } from "./shop-category-section-card";
-import { TRAVEL_HOTEL_CARD_WIDTH, TravelHotelForYouCard } from "./travel-hotel-for-you-card";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/shared/components/icons";
 import { CardModel } from "@/features/shop/types/shop.types";
 
-export type ScrollRowCard = "swag" | "forYou" | "section" | "travelHotel";
+export type ScrollRowCard = "swag" | "forYou" | "section";
 
 const FOR_YOU_CARD_GAP = 18;
 const SECTION_CARD_GAP = 14;
@@ -20,7 +19,6 @@ type AlignedRowConfig = {
 
 function getAlignedRowConfig(card: ScrollRowCard): AlignedRowConfig | null {
   if (card === "forYou") return { cardWidth: FOR_YOU_CARD_WIDTH, cardGap: FOR_YOU_CARD_GAP };
-  if (card === "travelHotel") return { cardWidth: TRAVEL_HOTEL_CARD_WIDTH, cardGap: FOR_YOU_CARD_GAP };
   if (card === "section") return { cardWidth: SECTION_CARD_WIDTH, cardGap: SECTION_CARD_GAP };
   return null;
 }
@@ -160,9 +158,7 @@ export function ScrollRow({
       ? ShopCategorySectionCard
       : card === "forYou"
         ? ShopForYouCard
-        : card === "travelHotel"
-          ? TravelHotelForYouCard
-          : SwagCard;
+        : SwagCard;
 
   const navBtn =
     "flex h-8 w-10 items-center justify-center rounded-full bg-[var(--surface)] transition-colors duration-200";

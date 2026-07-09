@@ -750,10 +750,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
   const savingsPct = isFlexibleSelection
     ? 0
-    : selectedSku?.savingsPercent ||
-      Math.round(
-        (1 - resolveSkuRetailPrice(selectedSku) / (selectedSku?.originalPrice || 1)) * 100
-      );
+    : (selectedSku?.savingsPercent ?? product.savingsPercent ?? 0);
 
   return (
     <div className="relative flex-1 pb-20">
@@ -922,7 +919,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
             <div className="flex flex-col gap-2 w-full">
               {savingsPct > 0 && (
                 <span className="text-[13px] font-medium text-[#FE8321] font-sans px-1">
-                  You&apos;re saving {savingsPct}%.
+                  You&apos;re saving {formatPercent(savingsPct)}%.
                 </span>
               )}
               {/* Price display box (rectangular rounded-xl container with border & fill) */}

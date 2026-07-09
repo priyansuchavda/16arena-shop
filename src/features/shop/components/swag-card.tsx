@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { rgba } from "../services/product.service";
 import { type CardModel } from "../types/shop.types";
+import { formatPercent } from "../utils/checkout.utils";
 
 export function SwagCard({ product }: { product: CardModel }) {
   const discount =
     product.savePct != null
-      ? `${product.savePct}% off`
+      ? `${formatPercent(product.savePct)}% off`
       : product.badge?.label?.toLowerCase().includes("off")
         ? product.badge.label
         : product.badge?.label;

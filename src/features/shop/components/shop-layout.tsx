@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { X, ChevronRight } from "lucide-react";
 import { shopApi } from "../services/shop-api";
 import { useUserSummary, useAuthStore } from "@/features/auth";
+import { formatPercent } from "../utils/checkout.utils";
 import { AuthModal } from "./auth-modal";
 import { RegisterModal } from "./register-modal";
 
@@ -101,9 +102,9 @@ function ShopTopBar({
 
         // Add live items
         liveProducts.forEach((p) => {
-          const save = Math.round(p.savingsPercent ?? p.maxSavingsPercent ?? 0);
+          const save = p.savingsPercent != null && p.savingsPercent > 0 ? p.savingsPercent : 0;
           const discountText = save > 0 
-            ? `${save}% off` 
+            ? `${formatPercent(save)}% off` 
             : p.cashbackPercent 
               ? `${p.cashbackPercent}% cashback` 
               : "";

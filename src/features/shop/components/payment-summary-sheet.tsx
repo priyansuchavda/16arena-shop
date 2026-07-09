@@ -11,6 +11,7 @@ import type { CheckoutPreview, ShopProductDetail, ShopSku } from "../types/shop.
 import {
   activePaymentRules,
   buyDisabledReason,
+  formatPercent,
   needsHybridForPartialCoins,
   payButtonLabel,
   previewCheckoutWithHybridRetry,
@@ -227,7 +228,14 @@ export function PaymentSummarySheet({
   const subtotalVal = totalFaceValue;
   const baseDiscountedPrice = totalPayable + (preview?.coinsDiscount ?? 0);
   const instantDiscountVal = Math.max(0, totalFaceValue - baseDiscountedPrice);
-  const instantDiscountPercent = totalFaceValue > 0 ? Math.round((instantDiscountVal / totalFaceValue) * 100) : 0;
+  const instantDiscountPercent =
+    preview?.savingsPercent != null && preview.savingsPercent > 0
+      ? preview.savingsPercent
+      : totalFaceValue > 0
+        ? (instantDiscountVal / totalFaceValue) * 100
+        : 0;
+  const instantDiscountPercentLabel =
+    instantDiscountPercent > 0 ? formatPercent(instantDiscountPercent) : null;
   const coinDiscountPercent = baseDiscountedPrice > 0 ? Math.round(((preview?.coinsDiscount ?? 0) / baseDiscountedPrice) * 100) : 0;
   const transparentLogoUrl = useTransparentLogo(product.logoUrl ?? null);
 
@@ -393,12 +401,12 @@ export function PaymentSummarySheet({
               ).toLocaleString("en-IN")}{" "}
               {product.brandName ?? product.name} card
             </h3>
-            {instantDiscountPercent > 0 ? (
+            {instantDiscountPercentLabel ? (
               <span className="text-xs font-medium text-[#25C26E] font-sans flex items-baseline gap-1">
                 <span>Getting for</span>
                 <span className="text-[14px] font-semibold">₹{baseDiscountedPrice.toLocaleString("en-IN")}</span>
                 <span className="line-through text-[11px] opacity-85 ml-0.5">₹{subtotalVal.toLocaleString("en-IN")}</span>
-                <span className="ml-0.5">({instantDiscountPercent}%off)</span>
+                <span className="ml-0.5">({instantDiscountPercentLabel}%off)</span>
               </span>
             ) : (
               <span className="text-xs font-medium text-white/40 font-sans">
@@ -433,7 +441,7 @@ export function PaymentSummarySheet({
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-[#25C26E] font-medium">Instant Discount</span>
                   <span className="text-white font-semibold">
-                    -₹{instantDiscountVal.toLocaleString("en-IN")} ({instantDiscountPercent}%)
+                    -₹{instantDiscountVal.toLocaleString("en-IN")} ({instantDiscountPercentLabel}%)
                   </span>
                 </div>
               )}

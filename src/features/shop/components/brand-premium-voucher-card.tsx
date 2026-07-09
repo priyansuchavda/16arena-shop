@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useLogoColors, useTransparentLogo } from "./live-product-detail";
 import { gradientFor } from "@/features/shop/utils/mappers";
+import { formatPercent } from "@/features/shop/utils/checkout.utils";
 
 export type BrandPremiumVoucherCardProps = {
   brandName: string;
@@ -65,7 +66,7 @@ export function BrandPremiumVoucherCard({
             background: `linear-gradient(to right, ${g.accent2}, ${g.accent})`,
           }}
         >
-          {savingsPercent}% Off
+          {formatPercent(savingsPercent)}% Off
         </div>
       )}
 

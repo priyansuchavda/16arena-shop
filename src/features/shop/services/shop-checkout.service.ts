@@ -2,6 +2,7 @@ import type {
   AddCartItemRequest,
   CartData,
   CheckoutPreview,
+  CheckoutPreviewRequest,
   CheckoutRequest,
   SyncCartPreviewInput,
   UpdateCartItemRequest,
@@ -33,7 +34,8 @@ export function buildCheckoutRequest(state: {
   isSquad?: boolean;
   allowHybridInrPayment: boolean;
   quantity?: number;
-}): CheckoutRequest {
+  idempotencyKey?: string;
+}): CheckoutPreviewRequest {
   return {
     cartItemIds: state.cartItemIds ?? null,
     coinsToRedeem: state.coinsToRedeem,
@@ -42,22 +44,17 @@ export function buildCheckoutRequest(state: {
     couponCode: state.couponCode ?? null,
     isSquad: state.isSquad ?? (state.quantity ?? 1) >= 5,
     allowHybridInrPayment: state.allowHybridInrPayment,
+    ...(state.idempotencyKey ? { idempotencyKey: state.idempotencyKey } : {}),
   };
 }
 
 export const shopCheckoutService = {
-  previewCheckout: async (request: CheckoutRequest): Promise<CheckoutPreview | null> => {
+  previewCheckout: async (
+    request: CheckoutPreviewRequest
+  ): Promise<CheckoutPreview | null> => {
     const { data } = await apiClient.post<ApiEnvelope<unknown>>(
       "/v1/shop/checkout/preview",
-      buildCheckoutRequest({
-        cartItemIds: request.cartItemIds ?? null,
-        coinsToRedeem: request.coinsToRedeem,
-        useWalletCredits: request.useWalletCredits,
-        walletCreditsToUse: request.walletCreditsToUse,
-        couponCode: request.couponCode,
-        isSquad: request.isSquad,
-        allowHybridInrPayment: request.allowHybridInrPayment,
-      })
+      request
     );
 
     if (data.success === false) {
@@ -102,6 +99,9 @@ export const shopCheckoutService = {
   },
 
   placeOrder: async (request: CheckoutRequest) => {
+    if (!request.idempotencyKey) {
+      throw new Error("Checkout idempotency key is required.");
+    }
     const { data } = await apiClient.post<ApiEnvelope<unknown>>(
       "/v1/shop/orders",
       request

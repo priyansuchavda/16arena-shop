@@ -1,6 +1,6 @@
 import type {
   CheckoutPreview,
-  CheckoutRequest,
+  CheckoutPreviewRequest,
   ShopCoinRules,
   ShopSku,
   SkuPaymentRules,
@@ -329,8 +329,8 @@ export function isInsufficientCoinsError(message: string): boolean {
 }
 
 export async function previewCheckoutWithHybridRetry(
-  request: CheckoutRequest,
-  previewFn: (req: CheckoutRequest) => Promise<CheckoutPreview | null>
+  request: CheckoutPreviewRequest,
+  previewFn: (req: CheckoutPreviewRequest) => Promise<CheckoutPreview | null>
 ): Promise<CheckoutPreview> {
   try {
     const preview = await previewFn(request);

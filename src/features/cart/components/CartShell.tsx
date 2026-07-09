@@ -185,6 +185,7 @@ export function CartShell() {
   };
 
   const triggerCheckout = () => {
+    if (checkoutLoading) return;
     if (!primaryItem || !cart) return;
     if (!isAuthenticated) {
       router.push("/login?returnUrl=/cart");

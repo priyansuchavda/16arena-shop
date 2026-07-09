@@ -305,7 +305,7 @@ export type CheckoutPreview = {
   }>;
 };
 
-export type CheckoutRequest = {
+export type CheckoutPayload = {
   cartItemIds: string[] | null;
   coinsToRedeem: number;
   useWalletCredits: boolean;
@@ -315,7 +315,15 @@ export type CheckoutRequest = {
   allowHybridInrPayment: boolean;
 };
 
-export type CheckoutPreviewRequest = CheckoutRequest;
+/** Full checkout body for POST /v1/shop/orders — idempotencyKey is required. */
+export type CheckoutRequest = CheckoutPayload & {
+  idempotencyKey: string;
+};
+
+/** Preview accepts the same body; idempotencyKey is sent when a checkout attempt is in flight. */
+export type CheckoutPreviewRequest = CheckoutPayload & {
+  idempotencyKey?: string;
+};
 
 export type SyncCartPreviewInput = {
   skuId: string;

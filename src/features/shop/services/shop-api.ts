@@ -45,7 +45,7 @@ export const shopApi = {
   getMyCoupons: shopCouponsService.getMyCoupons,
   validateCoupon: shopCouponsService.validateCoupon,
 
-  checkoutPreview: (request: CheckoutRequest) =>
+  checkoutPreview: (request: CheckoutPreviewRequest) =>
     shopCheckoutService.previewCheckout(request),
 
   syncCartAndPreview: (input: SyncCartPreviewInput) =>
@@ -92,6 +92,7 @@ export const shopApi = {
     allowHybridInrPayment: boolean;
     quantity?: number;
     isSquad?: boolean;
+    idempotencyKey: string;
   }): Promise<ShopOrder> => {
     return shopApi.placeOrder(
       buildCheckoutRequest({
@@ -103,7 +104,8 @@ export const shopApi = {
         allowHybridInrPayment: payload.allowHybridInrPayment,
         quantity: payload.quantity,
         isSquad: payload.isSquad,
-      })
+        idempotencyKey: payload.idempotencyKey,
+      }) as CheckoutRequest
     );
   },
 

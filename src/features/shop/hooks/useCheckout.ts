@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { buildCheckoutRequest, shopApi } from "../api";
@@ -12,6 +12,13 @@ import {
   openRazorpayCheckout,
   PAYMENT_CANCELLED_MESSAGE,
 } from "../utils/razorpay-checkout";
+import {
+  clearCheckoutIdempotencyKey,
+  getOrCreateCheckoutIdempotencyKey,
+  isRetryableCheckoutError,
+  resolveCheckoutUserId,
+} from "../utils/shopCheckoutIdempotency";
+import type { CheckoutRequest } from "../types/shop.types";
 
 export {
   PAYMENT_CANCELLED_MESSAGE,
@@ -52,6 +59,7 @@ export const useCheckout = () => {
   const [needsResync, setNeedsResync] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [pendingProductName, setPendingProductName] = useState<string | null>(null);
+  const checkoutInFlightRef = useRef(false);
 
   const navigateToOrder = useCallback(
     (orderId: string) => {
@@ -111,6 +119,10 @@ export const useCheckout = () => {
         console.error("Failed to cancel order:", cancelErr);
         throw cancelErr;
       } finally {
+        const userId = resolveCheckoutUserId(user);
+        if (userId) {
+          clearCheckoutIdempotencyKey(userId);
+        }
         setPendingOrderId(null);
         setPendingProductName(null);
         setError(null);
@@ -119,7 +131,7 @@ export const useCheckout = () => {
         await refreshWalletAndOrders(queryClient);
       }
     },
-    [pendingOrderId, queryClient]
+    [pendingOrderId, queryClient, user]
   );
 
   const handleCheckout = useCallback(
@@ -130,9 +142,19 @@ export const useCheckout = () => {
         return;
       }
 
+      if (checkoutInFlightRef.current) return;
+
+      const userId = resolveCheckoutUserId(user);
+      if (!userId) {
+        setError("You must be signed in to checkout.");
+        return;
+      }
+
+      checkoutInFlightRef.current = true;
       setLoading(true);
       setError(null);
       let orderId: string | null = null;
+      const idempotencyKey = getOrCreateCheckoutIdempotencyKey(userId);
 
       try {
         const cartAlreadySynced =
@@ -158,7 +180,7 @@ export const useCheckout = () => {
           }
         }
 
-        let checkoutRequest = buildCheckoutRequest({
+        const previewRequest = buildCheckoutRequest({
           cartItemIds: params.isCartCheckout ? null : currentCartItemIds ?? null,
           coinsToRedeem: params.coinsToRedeem,
           useWalletCredits: params.useWalletCredits,
@@ -166,11 +188,16 @@ export const useCheckout = () => {
           couponCode: params.couponCode,
           allowHybridInrPayment: params.allowHybridInrPayment,
           quantity: params.quantity,
+          idempotencyKey,
         });
 
         const { request: confirmedRequest, preview: finalPreview } =
-          await confirmCheckoutPreview(checkoutRequest, params.previewHint);
-        checkoutRequest = confirmedRequest;
+          await confirmCheckoutPreview(previewRequest, params.previewHint);
+
+        const checkoutRequest: CheckoutRequest = {
+          ...confirmedRequest,
+          idempotencyKey,
+        };
 
         const createdOrder = await shopApi.placeOrder(checkoutRequest);
 
@@ -178,6 +205,8 @@ export const useCheckout = () => {
         if (!orderId) {
           throw new Error("Failed to create order. Please try again.");
         }
+
+        clearCheckoutIdempotencyKey(userId);
 
         setPendingOrderId(orderId);
         setPendingProductName(params.productName);
@@ -201,8 +230,12 @@ export const useCheckout = () => {
           }
           return;
         }
+        if (!isRetryableCheckoutError(err)) {
+          clearCheckoutIdempotencyKey(userId);
+        }
         setError(getApiErrorMessage(err, "Checkout failed. Please try again."));
       } finally {
+        checkoutInFlightRef.current = false;
         setLoading(false);
       }
     },
@@ -213,6 +246,7 @@ export const useCheckout = () => {
       pendingOrderId,
       pendingProductName,
       resumePayment,
+      user,
     ]
   );
 

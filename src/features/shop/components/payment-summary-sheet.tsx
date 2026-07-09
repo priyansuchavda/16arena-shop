@@ -241,6 +241,7 @@ export function PaymentSummarySheet({
     (hybridBlocked ? "Partial coin payment is not available for this item." : null);
 
   const onPay = () => {
+    if (loading || closing) return;
     if (awaitingRetry) {
       handleCheckout({
         skuId: sku.id,

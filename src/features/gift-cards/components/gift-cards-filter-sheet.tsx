@@ -65,6 +65,17 @@ export function GiftCardsFilterSheet({
     });
   };
 
+  const resetTarget: GiftCardFilters = {
+    ...DEFAULT_GIFT_CARD_FILTERS,
+    searchQuery: filters.searchQuery,
+  };
+
+  const isResetDisabled =
+    draft.status === resetTarget.status &&
+    draft.timePeriod === resetTarget.timePeriod &&
+    draft.categories.length === resetTarget.categories.length &&
+    draft.categories.every((category) => resetTarget.categories.includes(category));
+
   const handleApply = () => {
     onApply(draft);
     onClose();
@@ -85,7 +96,8 @@ export function GiftCardsFilterSheet({
             <button
               type="button"
               onClick={handleReset}
-              className="text-sm font-bold text-[var(--flame)] transition hover:opacity-80"
+              disabled={isResetDisabled}
+              className="text-sm font-bold text-[var(--flame)] transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-35"
             >
               Reset
             </button>
@@ -106,8 +118,6 @@ export function GiftCardsFilterSheet({
           <div className="mb-6 flex flex-col">
             {STATUS_OPTIONS.map((option) => {
               const selected = draft.status === option.value;
-              const count =
-                option.value === "active" ? statusCounts.active : statusCounts.expired;
               return (
                 <button
                   key={option.value}
@@ -125,7 +135,7 @@ export function GiftCardsFilterSheet({
                       selected ? "font-bold text-white" : "font-medium text-white/50"
                     }`}
                   >
-                    {option.label} - {count}
+                    {option.label}
                   </span>
                   <span
                     className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${

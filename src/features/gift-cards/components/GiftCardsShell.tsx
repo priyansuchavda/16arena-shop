@@ -256,7 +256,7 @@ export function GiftCardsShell() {
               <button
                 type="button"
                 onClick={removeStatusFilter}
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:bg-white/10"
+                className="inline-flex items-center gap-1.5 rounded-[8px] border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:bg-white/10"
               >
                 {statusLabel(filters.status)}
                 <X className="h-3 w-3 text-white/50" />
@@ -266,7 +266,7 @@ export function GiftCardsShell() {
               <button
                 type="button"
                 onClick={removeTimePeriodFilter}
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:bg-white/10"
+                className="inline-flex items-center gap-1.5 rounded-[8px] border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:bg-white/10"
               >
                 {timePeriodLabel(filters.timePeriod)}
                 <X className="h-3 w-3 text-white/50" />
@@ -277,7 +277,7 @@ export function GiftCardsShell() {
                 key={category}
                 type="button"
                 onClick={() => removeCategoryFilter(category)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:bg-white/10"
+                className="inline-flex items-center gap-1.5 rounded-[8px] border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:bg-white/10"
               >
                 {category}
                 <X className="h-3 w-3 text-white/50" />

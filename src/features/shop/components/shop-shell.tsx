@@ -111,7 +111,7 @@ export function ShopShell({
     return [hotDeals, ...rest];
   }, [categoryItems]);
 
-  const selectedChipSlug = isHome ? "hot-deals" : activeSlug;
+  const selectedChipSlug = activeSlug;
 
   const forYou = useMemo(() => {
     if (featuredCards && featuredCards.length > 0) {

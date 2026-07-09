@@ -26,7 +26,7 @@ export function FlashDealsSection({
   const bg = bannerUrl || bannerBg.src;
 
   return (
-    <section className="mt-6 lg:mt-8">
+    <section>
       <div
         className="relative overflow-hidden rounded-[20px] border border-white/10 bg-[#0a0d2e]"
         style={{

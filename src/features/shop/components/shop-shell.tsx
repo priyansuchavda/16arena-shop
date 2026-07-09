@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { ShopLayout } from "./shop-layout";
 import { HeroCarousel, type HeroSlide } from "./hero-carousel";
 import { ScrollRow } from "./scroll-row";
@@ -47,7 +47,6 @@ export function ShopShell({
   slides,
   walletBalance,
 }: ShopShellProps) {
-  const router = useRouter();
   const [activeSlug, setActiveSlug] = useState(ALL_CATEGORY_SLUG);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<CardModel[]>([]);
@@ -343,11 +342,8 @@ export function ShopShell({
               selectedSlug={selectedChipSlug}
               onCategoryTap={(slug) => {
                 setActiveSlug(slug);
-                setSearchQuery("");
-                if (slug === ALL_CATEGORY_SLUG) {
-                  router.push("/gift-cards");
-                } else {
-                  router.push(`/${slug}`);
+                if (typeof window !== "undefined") {
+                  window.history.replaceState(null, "", window.location.pathname);
                 }
               }}
             />

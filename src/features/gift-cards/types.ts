@@ -3,6 +3,7 @@ export type StaticGiftCard = {
   title: string;
   amount: number;
   purchasedAt: string;
+  purchasedAtIso: string;
   imageUrl: string;
   orderId: string;
   status: "active" | "expired";

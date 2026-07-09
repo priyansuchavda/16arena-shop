@@ -53,11 +53,11 @@ export const useCheckout = () => {
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [pendingProductName, setPendingProductName] = useState<string | null>(null);
 
-  const navigateToSuccess = useCallback(
+  const navigateToOrder = useCallback(
     (orderId: string) => {
       setPendingOrderId(null);
       setPendingProductName(null);
-      router.push(`/shop/orders/${orderId}/success`);
+      router.push(`/orders/${orderId}`);
     },
     [router]
   );
@@ -85,7 +85,7 @@ export const useCheckout = () => {
 
       try {
         await launchRazorpay(orderId, productName);
-        navigateToSuccess(orderId);
+        navigateToOrder(orderId);
       } catch (err) {
         if (isPaymentCancelledError(err)) {
           setError(PAYMENT_CANCELLED_MESSAGE);
@@ -96,7 +96,7 @@ export const useCheckout = () => {
         setLoading(false);
       }
     },
-    [launchRazorpay, navigateToSuccess]
+    [launchRazorpay, navigateToOrder]
   );
 
   const cancelPendingOrder = useCallback(
@@ -188,7 +188,7 @@ export const useCheckout = () => {
           await launchRazorpay(orderId, params.productName);
         }
 
-        navigateToSuccess(orderId);
+        navigateToOrder(orderId);
       } catch (err) {
         if (orderId) {
           setPendingOrderId(orderId);
@@ -208,7 +208,7 @@ export const useCheckout = () => {
     },
     [
       launchRazorpay,
-      navigateToSuccess,
+      navigateToOrder,
       needsResync,
       pendingOrderId,
       pendingProductName,

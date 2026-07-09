@@ -27,13 +27,11 @@ interface SearchItem {
 function ShopTopBar({
   walletBalance,
   onSelectAll,
-  categoryMode = false,
   searchQuery,
   onSearchChange,
 }: {
   walletBalance: number;
   onSelectAll?: () => void;
-  categoryMode?: boolean;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
 }) {
@@ -192,27 +190,21 @@ function ShopTopBar({
   return (
     <div
       className="sticky top-0 z-40 shrink-0 px-5 pb-7 pt-5 lg:px-10 lg:pt-7"
-      style={
-        categoryMode
-          ? undefined
-          : {
-              background:
-                "linear-gradient(to bottom, var(--void) 0%, var(--void) 34%, color-mix(in srgb, var(--void) 92%, transparent) 55%, color-mix(in srgb, var(--void) 62%, transparent) 73%, color-mix(in srgb, var(--void) 26%, transparent) 89%, transparent 100%)",
-            }
-      }
+      style={{
+        background:
+          "linear-gradient(to bottom, var(--void) 0%, var(--void) 34%, color-mix(in srgb, var(--void) 92%, transparent) 55%, color-mix(in srgb, var(--void) 62%, transparent) 73%, color-mix(in srgb, var(--void) 26%, transparent) 89%, transparent 100%)",
+      }}
     >
-      {!categoryMode && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 backdrop-blur-md"
-          style={{
-            WebkitMaskImage:
-              "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.98) 30%, rgba(0,0,0,0.84) 52%, rgba(0,0,0,0.52) 70%, rgba(0,0,0,0.22) 86%, rgba(0,0,0,0) 100%)",
-            maskImage:
-              "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.98) 30%, rgba(0,0,0,0.84) 52%, rgba(0,0,0,0.52) 70%, rgba(0,0,0,0.22) 86%, rgba(0,0,0,0) 100%)",
-          }}
-        />
-      )}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 backdrop-blur-md"
+        style={{
+          WebkitMaskImage:
+            "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.98) 30%, rgba(0,0,0,0.84) 52%, rgba(0,0,0,0.52) 70%, rgba(0,0,0,0.22) 86%, rgba(0,0,0,0) 100%)",
+          maskImage:
+            "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.98) 30%, rgba(0,0,0,0.84) 52%, rgba(0,0,0,0.52) 70%, rgba(0,0,0,0.22) 86%, rgba(0,0,0,0) 100%)",
+        }}
+      />
       <div className="relative z-10 shop-content-width flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         {/* Logo and Mobile Header Row */}
         <div className="flex w-full lg:w-auto items-center justify-between lg:flex-1 shrink-0">
@@ -344,7 +336,6 @@ export function ShopLayout({
         <ShopTopBar
           walletBalance={walletBalance}
           onSelectAll={onSelectAll}
-          categoryMode={categoryMode}
           searchQuery={searchQuery}
           onSearchChange={onSearchChange}
         />

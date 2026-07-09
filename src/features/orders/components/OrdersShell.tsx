@@ -92,7 +92,7 @@ export function OrdersShell() {
         contact: user?.phoneNumber ?? "",
         email: user?.email ?? "",
       });
-      router.push(`/shop/orders/${orderId}/success`);
+      router.push(`/orders/${orderId}`);
     } catch (err) {
       if (isPaymentCancelledError(err)) {
         setActionMessage(PAYMENT_CANCELLED_MESSAGE);

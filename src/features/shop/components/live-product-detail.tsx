@@ -8,10 +8,10 @@ import voucherIcon from "@/assets/svg/voucher.svg";
 import { HudPanel } from "./hud";
 import { ScrollRow } from "./scroll-row";
 import { CoinIcon, ZapIcon } from "@/shared/components/icons";
-import { gradientFor, apiToCard } from "@/features/shop/utils/mappers";
 import { useAuthStore, useUserSummary } from "@/features/auth";
 import { shopApi, buildCheckoutRequest } from "../api";
 import { PaymentSummarySheet } from "./payment-summary-sheet";
+import { BrandPremiumVoucherCard } from "./brand-premium-voucher-card";
 import { CouponSuggestionsList } from "./coupon-suggestions-list";
 import { EditAmountModal } from "./edit-amount-modal";
 import { EditCoinsModal } from "./edit-coins-modal";
@@ -212,35 +212,6 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   const openAuthModal = useAuthStore((state) => state.openAuthModal);
   const { data: userSummary } = useUserSummary();
   const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
-
-  // Extract color tokens
-  const fallbackG = useMemo(() => gradientFor(product.brandName ?? product.name), [product]);
-  const g = useLogoColors(product.logoUrl ?? null, fallbackG);
-  const transparentLogoUrl = useTransparentLogo(product.logoUrl ?? null);
-
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [cardWidth, setCardWidth] = useState(0);
-
-  useEffect(() => {
-    if (!cardRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        setCardWidth(entry.contentRect.width);
-      }
-    });
-    observer.observe(cardRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  const flatStop = useMemo(() => {
-    if (cardWidth <= 0) return 0.10;
-    const logoInset = 10;
-    const logoMaxWidth = 188;
-    const logoEndFraction = (logoInset + logoMaxWidth) / cardWidth;
-    const gradientStartBias = 0.76;
-    
-    return Math.min(0.42, Math.max(0.08, logoEndFraction * gradientStartBias));
-  }, [cardWidth]);
 
   const fixedSkus = useMemo(() => splitFixedSkus(product), [product]);
   const flexibleSku = useMemo(() => resolveFlexibleSku(product), [product]);
@@ -804,89 +775,15 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-12 relative z-10 pt-6">
         {/* Left Column: Product Info & Presentational Blocks (lg:col-span-7) */}
         <div className="lg:col-span-7 flex flex-col gap-6 w-full max-w-[560px]">
-          {/* Brand Premium Card Design */}
-          <div
-            ref={cardRef}
-            className="relative w-full aspect-[1.85/1] rounded-[14px] overflow-hidden p-6 flex flex-col justify-between"
-            style={{
-              background: `linear-gradient(to top right, ${g.accent} 0%, ${g.accent} ${flatStop * 100}%, ${g.accent2} 100%)`,
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15)"
-            }}
-          >
-            {/* Dynamic Discount Chip on top center of the card */}
-            {(selectedSku?.savingsPercent ?? product.savingsPercent ?? 5) > 0 && (
-              <div 
-                className="absolute top-0 left-1/2 -translate-x-1/2 z-20 text-white text-[11px] font-extrabold px-4.5 py-1.5 rounded-b-[8px] rounded-t-none uppercase tracking-wider font-sans shadow-[0_2px_8px_rgba(0,0,0,0.15)] border-b border-x border-white/20"
-                style={{
-                  background: `linear-gradient(to right, ${g.accent2}, ${g.accent})`
-                }}
-              >
-                {selectedSku?.savingsPercent ?? product.savingsPercent ?? 5}% Off
-              </div>
-            )}
-
-            {/* Specular Sheen Reflections Overlay */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
-              {/* Ellipse 1 */}
-              <div 
-                className="absolute rounded-full"
-                style={{
-                  left: '20%',
-                  top: '38%',
-                  width: '140%',
-                  height: '34%',
-                  transform: 'rotate(45deg)',
-                  filter: 'blur(21px)',
-                  background: 'linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.36) 50%, rgba(255,255,255,0) 100%)',
-                }}
-              />
-              {/* Ellipse 2 */}
-              <div 
-                className="absolute rounded-full"
-                style={{
-                  left: '18%',
-                  top: '34%',
-                  width: '72%',
-                  height: '14%',
-                  transform: 'rotate(45deg)',
-                  filter: 'blur(20px)',
-                  background: 'linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0) 100%)',
-                }}
-              />
-              {/* Ellipse 3 */}
-              <div 
-                className="absolute rounded-full"
-                style={{
-                  left: '52%',
-                  top: '-4%',
-                  width: '42%',
-                  height: '10%',
-                  transform: 'rotate(45deg)',
-                  filter: 'blur(16px)',
-                  background: 'linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%)',
-                }}
-              />
-            </div>
-
-            <div className="flex justify-between items-start">
-            </div>
-
-            <div className="flex items-center gap-3 relative z-10">
-              {transparentLogoUrl ? (
-                <Image
-                  src={transparentLogoUrl}
-                  alt=""
-                  width={240}
-                  height={80}
-                  className="h-20 w-auto object-contain translate-y-3.5"
-                />
-              ) : (
-                <span className="text-xs font-bold uppercase tracking-[0.05em] text-white/90">
-                  {product.brandName ?? product.name}
-                </span>
-              )}
-            </div>
-          </div>
+          <BrandPremiumVoucherCard
+            brandName={product.brandName || product.name}
+            logoUrl={product.logoUrl}
+            savingsPercent={
+              (selectedSku?.savingsPercent ?? product.savingsPercent ?? 0) > 0
+                ? (selectedSku?.savingsPercent ?? product.savingsPercent ?? 0)
+                : null
+            }
+          />
 
           {/* Product Description & About with Read More logic */}
           {(product.description || product.about) && (

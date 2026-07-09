@@ -11,7 +11,7 @@ export function CheckoutShell() {
 
   useEffect(() => {
     if (orderId) {
-      router.replace(`/shop/orders/${orderId}/success`);
+      router.replace(`/orders/${orderId}`);
       return;
     }
     router.replace("/cart");

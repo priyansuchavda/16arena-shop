@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { categoryImageFor } from "@/features/shop/utils/category-icons";
 import { CategoryNavIcon } from "./category-nav-icon";
@@ -27,10 +27,57 @@ export function ShopCategoryCards({
 }: ShopCategoryCardsProps) {
   const modalCategories = allCategories ?? categories;
   const [isOpen, setIsOpen] = useState(false);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const parentRef = useRef<HTMLDivElement>(null);
+  const viewAllRef = useRef<HTMLDivElement>(null);
   const [visibleCount, setVisibleCount] = useState(5);
   const [isMobile, setIsMobile] = useState(false);
+
+  const POPOVER_WIDTH = 380;
+
+  const positionPopover = useCallback(() => {
+    const anchor = viewAllRef.current;
+    if (!anchor) return null;
+
+    const rect = anchor.getBoundingClientRect();
+    const width = Math.min(POPOVER_WIDTH, window.innerWidth - 32);
+    let left = rect.right - width;
+    left = Math.max(16, Math.min(left, window.innerWidth - width - 16));
+
+    return {
+      top: rect.top,
+      left,
+      width,
+    };
+  }, []);
+
+  const handleOpen = () => {
+    const pos = positionPopover();
+    if (pos) setPopoverPos(pos);
+    setIsOpen(true);
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
+    setPopoverPos(null);
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const onLayout = () => {
+      const pos = positionPopover();
+      if (pos) setPopoverPos(pos);
+    };
+
+    window.addEventListener("resize", onLayout);
+    window.addEventListener("scroll", onLayout, true);
+    return () => {
+      window.removeEventListener("resize", onLayout);
+      window.removeEventListener("scroll", onLayout, true);
+    };
+  }, [isOpen, positionPopover]);
 
   useEffect(() => {
     if (!parentRef.current) return;
@@ -131,36 +178,42 @@ export function ShopCategoryCards({
 
   const renderViewAllButton = () => {
     return (
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className="group relative flex h-[80px] w-[81px] shrink-0 flex-col justify-between overflow-hidden rounded-[9px] text-center transition-all duration-200 active:scale-95 hover:brightness-110"
-        style={{
-          border: "1.28px solid transparent",
-          backgroundImage: "linear-gradient(rgba(255,255,255,0.03), rgba(255,255,255,0.03)), linear-gradient(to top right, rgba(255, 255, 255, 0.19), rgba(255, 255, 255, 0.04))",
-          backgroundOrigin: "border-box",
-          backgroundClip: "padding-box, border-box",
-        }}
-      >
-        <div className="relative flex flex-1 items-center justify-center pt-1.5">
-          <span className="relative z-10 flex h-[23px] w-[26.5px] items-center justify-center transition-transform group-hover:scale-105 text-[#D9D9D9]">
-            <svg width="24" height="21" viewBox="0 0 46 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-              <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 0 5.75977)" fill="currentColor"/>
-              <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 19.793 5.75977)" fill="currentColor"/>
-              <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 39.5859 5.75977)" fill="currentColor"/>
-              <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 0 22.7461)" fill="currentColor"/>
-              <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 19.793 22.7461)" fill="currentColor"/>
-              <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 39.5859 22.7461)" fill="currentColor"/>
-              <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 0 39.7324)" fill="currentColor"/>
-              <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 19.793 39.7324)" fill="currentColor"/>
-              <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 39.5859 39.7324)" fill="currentColor"/>
-            </svg>
-          </span>
-        </div>
-        <div className="w-full py-1 text-[11px] font-bold tracking-wide text-white bg-transparent">
-          View All
-        </div>
-      </button>
+      <div ref={viewAllRef} className="relative shrink-0">
+        <button
+          type="button"
+          onClick={handleOpen}
+          aria-expanded={isOpen}
+          className={[
+            "group relative flex h-[80px] w-[81px] shrink-0 flex-col justify-between overflow-hidden rounded-[9px] text-center transition-all duration-200 active:scale-95 hover:brightness-110",
+            isOpen ? "invisible" : "",
+          ].join(" ")}
+          style={{
+            border: "1.28px solid transparent",
+            backgroundImage: "linear-gradient(rgba(255,255,255,0.03), rgba(255,255,255,0.03)), linear-gradient(to top right, rgba(255, 255, 255, 0.19), rgba(255, 255, 255, 0.04))",
+            backgroundOrigin: "border-box",
+            backgroundClip: "padding-box, border-box",
+          }}
+        >
+          <div className="relative flex flex-1 items-center justify-center pt-1.5">
+            <span className="relative z-10 flex h-[23px] w-[26.5px] items-center justify-center transition-transform group-hover:scale-105 text-[#D9D9D9]">
+              <svg width="24" height="21" viewBox="0 0 46 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 0 5.75977)" fill="currentColor"/>
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 19.793 5.75977)" fill="currentColor"/>
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 39.5859 5.75977)" fill="currentColor"/>
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 0 22.7461)" fill="currentColor"/>
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 19.793 22.7461)" fill="currentColor"/>
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 39.5859 22.7461)" fill="currentColor"/>
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 0 39.7324)" fill="currentColor"/>
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 19.793 39.7324)" fill="currentColor"/>
+                <circle cx="2.88026" cy="2.88026" r="2.88026" transform="matrix(1 0 0 -1 39.5859 39.7324)" fill="currentColor"/>
+              </svg>
+            </span>
+          </div>
+          <div className="w-full py-1 text-[11px] font-bold tracking-wide text-white bg-transparent">
+            View All
+          </div>
+        </button>
+      </div>
     );
   };
 
@@ -183,17 +236,23 @@ export function ShopCategoryCards({
         </div>
       )}
 
-      {/* Bottom Popup Dialog */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 backdrop-blur-[4px] p-4 animate-in fade-in duration-200"
-          onClick={() => setIsOpen(false)}
-        >
+      {/* Category popover — opens at View All button position */}
+      {isOpen && popoverPos && (
+        <>
           <div
-            className="w-full max-w-[380px] max-h-[min(80vh,640px)] flex flex-col bg-[#141414] border border-white/10 rounded-[28px] p-6 mb-6 shadow-2xl animate-in slide-in-from-bottom-8 duration-300"
+            className="fixed inset-0 z-[99] bg-black/75 backdrop-blur-[4px] animate-in fade-in duration-200"
+            onClick={handleClose}
+          />
+          <div
+            className="fixed z-[100] flex max-h-[min(80vh,640px)] flex-col rounded-[28px] border border-white/10 bg-[#141414] p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            style={{
+              top: popoverPos.top,
+              left: popoverPos.left,
+              width: popoverPos.width,
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="shop-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+            <div className="shop-popover-scroll min-h-0 flex-1 pr-1">
               <div className="grid grid-cols-3 gap-x-3 gap-y-8 pb-1">
                 {modalCategories.map((c) => {
                   const isSelected = c.slug === selectedSlug;
@@ -203,9 +262,9 @@ export function ShopCategoryCards({
                       type="button"
                       onClick={() => {
                         onCategoryTap(c.slug);
-                        setIsOpen(false);
+                        handleClose();
                       }}
-                      className="flex flex-col items-center gap-2 text-center group focus:outline-none"
+                      className="group flex flex-col items-center gap-2 text-center focus:outline-none"
                     >
                       <span className="flex h-12 w-12 items-center justify-center transition-transform duration-200 group-hover:scale-105">
                         <CategoryNavIcon
@@ -228,7 +287,7 @@ export function ShopCategoryCards({
               </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </>
   );

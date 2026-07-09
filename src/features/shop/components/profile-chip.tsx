@@ -116,7 +116,9 @@ export function ProfileChip() {
         <span className="hidden sm:inline ml-2.5 max-w-[8rem] truncate text-[14px] font-semibold leading-none text-white">
           {displayName}
         </span>
-        <ChevronDown className="w-3.5 h-3.5 text-white/50 ml-1.5 transition-transform group-hover:text-white hidden sm:inline" />
+        <ChevronDown
+          className={`ml-1.5 hidden h-3.5 w-3.5 text-white/50 transition-transform duration-200 group-hover:text-white sm:inline ${isOpen ? "rotate-180" : ""}`}
+        />
       </button>
 
       {isOpen && (

@@ -357,9 +357,9 @@ export function PaymentSummarySheet({
                   <Image
                     src={transparentLogoUrl}
                     alt=""
-                    width={240}
-                    height={80}
-                    className="h-20 w-auto object-contain translate-y-3.5"
+                    width={276}
+                    height={92}
+                    className="h-[92px] w-auto object-contain translate-y-5"
                   />
                 ) : (
                   <span className="text-xs font-bold uppercase tracking-[0.05em] text-white/90">

@@ -1,16 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Image from "next/image";
-import { categoryImageFor } from "@/features/shop/utils/category-icons";
 import { CategoryNavIcon } from "./category-nav-icon";
 import { ShopCategoryCard } from "./shop-category-card";
+import type { CategoryChip } from "@/features/shop/utils/shop-catalog";
 
-export type ShopCategoryChip = {
-  label: string;
-  slug: string;
-  iconUrl?: string | null;
-};
+export type ShopCategoryChip = CategoryChip;
 
 type ShopCategoryCardsProps = {
   categories: ShopCategoryChip[];
@@ -121,11 +116,8 @@ export function ShopCategoryCards({
 
   const renderCategoryButton = (category: ShopCategoryChip) => {
     const isSelected = category.slug === selectedSlug;
-    const image = categoryImageFor(category.slug, category.label);
 
-    const icon = image ? (
-      <Image src={image} alt="" width={42} height={42} className="object-contain" />
-    ) : (
+    const icon = (
       <span className="flex h-[42px] w-[42px] items-center justify-center">
         <CategoryNavIcon
           slug={category.slug}

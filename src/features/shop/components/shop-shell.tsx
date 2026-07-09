@@ -18,6 +18,7 @@ import {
 } from "@/features/shop/types/shop.types";
 import {
   ALL_CATEGORY_SLUG,
+  categoryChipsFromApi,
   filterCardsByCategory,
   forYouFromCards,
   withActiveCategory,
@@ -84,26 +85,12 @@ export function ShopShell({
 
   const isHome = activeSlug === ALL_CATEGORY_SLUG;
 
-  const heroChipCategories = useMemo(() => {
-    const allCats = flattenCategories(categories).filter((c) => c.isActive);
-
-    const sortedCats = [...allCats].sort((a, b) => {
-      if (a.isHero && !b.isHero) return -1;
-      if (!a.isHero && b.isHero) return 1;
-      return a.sortOrder - b.sortOrder;
-    });
-
-    return sortedCats.map((c) => ({
-      label: c.name,
-      slug: c.slug,
-      iconUrl: c.iconUrl,
-    }));
-  }, [categories]);
-
-  const allChipCategories = useMemo(
-    () => categoryItems.map((c) => ({ label: c.label, slug: c.slug, iconUrl: c.iconUrl })),
-    [categoryItems],
+  const heroChipCategories = useMemo(
+    () => categoryChipsFromApi(categories),
+    [categories],
   );
+
+  const allChipCategories = heroChipCategories;
 
   const selectedChipSlug = activeSlug;
 

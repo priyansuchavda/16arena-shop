@@ -26,7 +26,7 @@ export function MobileCategoryStrip({ items, onSelectCategory }: MobileCategoryS
                 : "",
             ].join(" ")}
           >
-            <CategoryNavIcon slug={c.slug} label={c.label} active={c.active} size={30} />
+            <CategoryNavIcon slug={c.slug} label={c.label} active={c.active} size={30} iconUrl={c.iconUrl} />
           </span>
           <span
             className="max-w-[64px] truncate text-[10px] font-medium uppercase tracking-[0.04em]"

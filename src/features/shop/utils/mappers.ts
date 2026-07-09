@@ -156,7 +156,7 @@ export function categorySlugMap(cats: ApiCategory[]): Map<string, string> {
 export function topCategories(cats: ApiCategory[]): CategoryItem[] {
   return cats
     .filter((c) => c.parentId === null && c.isActive)
-    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
     .map((c) => ({
       label: c.name,
       slug: c.slug,

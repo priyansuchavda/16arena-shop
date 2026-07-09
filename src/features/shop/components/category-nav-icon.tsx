@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/static-components */
 import Image from "next/image";
-import { categoryIconFallback, categoryImageFor } from "@/features/shop/utils/category-icons";
+import { categoryIconFallback } from "@/features/shop/utils/category-icons";
 
 type CategoryNavIconProps = {
   slug: string;
@@ -12,8 +12,6 @@ type CategoryNavIconProps = {
 
 export function CategoryNavIcon({ slug, label, active = false, size = 32, iconUrl }: CategoryNavIconProps) {
   if (iconUrl) {
-    // API icons can be non-square; render contained in a fixed box so the
-    // aspect ratio is preserved (and `fill` avoids Next's width/height warning).
     return (
       <span
         className={[
@@ -24,23 +22,6 @@ export function CategoryNavIcon({ slug, label, active = false, size = 32, iconUr
       >
         <Image src={iconUrl} alt={label} fill sizes={`${size}px`} className="object-contain" />
       </span>
-    );
-  }
-
-  const image = categoryImageFor(slug, label);
-
-  if (image) {
-    return (
-      <Image
-        src={image}
-        alt=""
-        width={size}
-        height={size}
-        className={[
-          "object-contain transition-transform duration-200",
-          active ? "scale-105" : "",
-        ].join(" ")}
-      />
     );
   }
 

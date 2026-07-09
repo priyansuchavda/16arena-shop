@@ -3,6 +3,26 @@ import type { CategoryItem, LiveSection, CardModel } from "../types/shop.types";
 
 export const ALL_CATEGORY_SLUG = "__all__";
 
+export type CategoryChip = {
+  label: string;
+  slug: string;
+  iconUrl?: string | null;
+};
+
+/** Top-level active categories for the chip strip — API order via sortOrder. */
+export function categoryChipsFromApi(
+  categories: import("../types/shop.types").ApiCategory[]
+): CategoryChip[] {
+  return categories
+    .filter((c) => c.parentId === null && c.isActive)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+    .map((c) => ({
+      label: c.name,
+      slug: c.slug,
+      iconUrl: c.iconUrl,
+    }));
+}
+
 export function categorySlugFromSub(sub: string): string {
   const s = sub.toLowerCase();
   if (s.includes("game") || s.includes("top-up") || s.includes("diamond")) return "gaming";

@@ -5,6 +5,8 @@ import type {
   ApiCategory,
   LiveSection,
 } from "../types/shop.types";
+import { formatInr } from "./checkout.utils";
+import { sectionCardSavingsPercent } from "./shop-category-section-pricing";
 
 const BRAND_COLORS: Record<string, [string, string]> = {
   spotify: ["#1DB954", "#0c5226"],
@@ -44,31 +46,55 @@ export function gradientFor(seed: string): { accent: string; accent2: string } {
   return { accent: pair[0], accent2: pair[1] };
 }
 
+/** Matches Flutter: paymentRules.effectiveMaxCoins ?? sku.maxCoins */
+function effectiveSkuMaxCoins(sku: import("../types/shop.types").ShopSku): number {
+  const rules = sku.paymentRules;
+  if (rules?.maxCoins != null && rules.maxCoins > 0) return rules.maxCoins;
+  if (rules?.maxCoinsAllowedEstimate != null && rules.maxCoinsAllowedEstimate > 0) {
+    return rules.maxCoinsAllowedEstimate;
+  }
+  if (sku.maxCoins != null && sku.maxCoins > 0) return sku.maxCoins;
+  if (sku.maxCoinsAllowedEstimate != null && sku.maxCoinsAllowedEstimate > 0) {
+    return sku.maxCoinsAllowedEstimate;
+  }
+  return sku.coinPriceEstimate ?? 0;
+}
+
 export function apiToCard(p: ApiProduct, slugByCategoryId?: Map<string, string>): CardModel {
   const g = gradientFor(p.brandName ?? p.name);
 
+  // Flutter productSummary when product.showSku + firstSku
   if (p.showSku && p.skus && p.skus.length > 0) {
-    const activeSkus = p.skus.filter((s) => s.isActive !== false)
+    const activeSkus = p.skus
+      .filter((s) => s.isActive !== false)
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
     const sku = activeSkus.length > 0 ? activeSkus[0] : p.skus[0];
 
-    const save = Math.round(sku.savingsPercent ?? p.maxSavingsPercent ?? p.savingsPercent ?? 0);
-    const hasOriginal =
-      sku.originalPrice != null &&
-      sku.price != null &&
-      sku.originalPrice > sku.price;
+    const save = sectionCardSavingsPercent(
+      sku.savingsPercent,
+      p.maxSavingsPercent,
+      p.savingsPercent
+    );
 
     const isCoinOnly = sku.paymentRules?.isCoinOnly ?? sku.isCoinOnly ?? false;
-    const maxCoins = sku.paymentRules?.maxCoins ?? sku.paymentRules?.maxCoinsAllowedEstimate ?? sku.coinPriceEstimate ?? 0;
+    const maxCoins = effectiveSkuMaxCoins(sku);
+    // Flutter: coinAmount = isCoinOnly ? effectiveMinRequiredCoins : maxCoins
     const coinAmount = isCoinOnly
-      ? (sku.paymentRules?.minRequiredCoins ?? sku.paymentRules?.effectiveMinRequiredCoins ?? (maxCoins > 0 ? maxCoins : (sku.coinPriceEstimate ?? 0)))
+      ? (sku.paymentRules?.minRequiredCoins ??
+        sku.paymentRules?.effectiveMinRequiredCoins ??
+        (maxCoins > 0 ? maxCoins : (sku.coinPriceEstimate ?? 0)))
       : maxCoins;
+    const price = sku.price ?? 0;
+    const displayLabel =
+      sku.displayLabel || sku.title || sku.label || p.name;
 
     return {
       id: p.id,
       slug: p.slug,
       brand: p.brandName || p.name,
-      name: sku.title || sku.label || p.name,
+      name: displayLabel,
+      displayLabel,
+      showSku: true,
       sub: p.categoryName,
       accent: g.accent,
       accent2: g.accent2,
@@ -76,33 +102,29 @@ export function apiToCard(p: ApiProduct, slugByCategoryId?: Map<string, string>)
       featureImageUrl: p.featuredImage ?? undefined,
       featureColor: p.featureColor ?? undefined,
       featureLabel: p.featureLabel ?? undefined,
-      priceStr: sku.price != null ? `₹${sku.price}` : "—",
-      originalStr: hasOriginal ? `₹${sku.originalPrice}` : undefined,
-      savePct: save > 0 ? save : undefined,
+      price: price > 0 ? price : undefined,
+      maxCoins: coinAmount > 0 ? coinAmount : undefined,
+      isCoinOnly,
+      priceStr: price > 0 ? formatInr(price) : "—",
+      savePct: save,
       coinAmount: coinAmount > 0 ? coinAmount : undefined,
       cashbackPct: p.cashbackPercent ?? undefined,
       wishlist: p.wishlistCount24h ?? undefined,
-      badge:
-        save >= 10
-          ? { tone: "hot", label: `${save}% OFF` }
-          : p.isFeatured
-            ? { tone: "new", label: "Featured" }
-            : undefined,
+      badge: !save && p.isFeatured ? { tone: "new", label: "Featured" } : undefined,
       tagline: p.categoryName,
       categorySlug: slugByCategoryId?.get(p.categoryId),
     };
   }
 
-  const save = Math.round(p.savingsPercent ?? p.maxSavingsPercent ?? 0);
-  const hasOriginal =
-    p.startingOriginalPrice != null &&
-    p.startingPrice != null &&
-    p.startingOriginalPrice > p.startingPrice;
+  // Flutter _productSummaryFallback — middle = name + subtitle, footer = Save X%
+  const save = sectionCardSavingsPercent(undefined, p.maxSavingsPercent, p.savingsPercent);
   return {
     id: p.id,
     slug: p.slug,
     brand: p.brandName || p.name,
     name: p.name,
+    displayLabel: p.name,
+    showSku: false,
     sub: p.categoryName,
     accent: g.accent,
     accent2: g.accent2,
@@ -110,23 +132,15 @@ export function apiToCard(p: ApiProduct, slugByCategoryId?: Map<string, string>)
     featureImageUrl: p.featuredImage ?? undefined,
     featureColor: p.featureColor ?? undefined,
     featureLabel: p.featureLabel ?? undefined,
-    priceStr: p.startingPrice != null ? `₹${p.startingPrice}` : "—",
-    originalStr: hasOriginal ? `₹${p.startingOriginalPrice}` : undefined,
-    savePct: save > 0 ? save : undefined,
-    coinAmount:
-      p.startingOriginalPrice != null
-        ? Math.round(p.startingOriginalPrice)
-        : p.startingPrice != null
-          ? Math.round(p.startingPrice * 2)
-          : undefined,
+    price: undefined,
+    maxCoins: undefined,
+    isCoinOnly: false,
+    priceStr: "—",
+    savePct: save,
+    coinAmount: undefined,
     cashbackPct: p.cashbackPercent ?? undefined,
     wishlist: p.wishlistCount24h ?? undefined,
-    badge:
-      save >= 10
-        ? { tone: "hot", label: `${save}% OFF` }
-        : p.isFeatured
-          ? { tone: "new", label: "Featured" }
-          : undefined,
+    badge: !save && p.isFeatured ? { tone: "new", label: "Featured" } : undefined,
     tagline: p.categoryName,
     categorySlug: slugByCategoryId?.get(p.categoryId),
   };

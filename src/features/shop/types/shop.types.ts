@@ -100,6 +100,16 @@ export type CardModel = {
   saveStr?: string;
   savePct?: number;
   cashbackPct?: number;
+  /** Cash price for section card footer (INR). */
+  price?: number;
+  /** Arena Coins for section card footer. */
+  maxCoins?: number;
+  /** When true, footer shows coins only. */
+  isCoinOnly?: boolean;
+  /** True when card uses SKU pricing (matches Flutter product.showSku). */
+  showSku?: boolean;
+  /** SKU displayLabel for middle text (e.g. "EA Sports FC Mobile", "Unipin ₹250"). */
+  displayLabel?: string;
   coinAmount?: number;
   wishlist?: number;
   rating?: number;
@@ -186,6 +196,8 @@ export type ShopSku = {
   itemId: string;
   title: string;
   label: string;
+  /** API displayLabel — preferred middle text on category cards. */
+  displayLabel?: string;
   price: number;
   retailPrice: number;
   originalPrice?: number;
@@ -206,6 +218,9 @@ export type ShopSku = {
   allowInrPayment: boolean;
   isCoinOnly: boolean;
   coinPriceEstimate?: number;
+  /** Root-level maxCoins from API (Flutter ShopSku.maxCoins). */
+  maxCoins?: number;
+  maxCoinsAllowedEstimate?: number;
   maxQuantity?: number;
   isActive?: boolean;
   amountRestrictions?: ShopAmountRestrictions;

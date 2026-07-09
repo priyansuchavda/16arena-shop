@@ -60,11 +60,15 @@ export function normalizeShopSku(raw: Record<string, unknown>): ShopSku {
   const stockStatus = String(raw.stockStatus ?? "available");
   const flatPaymentRules = buildSkuPaymentRulesFromRaw(raw);
 
+  const shortLabel = String(raw.label ?? raw.title ?? "");
+  const displayLabel = String(raw.displayLabel ?? shortLabel);
+
   return {
     id: String(raw.id ?? ""),
     itemId: String(raw.id ?? ""),
-    title: String(raw.displayLabel ?? raw.label ?? raw.title ?? ""),
-    label: String(raw.displayLabel ?? raw.label ?? raw.title ?? ""),
+    title: displayLabel || shortLabel,
+    label: shortLabel || displayLabel,
+    displayLabel: displayLabel || shortLabel,
     price,
     retailPrice,
     originalPrice: raw.originalPrice != null ? readNumber(raw.originalPrice) : undefined,
@@ -91,6 +95,11 @@ export function normalizeShopSku(raw: Record<string, unknown>): ShopSku {
     isCoinOnly: flatPaymentRules.isCoinOnly,
     coinPriceEstimate:
       raw.coinPriceEstimate != null ? readNumber(raw.coinPriceEstimate) : undefined,
+    maxCoins: raw.maxCoins != null ? readNumber(raw.maxCoins) : undefined,
+    maxCoinsAllowedEstimate:
+      raw.maxCoinsAllowedEstimate != null
+        ? readNumber(raw.maxCoinsAllowedEstimate)
+        : flatPaymentRules.maxCoinsAllowedEstimate,
     maxQuantity: readNumber(raw.maxQuantity, 10),
     isActive: raw.isActive !== false,
     amountRestrictions: raw.amountRestrictions as ShopSku["amountRestrictions"],

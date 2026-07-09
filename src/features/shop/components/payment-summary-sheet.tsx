@@ -81,6 +81,11 @@ export function PaymentSummarySheet({
     return resolveSkuRetailPrice(sku) * quantity;
   }, [product, sku, quantity, isFlexible, customVoucherAmount]);
 
+  const voucherFaceValue =
+    isFlexible && customVoucherAmount != null && customVoucherAmount > 0
+      ? customVoucherAmount
+      : null;
+
   const ruleCoinCap = useMemo(() => {
     return resolveRuleCoinCap({
       preview,
@@ -89,8 +94,16 @@ export function PaymentSummarySheet({
       coinRules: product.coinRules,
       coinsBalance,
       subtotal: preview?.subtotal ?? fallbackSubtotal,
+      voucherFaceValue,
     });
-  }, [preview, sku, product.coinRules, coinsBalance, fallbackSubtotal]);
+  }, [
+    preview,
+    sku,
+    product.coinRules,
+    coinsBalance,
+    fallbackSubtotal,
+    voucherFaceValue,
+  ]);
 
   const allowHybridInrPayment = useMemo(
     () =>
@@ -138,6 +151,7 @@ export function PaymentSummarySheet({
         coinRules: product.coinRules,
         coinsBalance: initialCoinsBalance,
         subtotal: fallbackSubtotal,
+        voucherFaceValue,
       }),
       paymentRules: sku.paymentRules,
     });

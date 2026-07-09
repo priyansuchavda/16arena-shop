@@ -45,6 +45,10 @@ export function buildSkuPaymentRulesFromRaw(
       raw.maxCoinCoveragePercent != null
         ? readNumber(raw.maxCoinCoveragePercent)
         : undefined,
+    inrPayableAfterMaxCoins:
+      raw.inrPayableAfterMaxCoins != null
+        ? readNumber(raw.inrPayableAfterMaxCoins)
+        : undefined,
   };
 }
 
@@ -100,6 +104,10 @@ export function normalizeShopSku(raw: Record<string, unknown>): ShopSku {
       raw.maxCoinsAllowedEstimate != null
         ? readNumber(raw.maxCoinsAllowedEstimate)
         : flatPaymentRules.maxCoinsAllowedEstimate,
+    inrPayableAfterMaxCoins:
+      raw.inrPayableAfterMaxCoins != null
+        ? readNumber(raw.inrPayableAfterMaxCoins)
+        : flatPaymentRules.inrPayableAfterMaxCoins,
     maxQuantity: readNumber(raw.maxQuantity, 10),
     isActive: raw.isActive !== false,
     amountRestrictions: raw.amountRestrictions as ShopSku["amountRestrictions"],

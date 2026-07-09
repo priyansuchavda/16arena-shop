@@ -84,7 +84,14 @@ export function apiToCard(p: ApiProduct, slugByCategoryId?: Map<string, string>)
         sku.paymentRules?.effectiveMinRequiredCoins ??
         (maxCoins > 0 ? maxCoins : (sku.coinPriceEstimate ?? 0)))
       : maxCoins;
-    const price = sku.price ?? 0;
+    // Prefer API inrPayableAfterMaxCoins for hybrid footer (INR after max coins).
+    const inrAfterCoins =
+      sku.inrPayableAfterMaxCoins ??
+      sku.paymentRules?.inrPayableAfterMaxCoins;
+    const price =
+      inrAfterCoins != null && inrAfterCoins >= 0
+        ? inrAfterCoins
+        : (sku.price ?? 0);
     const displayLabel =
       sku.displayLabel || sku.title || sku.label || p.name;
 

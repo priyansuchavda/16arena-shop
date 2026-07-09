@@ -360,14 +360,17 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     }
   }, [customAmount, isFlexibleSelection, amountRestrictions]);
 
-  // Computes optimal coins
-  const subtotal = useMemo(() => {
+  // Computes local subtotal (unit-rate estimate). Prefer preview.subtotal for
+  // coin caps — matches mobile _localSubtotal.
+  const localSubtotal = useMemo(() => {
     if (!selectedSku) return 0;
     if (isFlexibleSelection) {
       return computeFlexibleSubtotal(product, selectedSku, customAmount) * cartQuantity;
     }
     return resolveSkuRetailPrice(selectedSku) * cartQuantity;
   }, [product, selectedSku, isFlexibleSelection, customAmount, cartQuantity]);
+
+  const subtotal = checkoutPreview?.subtotal ?? localSubtotal;
 
   const paymentRules = activePaymentRules(checkoutPreview, selectedSku);
 
@@ -1183,7 +1186,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                   className="flex items-center gap-1.5 bg-white/[0.06] px-2.5 py-1.5 rounded-[6px] text-xs font-semibold text-white hover:bg-white/[0.08] active:scale-95 transition font-sans"
                 >
                   <Image src={coinImg} alt="" width={13} height={13} className="object-contain" />
-                  <span className="text-[#F5A623] font-bold">{cappedCoinsToRedeem.toLocaleString()}</span>
+                  <span className="text-[#F5A623] font-bold">{displayCoinsSpent.toLocaleString()}</span>
                   <SquarePen className="w-3.5 h-3.5 text-white/70 ml-0.5" />
                 </button>
               </div>
@@ -1330,7 +1333,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
         open={showEditCoinsModal}
         onClose={() => setShowEditCoinsModal(false)}
         maxCoins={optimalCoins}
-        initialCoins={customCoins ?? optimalCoins}
+        initialCoins={displayCoinsSpent}
         onConfirm={(coins) => {
           setShowEditCoinsModal(false);
           setCustomCoins(coins);

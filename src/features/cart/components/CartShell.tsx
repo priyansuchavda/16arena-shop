@@ -79,11 +79,20 @@ export function CartShell() {
     loadCart();
   }, [isAuthenticated]);
 
-  const subtotal = useMemo(() => {
+  const localSubtotal = useMemo(() => {
     if (!primaryItem) return 0;
     const customAmount = parseCustomVoucherAmount(primaryItem.deliveryInfo);
     if (customAmount) return customAmount * primaryItem.quantity;
     return primaryItem.unitPrice * primaryItem.quantity;
+  }, [primaryItem]);
+
+  // Prefer preview.subtotal for coin caps — matches mobile _localSubtotal.
+  const subtotal = preview?.subtotal ?? localSubtotal;
+
+  const voucherFaceValue = useMemo(() => {
+    if (!primaryItem) return null;
+    const customAmount = parseCustomVoucherAmount(primaryItem.deliveryInfo);
+    return customAmount != null && customAmount > 0 ? customAmount : null;
   }, [primaryItem]);
 
   const ruleCoinCap = useMemo(() => {
@@ -91,8 +100,9 @@ export function CartShell() {
       preview,
       coinsBalance,
       subtotal,
+      voucherFaceValue,
     });
-  }, [preview, coinsBalance, subtotal]);
+  }, [preview, coinsBalance, subtotal, voucherFaceValue]);
 
   const optimalCoins = useMemo(() => {
     return previewCoinCap(coinsBalance, ruleCoinCap);

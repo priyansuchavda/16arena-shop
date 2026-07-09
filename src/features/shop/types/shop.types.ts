@@ -189,6 +189,8 @@ export type SkuPaymentRules = {
   effectiveMinRequiredCoins?: number;
   coinToInrRate?: number;
   maxCoinCoveragePercent?: number;
+  /** INR remaining after applying max Arena Coins (category card hybrid price). */
+  inrPayableAfterMaxCoins?: number;
 };
 
 export type ShopSku = {
@@ -221,6 +223,8 @@ export type ShopSku = {
   /** Root-level maxCoins from API (Flutter ShopSku.maxCoins). */
   maxCoins?: number;
   maxCoinsAllowedEstimate?: number;
+  /** INR remaining after max coin redemption — preferred hybrid footer price. */
+  inrPayableAfterMaxCoins?: number;
   maxQuantity?: number;
   isActive?: boolean;
   amountRestrictions?: ShopAmountRestrictions;

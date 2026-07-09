@@ -109,19 +109,45 @@ export function resolveMaxCoinCoveragePercent({
   return undefined;
 }
 
-/** Max redeemable coins for flexible denomination from face value × maxCoinCoveragePercent. */
+/**
+ * Discounted purchase price used for coin-cap math on flexible/dynamic SKUs.
+ * Prefers [subtotal] when already computed (preview or local unit rate);
+ * otherwise applies [savingsPercent] to [faceValue].
+ * Matches mobile ShopService.discountedPurchasePriceForCoins.
+ */
+export function discountedPurchasePriceForCoins({
+  faceValue,
+  subtotal = 0,
+  savingsPercent,
+}: {
+  faceValue: number;
+  subtotal?: number;
+  savingsPercent?: number | null;
+}): number {
+  if (subtotal > 0) return subtotal;
+  if (
+    savingsPercent != null &&
+    savingsPercent > 0 &&
+    savingsPercent < 100
+  ) {
+    return faceValue * (1 - savingsPercent / 100);
+  }
+  return faceValue;
+}
+
+/** Max redeemable coins for flexible denomination from purchase price × maxCoinCoveragePercent. */
 export function maxCoinsForDynamicDenomination({
   sku,
   coinRules,
-  voucherFaceValue,
+  purchasePrice,
   paymentRules,
 }: {
   sku: ShopSku;
   coinRules: ShopCoinRules;
-  voucherFaceValue: number;
+  purchasePrice: number;
   paymentRules?: SkuPaymentRules | null;
 }): number {
-  if (!sku.isDynamicDenomination || voucherFaceValue <= 0) return 0;
+  if (!sku.isDynamicDenomination || purchasePrice <= 0) return 0;
 
   const maxCoverage = resolveMaxCoinCoveragePercent({
     sku,
@@ -131,7 +157,7 @@ export function maxCoinsForDynamicDenomination({
   const coinToInrRate = resolveCoinToInrRate({ sku, productCoinRules: coinRules });
   if (maxCoverage == null || maxCoverage <= 0 || coinToInrRate <= 0) return 0;
 
-  const maxInrCoverage = voucherFaceValue * (maxCoverage / 100);
+  const maxInrCoverage = purchasePrice * (maxCoverage / 100);
   return Math.floor(maxInrCoverage / coinToInrRate);
 }
 
@@ -164,7 +190,11 @@ export function resolveRuleCoinCap({
     return maxCoinsForDynamicDenomination({
       sku,
       coinRules: resolvedCoinRules,
-      voucherFaceValue,
+      purchasePrice: discountedPurchasePriceForCoins({
+        faceValue: voucherFaceValue,
+        subtotal,
+        savingsPercent: preview?.savingsPercent ?? sku.savingsPercent,
+      }),
       paymentRules: rules ?? sku.paymentRules,
     });
   }
@@ -215,7 +245,11 @@ export function resolveMaxCoinsAllowedForSelection({
     return maxCoinsForDynamicDenomination({
       sku,
       coinRules: product.coinRules,
-      voucherFaceValue,
+      purchasePrice: discountedPurchasePriceForCoins({
+        faceValue: voucherFaceValue,
+        subtotal,
+        savingsPercent: preview?.savingsPercent ?? sku.savingsPercent,
+      }),
       paymentRules: paymentRules ?? sku.paymentRules,
     });
   }
@@ -227,6 +261,7 @@ export function resolveMaxCoinsAllowedForSelection({
     coinRules: product.coinRules,
     coinsBalance,
     subtotal,
+    voucherFaceValue,
   });
 }
 

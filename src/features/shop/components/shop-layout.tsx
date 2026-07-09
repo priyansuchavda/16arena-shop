@@ -224,7 +224,7 @@ function ShopTopBar({
               <SearchIcon className="shrink-0 text-[var(--faint)]" />
               <input
                 ref={inputRef}
-                placeholder="Search for brands, catego..."
+                placeholder="Search for brands, categories & more....."
                 value={localQuery}
                 onChange={handleQueryChange}
                 onFocus={() => setIsDropdownVisible(true)}

@@ -7,17 +7,26 @@ export type TimePeriodFilter =
   | "last_3_months"
   | "this_year";
 
+export type GiftCardStatusFilter = "active" | "expired";
+
 export type GiftCardFilters = {
   timePeriod: TimePeriodFilter;
   categories: string[];
   searchQuery: string;
+  status: GiftCardStatusFilter;
 };
 
 export const DEFAULT_GIFT_CARD_FILTERS: GiftCardFilters = {
   timePeriod: "all",
   categories: [],
   searchQuery: "",
+  status: "active",
 };
+
+export const STATUS_OPTIONS: { value: GiftCardStatusFilter; label: string }[] = [
+  { value: "active", label: "Active" },
+  { value: "expired", label: "Used/Expired" },
+];
 
 export const TIME_PERIOD_OPTIONS: { value: TimePeriodFilter; label: string }[] = [
   { value: "all", label: "All time" },
@@ -29,6 +38,10 @@ export const TIME_PERIOD_OPTIONS: { value: TimePeriodFilter; label: string }[] =
 
 export function timePeriodLabel(period: TimePeriodFilter): string {
   return TIME_PERIOD_OPTIONS.find((o) => o.value === period)?.label ?? "All time";
+}
+
+export function statusLabel(status: GiftCardStatusFilter): string {
+  return STATUS_OPTIONS.find((o) => o.value === status)?.label ?? "Active";
 }
 
 function startOfMonth(date: Date) {
@@ -64,6 +77,7 @@ export function isInTimePeriod(date: Date, period: TimePeriodFilter): boolean {
 
 export function countActiveFilters(filters: GiftCardFilters): number {
   let count = 0;
+  if (filters.status !== "active") count += 1;
   if (filters.timePeriod !== "all") count += 1;
   if (filters.categories.length > 0) count += 1;
   return count;
@@ -73,6 +87,10 @@ export function filterGiftCards(cards: StaticGiftCard[], filters: GiftCardFilter
   const query = filters.searchQuery.trim().toLowerCase();
 
   return cards.filter((card) => {
+    if (card.status !== filters.status) {
+      return false;
+    }
+
     if (filters.timePeriod !== "all") {
       const purchasedAt = new Date(card.purchasedAtIso);
       if (Number.isNaN(purchasedAt.getTime()) || !isInTimePeriod(purchasedAt, filters.timePeriod)) {

@@ -5,8 +5,10 @@ import { X } from "lucide-react";
 import { SlantedButton } from "@/shared/components/ui/slanted-button";
 import {
   DEFAULT_GIFT_CARD_FILTERS,
+  STATUS_OPTIONS,
   TIME_PERIOD_OPTIONS,
   type GiftCardFilters,
+  type GiftCardStatusFilter,
   type TimePeriodFilter,
 } from "../utils/gift-card-filters";
 
@@ -16,6 +18,7 @@ type GiftCardsFilterSheetProps = {
   categories: string[];
   filters: GiftCardFilters;
   onApply: (filters: GiftCardFilters) => void;
+  statusCounts: { active: number; expired: number };
 };
 
 export function GiftCardsFilterSheet({
@@ -24,6 +27,7 @@ export function GiftCardsFilterSheet({
   categories,
   filters,
   onApply,
+  statusCounts,
 }: GiftCardsFilterSheetProps) {
   const [draft, setDraft] = useState<GiftCardFilters>(filters);
 
@@ -72,7 +76,7 @@ export function GiftCardsFilterSheet({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[min(85vh,640px)] w-full max-w-[480px] flex-col overflow-hidden rounded-[20px] border border-white/10 bg-[#2C2C2C] p-6 shadow-2xl animate-in zoom-in-95 duration-200"
+        className="flex h-[min(85vh,640px)] w-full max-w-[480px] flex-col overflow-hidden rounded-[20px] border border-white/10 bg-[#2C2C2C] p-6 shadow-2xl animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex shrink-0 items-center justify-between gap-3">
@@ -96,7 +100,45 @@ export function GiftCardsFilterSheet({
           </div>
         </div>
 
-        <div className="shop-popover-scroll min-h-0 flex-1 pr-1">
+        <div className="shop-popover-scroll min-h-0 flex-1 overflow-y-auto pr-2">
+          <div className="pb-2">
+          <p className="mb-3 text-sm font-bold text-white">Status</p>
+          <div className="mb-6 flex flex-col">
+            {STATUS_OPTIONS.map((option) => {
+              const selected = draft.status === option.value;
+              const count =
+                option.value === "active" ? statusCounts.active : statusCounts.expired;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      status: option.value as GiftCardStatusFilter,
+                    }))
+                  }
+                  className="flex items-center justify-between border-b border-white/5 py-3.5 text-left transition hover:bg-white/[0.02]"
+                >
+                  <span
+                    className={`text-sm ${
+                      selected ? "font-bold text-white" : "font-medium text-white/50"
+                    }`}
+                  >
+                    {option.label} - {count}
+                  </span>
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                      selected ? "border-[var(--flame)]" : "border-white/20"
+                    }`}
+                  >
+                    {selected && <span className="h-2.5 w-2.5 rounded-full bg-[var(--flame)]" />}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
           <p className="mb-3 text-sm font-bold text-white">Time period</p>
           <div className="mb-6 flex flex-col">
             {TIME_PERIOD_OPTIONS.map((option) => {
@@ -132,7 +174,7 @@ export function GiftCardsFilterSheet({
           {categories.length > 0 && (
             <>
               <p className="mb-3 text-sm font-bold text-white">Category</p>
-              <div className="flex flex-wrap gap-2 pb-1">
+              <div className="flex flex-wrap gap-2 pb-4">
                 {categories.map((category) => {
                   const selected = draft.categories.includes(category);
                   return (
@@ -153,9 +195,10 @@ export function GiftCardsFilterSheet({
               </div>
             </>
           )}
+          </div>
         </div>
 
-        <div className="mt-5 shrink-0 border-t border-white/5 pt-5">
+        <div className="mt-4 shrink-0 border-t border-white/5 bg-[#2C2C2C] pt-5">
           <SlantedButton
             type="button"
             onClick={handleApply}

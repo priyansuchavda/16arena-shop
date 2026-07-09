@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { Search, SlidersHorizontal, X, CheckCircle2, Clock, Loader2, CreditCard, Wallet } from "lucide-react";
+import Image from "next/image";
+import { Search, SlidersHorizontal, X, Loader2 } from "lucide-react";
+import giftCardOwnIcon from "@/assets/svg/gift_card_own.svg";
+import totalSavingsIcon from "@/assets/svg/total_savings.svg";
 import { ShopAccountShell } from "@/features/shop/components/shop-account-shell";
 import { GiftCardRow } from "./gift-card-row";
 import { GiftCardsFilterSheet } from "./gift-cards-filter-sheet";
@@ -12,6 +15,7 @@ import {
   countActiveFilters,
   DEFAULT_GIFT_CARD_FILTERS,
   filterGiftCards,
+  statusLabel,
   timePeriodLabel,
   type GiftCardFilters,
 } from "../utils/gift-card-filters";
@@ -19,7 +23,6 @@ import {
 export function GiftCardsShell() {
   const [orders, setOrders] = useState<ShopOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"active" | "expired">("active");
   const [filters, setFilters] = useState<GiftCardFilters>(DEFAULT_GIFT_CARD_FILTERS);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
@@ -123,9 +126,9 @@ export function GiftCardsShell() {
     [allGiftCards, filters]
   );
 
-  const activeCards = filteredGiftCards.filter((card) => card.status === "active");
-  const expiredCards = filteredGiftCards.filter((card) => card.status === "expired");
-  const displayCards = activeTab === "active" ? activeCards : expiredCards;
+  const allActiveCards = allGiftCards.filter((card) => card.status === "active");
+  const allExpiredCards = allGiftCards.filter((card) => card.status === "expired");
+  const displayCards = filteredGiftCards;
 
   const activeFilterCount = countActiveFilters(filters);
 
@@ -134,6 +137,10 @@ export function GiftCardsShell() {
       ...DEFAULT_GIFT_CARD_FILTERS,
       searchQuery: prev.searchQuery,
     }));
+  };
+
+  const removeStatusFilter = () => {
+    setFilters((prev) => ({ ...prev, status: "active" }));
   };
 
   const removeTimePeriodFilter = () => {
@@ -163,30 +170,30 @@ export function GiftCardsShell() {
       <div className="mx-auto w-full max-w-[1000px]">
         <h1 className="font-heading mb-6 text-2xl font-black text-white">My Gift Cards</h1>
 
-        <div className="mb-8 grid grid-cols-1 gap-4 rounded-2xl border border-white/10 bg-black p-5 sm:grid-cols-2">
+        <div className="mb-8 grid grid-cols-1 gap-4 rounded-2xl border border-white/10 bg-white/[0.06] p-5 sm:grid-cols-2">
           <div className="flex items-center gap-4 py-1">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5">
-              <CreditCard className="h-5 w-5 text-[var(--flame)]" />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#FF6A00]/40 bg-[#FF6A00]/10">
+              <Image src={giftCardOwnIcon} alt="" width={22} height={22} className="object-contain" />
             </div>
             <div>
-              <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-white/30">
+              <p className="mb-0.5 font-sans text-xs font-bold uppercase tracking-wider text-white/30">
                 Gift cards owned
               </p>
-              <p className="text-lg font-black text-white">{activeCards.length}</p>
+              <p className="text-lg font-black text-white">{allActiveCards.length}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-4 py-1 sm:border-l sm:border-white/5 sm:pl-6">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-emerald-500/25 bg-emerald-500/10">
-              <Wallet className="h-5 w-5 text-emerald-400" />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#00C264]/40 bg-[#00C264]/10">
+              <Image src={totalSavingsIcon} alt="" width={22} height={22} className="object-contain" />
             </div>
             <div>
-              <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-white/30">
+              <p className="mb-0.5 font-sans text-xs font-bold uppercase tracking-wider text-white/30">
                 Total savings
               </p>
               <p className="text-lg font-black text-emerald-400">
                 ₹
-                {activeCards
+                {allActiveCards
                   .reduce((acc, card) => {
                     if (card.cashbackText) {
                       const match = card.cashbackText.match(/₹(\d+(\.\d+)?)/);
@@ -204,7 +211,7 @@ export function GiftCardsShell() {
         </div>
 
         <div className="mb-4 flex items-center gap-3">
-          <label className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-[10px] border border-white/10 bg-[#141414] px-3.5 transition-colors focus-within:border-white/25">
+          <label className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-[12px] border border-white/10 bg-white/[0.06] px-3.5 transition-colors focus-within:border-white/25">
             <Search className="h-4 w-4 shrink-0 text-white/40" />
             <input
               type="search"
@@ -212,7 +219,7 @@ export function GiftCardsShell() {
               onChange={(e) =>
                 setFilters((prev) => ({ ...prev, searchQuery: e.target.value }))
               }
-              placeholder="Search orders, brands, amo..."
+              placeholder="Search in gift cards....."
               className="min-w-0 flex-1 border-none bg-transparent text-sm text-white placeholder:text-white/30"
               style={{ outline: "none", boxShadow: "none" }}
             />
@@ -231,7 +238,7 @@ export function GiftCardsShell() {
           <button
             type="button"
             onClick={() => setFilterSheetOpen(true)}
-            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border border-white/10 bg-[#141414] text-white/70 transition hover:border-white/20 hover:text-white"
+            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/10 bg-white/[0.06] text-white/70 transition hover:border-white/20 hover:text-white"
             aria-label="Open filters"
           >
             <SlidersHorizontal className="h-4 w-4" />
@@ -244,7 +251,17 @@ export function GiftCardsShell() {
         </div>
 
         {activeFilterCount > 0 && (
-          <div className="mb-4 flex flex-wrap items-center gap-2">
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            {filters.status !== "active" && (
+              <button
+                type="button"
+                onClick={removeStatusFilter}
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:bg-white/10"
+              >
+                {statusLabel(filters.status)}
+                <X className="h-3 w-3 text-white/50" />
+              </button>
+            )}
             {filters.timePeriod !== "all" && (
               <button
                 type="button"
@@ -276,40 +293,14 @@ export function GiftCardsShell() {
           </div>
         )}
 
-        <div className="mb-6 flex items-center gap-3">
-          <button
-            onClick={() => setActiveTab("active")}
-            className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold transition focus:outline-none ${
-              activeTab === "active"
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-white/5 bg-white/5 text-white/40 hover:text-white/80"
-            }`}
-          >
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            Active • {activeCards.length}
-          </button>
-
-          <button
-            onClick={() => setActiveTab("expired")}
-            className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold transition focus:outline-none ${
-              activeTab === "expired"
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-white/5 bg-white/5 text-white/40 hover:text-white/80"
-            }`}
-          >
-            <Clock className="h-3.5 w-3.5" />
-            Used/Expired • {expiredCards.length}
-          </button>
-        </div>
-
         {displayCards.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-black p-12 text-center">
+          <div className="rounded-[12px] border border-white/10 bg-white/[0.06] p-12 text-center">
             <p className="text-sm font-semibold text-white/40">
               No gift cards found in this section.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex flex-col gap-3">
             {displayCards.map((card) => (
               <GiftCardRow key={card.id} card={card} />
             ))}
@@ -323,6 +314,10 @@ export function GiftCardsShell() {
         categories={brandCategories}
         filters={filters}
         onApply={setFilters}
+        statusCounts={{
+          active: allActiveCards.length,
+          expired: allExpiredCards.length,
+        }}
       />
     </ShopAccountShell>
   );

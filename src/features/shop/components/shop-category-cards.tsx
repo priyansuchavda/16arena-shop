@@ -27,7 +27,12 @@ export function ShopCategoryCards({
 }: ShopCategoryCardsProps) {
   const modalCategories = allCategories ?? categories;
   const [isOpen, setIsOpen] = useState(false);
-  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [popoverPos, setPopoverPos] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
 
   const parentRef = useRef<HTMLDivElement>(null);
   const viewAllRef = useRef<HTMLDivElement>(null);
@@ -45,10 +50,18 @@ export function ShopCategoryCards({
     let left = rect.right - width;
     left = Math.max(16, Math.min(left, window.innerWidth - width - 16));
 
+    const maxHeight = Math.min(window.innerHeight * 0.8, 640);
+    const padding = 16;
+    let top = rect.top;
+    const maxTop = window.innerHeight - maxHeight - padding;
+    top = Math.min(top, maxTop);
+    top = Math.max(padding, top);
+
     return {
-      top: rect.top,
+      top,
       left,
       width,
+      maxHeight,
     };
   }, []);
 
@@ -244,16 +257,18 @@ export function ShopCategoryCards({
             onClick={handleClose}
           />
           <div
-            className="fixed z-[100] flex max-h-[min(80vh,640px)] flex-col rounded-[28px] border border-white/10 bg-[#141414] p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="fixed z-[100] flex flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#141414] p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             style={{
               top: popoverPos.top,
               left: popoverPos.left,
               width: popoverPos.width,
+              height: popoverPos.maxHeight,
+              maxHeight: popoverPos.maxHeight,
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="shop-popover-scroll min-h-0 flex-1 pr-1">
-              <div className="grid grid-cols-3 gap-x-3 gap-y-8 pb-1">
+            <div className="shop-popover-scroll min-h-0 flex-1 overflow-y-auto pr-2">
+              <div className="grid grid-cols-3 gap-x-3 gap-y-8 pb-2">
                 {modalCategories.map((c) => {
                   const isSelected = c.slug === selectedSlug;
                   return (

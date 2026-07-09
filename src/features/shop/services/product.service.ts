@@ -183,4 +183,23 @@ export function computeFlexibleSubtotal(product: any, sku: any, amount: number):
   return amount * unitRate;
 }
 
+/**
+ * Compute coinsToRedeem for dynamic voucher amounts.
+ * Formula: coinsToRedeem = floor((enteredAmount * maxCoinCoveragePercent / 100) / coinToInrRate)
+ * Returns 0 if any required field is missing or invalid.
+ */
+export function computeCoinsToRedeemForFlexibleAmount({
+  enteredAmount,
+  maxCoinCoveragePercent,
+  coinToInrRate,
+}: {
+  enteredAmount: number;
+  maxCoinCoveragePercent?: number;
+  coinToInrRate?: number;
+}): number {
+  if (enteredAmount <= 0) return 0;
+  if (maxCoinCoveragePercent == null || maxCoinCoveragePercent <= 0) return 0;
+  if (coinToInrRate == null || coinToInrRate <= 0) return 0;
 
+  return Math.floor((enteredAmount * maxCoinCoveragePercent / 100) / coinToInrRate);
+}

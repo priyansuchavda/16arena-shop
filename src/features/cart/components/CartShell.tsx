@@ -98,11 +98,12 @@ export function CartShell() {
   const ruleCoinCap = useMemo(() => {
     return resolveRuleCoinCap({
       preview,
+      paymentRules: preview?.paymentRules,
+      sku: null,
       coinsBalance,
-      subtotal,
       voucherFaceValue,
     });
-  }, [preview, coinsBalance, subtotal, voucherFaceValue]);
+  }, [preview, coinsBalance, voucherFaceValue]);
 
   const optimalCoins = useMemo(() => {
     return previewCoinCap(coinsBalance, ruleCoinCap);

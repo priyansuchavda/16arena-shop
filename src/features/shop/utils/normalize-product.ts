@@ -21,6 +21,26 @@ function readBool(value: unknown, fallback = false): boolean {
   return fallback;
 }
 
+/**
+ * Parse isDynamicDenomination from API response.
+ * Prefers the new isDynamicDenomination field, with fallback to legacy denominationType.
+ * TEMP migration only — remove when API always sends isDynamicDenomination.
+ */
+export function parseProductIsDynamicDenomination(json: Record<string, unknown>): boolean {
+  if ('isDynamicDenomination' in json) {
+    return readBool(json.isDynamicDenomination);
+  }
+  // Legacy fallback: parse denominationType
+  const denominationType = String(json.denominationType ?? '').toUpperCase();
+  if (denominationType === 'FLEXIBLE' || denominationType === 'RANGE' || denominationType === 'VARIABLE') {
+    return true;
+  }
+  if (denominationType === 'FIXED') {
+    return false;
+  }
+  return false;
+}
+
 /** API often sends payment rules as flat SKU fields (see Valorant product response). */
 export function buildSkuPaymentRulesFromRaw(
   raw: Record<string, unknown>
@@ -112,7 +132,7 @@ export function normalizeShopProductDetail(raw: Record<string, unknown>): ShopPr
     thumbnailImageUrl: (raw.thumbnailImageUrl as string | null) ?? null,
     isActive: raw.isActive !== false,
     isFeatured: readBool(raw.isFeatured),
-    denominationType: (raw.denominationType as string | undefined),
+    isDynamicDenomination: parseProductIsDynamicDenomination(raw),
     savingsPercent: raw.savingsPercent != null ? readNumber(raw.savingsPercent) : undefined,
     effectiveCashbackPercent: raw.effectiveCashbackPercent != null ? readNumber(raw.effectiveCashbackPercent) : undefined,
     amountRestrictions: raw.amountRestrictions as ShopProductDetail["amountRestrictions"],

@@ -143,6 +143,30 @@ export function resolveRuleCoinCap({
   return 0;
 }
 
+/**
+ * Compute max coins allowed for a flexible/dynamic voucher amount.
+ * Formula: maxCoins = floor((voucherAmount * maxCoinCoveragePercent / 100) / coinToInrRate)
+ * Used for both preview calculation and coins modal max limit.
+ */
+export function computeFlexibleCoinsCap({
+  voucherAmount,
+  maxCoinCoveragePercent,
+  coinToInrRate,
+  coinsBalance = 0,
+}: {
+  voucherAmount: number;
+  maxCoinCoveragePercent?: number;
+  coinToInrRate?: number;
+  coinsBalance?: number;
+}): number {
+  if (voucherAmount <= 0) return 0;
+  if (maxCoinCoveragePercent == null || maxCoinCoveragePercent <= 0) return 0;
+  if (coinToInrRate == null || coinToInrRate <= 0) return 0;
+
+  const maxCoins = Math.floor((voucherAmount * maxCoinCoveragePercent / 100) / coinToInrRate);
+  return Math.min(coinsBalance, maxCoins);
+}
+
 /** Matches mobile _maxCoinsAllowedForSelection. */
 export function resolveMaxCoinsAllowedForSelection({
   sku,

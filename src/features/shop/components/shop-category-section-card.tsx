@@ -19,7 +19,7 @@ const MIDDLE_TEXT = "rgba(255,255,255,0.45)";
 function SectionBadge({ label }: { label: string }) {
   return (
     <span
-      className="absolute left-1/2 top-0 z-10 -translate-x-1/2 rounded-b-[5px] px-[9px] py-[2px] text-[8.5px] font-bold leading-none text-white"
+      className="absolute left-1/2 top-0 z-10 -translate-x-1/2 rounded-b-[5px] px-[9px] py-[2px] text-[8.7px] font-bold leading-none text-white"
       style={{ backgroundColor: SAVE_BADGE_GREEN }}
     >
       {label}

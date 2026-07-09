@@ -1013,9 +1013,9 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                     const faceVal = sku.faceValue ?? sku.unitAmount ?? 0;
                     const retailPrice = sku.retailPrice ?? sku.price ?? faceVal;
                     const maxCoverage = sku.paymentRules?.maxCoinCoveragePercent ?? paymentRules?.maxCoinCoveragePercent ?? 0;
-                    const coinToInrRate = sku.paymentRules?.coinToInrRate ?? paymentRules?.coinToInrRate ?? 100;
+                    const coinToInrRate = sku.paymentRules?.coinToInrRate ?? paymentRules?.coinToInrRate ?? 0.01;
                     const maxCoinInr = (retailPrice * maxCoverage) / 100;
-                    const maxCoins = maxCoinInr * coinToInrRate;
+                    const maxCoins = Math.floor(maxCoinInr / coinToInrRate);
                     const displayInr = retailPrice - maxCoinInr;
 
                     return (

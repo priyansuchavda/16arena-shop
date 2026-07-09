@@ -46,6 +46,8 @@ export type ApiProduct = {
   isActive: boolean;
   wishlistCount24h: number | null;
   showSku?: boolean;
+  /** Flexible / custom amount product (true) or fixed denomination (false). */
+  isDynamicDenomination?: boolean;
   skus?: ShopSku[];
 };
 
@@ -247,8 +249,8 @@ export type ShopProductDetail = {
   thumbnailImageUrl?: string | null;
   isActive: boolean;
   isFeatured: boolean;
-  /** FIXED | FLEXIBLE | RANGE | VARIABLE (root product-level, not nested in giftCardInfo). */
-  denominationType?: string;
+  /** Flexible / custom amount product (true) or fixed denomination (false). */
+  isDynamicDenomination?: boolean;
   startingPrice?: number;
   savingsPercent?: number;
   effectiveCashbackPercent?: number;

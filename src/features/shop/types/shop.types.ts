@@ -287,6 +287,7 @@ export type CheckoutPreview = {
   originalUnitPrice?: number;
   couponCode?: string;
   paymentRules?: SkuPaymentRules;
+  coinRules?: ShopCoinRules;
   lines?: Array<{
     cartItemId?: string;
     skuLabel?: string;

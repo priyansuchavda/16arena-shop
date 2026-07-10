@@ -11,6 +11,8 @@ type EditCoinsModalProps = {
   onClose: () => void;
   maxCoins: number;
   initialCoins: number;
+  /** INR value of one Arena Coin (e.g. 0.01 = 100 coins per ₹1). */
+  coinToInrRate: number;
   onConfirm: (coins: number) => void;
 };
 
@@ -19,6 +21,7 @@ export function EditCoinsModal({
   onClose,
   maxCoins,
   initialCoins,
+  coinToInrRate,
   onConfirm,
 }: EditCoinsModalProps) {
   const [localText, setLocalText] = useState(String(initialCoins));
@@ -77,6 +80,23 @@ export function EditCoinsModal({
   );
 
   const hasError = localCoins > maxCoins;
+  const inrOff = localCoins * (coinToInrRate > 0 ? coinToInrRate : 0.01);
+
+  const footerMessage = (() => {
+    if (hasError) {
+      return `You can use up to ${maxCoins.toLocaleString()} Arena Coins here`;
+    }
+    if (localText !== "" && localCoins > 0) {
+      return `${localCoins.toLocaleString()} Arena Coins = ₹${inrOff.toLocaleString("en-IN", {
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 2,
+      })} off`;
+    }
+    if (localText === "0" || localCoins === 0) {
+      return "Pay the full amount without Arena Coins";
+    }
+    return `Use up to ${maxCoins.toLocaleString()} Arena Coins`;
+  })();
 
   // Physical keyboard support while the modal is open.
   useEffect(() => {
@@ -173,8 +193,12 @@ export function EditCoinsModal({
               />
             </span>
           </div>
-          <span className="text-white/40 text-xs font-semibold">
-            {localCoins.toLocaleString()} Arena Coins = ₹{(localCoins / 100).toFixed(2)} off
+          <span
+            className={`text-xs font-semibold ${
+              hasError ? "text-red-400" : "text-white/40"
+            }`}
+          >
+            {footerMessage}
           </span>
         </div>
 
@@ -226,17 +250,10 @@ export function EditCoinsModal({
           </button>
         </div>
 
-        {/* Error message inside keypad sheet if amount out of bounds */}
-        {hasError && (
-          <div className="text-center text-xs font-bold text-red-400">
-            Maximum allowed is {maxCoins.toLocaleString()} coins
-          </div>
-        )}
-
         <SlantedButton
           type="button"
           onClick={() => onConfirm(localCoins)}
-          disabled={hasError}
+          disabled={hasError || localText === ""}
           className="w-full h-12 uppercase text-xs"
         >
           Apply

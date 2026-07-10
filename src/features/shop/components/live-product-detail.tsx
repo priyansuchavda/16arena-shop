@@ -40,6 +40,8 @@ import {
   previewCoinCap,
   resolveAllowHybridInrPayment,
   resolveBuyButtonLabel,
+  resolveCoinToInrRate,
+  resolveCoinsPerRupee,
   resolveMaxCoinsAllowedForSelection,
   resolveMaxCoinCoveragePercent,
   formatPercent,
@@ -75,7 +77,7 @@ export function useLogoColors(
         ctx.drawImage(img, 0, 0, 30, 30);
 
         const imgData = ctx.getImageData(0, 0, 30, 30).data;
-        
+
         let rSum = 0, gSum = 0, bSum = 0, count = 0;
         for (let i = 0; i < imgData.length; i += 4) {
           const r = imgData[i];
@@ -345,6 +347,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
   const paymentRules = activePaymentRules(checkoutPreview, selectedSku);
 
+  // Rule-level cap (no wallet) — matches mobile _maxCoinsAllowedForSelection / _cachedCoinsRequired
   const ruleCoinCap = useMemo(() => {
     if (!selectedSku) return 0;
     return resolveMaxCoinsAllowedForSelection({
@@ -352,13 +355,24 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
       preview: checkoutPreview,
       coinsBalance,
       voucherFaceValue,
+      productIsDynamicDenomination: product.isDynamicDenomination,
+      skuCount: product.skus.length,
     });
-  }, [selectedSku, checkoutPreview, coinsBalance, voucherFaceValue]);
+  }, [
+    selectedSku,
+    checkoutPreview,
+    coinsBalance,
+    voucherFaceValue,
+    product.isDynamicDenomination,
+    product.skus.length,
+  ]);
 
+  // Wallet-capped optimal — matches mobile _optimalCoinsFor / _cachedOptimalCoins
   const optimalCoins = useMemo(() => {
     return previewCoinCap(coinsBalance, ruleCoinCap);
   }, [coinsBalance, ruleCoinCap]);
 
+  // Effective coins for UI / fixed SKUs (custom clamped to optimal).
   const coinsToRedeem = useMemo(() => {
     if (!applyCoins) return 0;
     if (customCoins !== null) {
@@ -375,13 +389,46 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     });
   }, [coinsToRedeem, coinsBalance, ruleCoinCap]);
 
+  /**
+   * Coins sent to preview / shown as selected.
+   * Matches mobile _effectiveCoinsToRedeem: always min(wallet, rule/formula cap).
+   * No point selecting 20,000 when the user only has 3,820.
+   */
+  const previewCoinsToRedeem = useMemo(() => {
+    if (!applyCoins) return 0;
+    return cappedCoinsToRedeem;
+  }, [applyCoins, cappedCoinsToRedeem]);
+
   const allowHybridInrPayment = useMemo(() => {
     return resolveAllowHybridInrPayment({
-      coinsToRedeem: cappedCoinsToRedeem,
+      coinsToRedeem: previewCoinsToRedeem,
       maxCoinsAllowed: ruleCoinCap,
       paymentRules,
     });
-  }, [cappedCoinsToRedeem, ruleCoinCap, paymentRules]);
+  }, [previewCoinsToRedeem, ruleCoinCap, paymentRules]);
+
+  // "Use max" = what the user can actually spend (wallet ∩ rule/formula).
+  const coinsEditSheetMax = optimalCoins;
+
+  const coinToInrRate = useMemo(
+    () => resolveCoinToInrRate({ preview: checkoutPreview, sku: selectedSku }),
+    [checkoutPreview, selectedSku]
+  );
+
+  const coinsPerRupee = useMemo(
+    () => resolveCoinsPerRupee({ preview: checkoutPreview, sku: selectedSku }),
+    [checkoutPreview, selectedSku]
+  );
+
+  const maxCoinCoveragePercent = useMemo(
+    () =>
+      resolveMaxCoinCoveragePercent({
+        preview: checkoutPreview,
+        sku: selectedSku,
+        paymentRules,
+      }),
+    [checkoutPreview, selectedSku, paymentRules]
+  );
 
   const buildDeliveryInfo = () => {
     if (!isFlexibleSelection || !customAmount) return undefined;
@@ -402,7 +449,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   const buildPreviewRequest = (couponCodeOverride?: string | null) =>
     buildCheckoutRequest({
       cartItemIds: null,
-      coinsToRedeem: cappedCoinsToRedeem,
+      coinsToRedeem: previewCoinsToRedeem,
       couponCode: couponCodeOverride !== undefined ? couponCodeOverride : appliedCoupon,
       allowHybridInrPayment,
       quantity: cartQuantity,
@@ -472,7 +519,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
         err instanceof Error
           ? err.message
           : (err as { response?: { data?: { message?: string } } })?.response?.data
-              ?.message ?? "Error validating order calculations.";
+            ?.message ?? "Error validating order calculations.";
       setPreviewError(message);
       return null;
     } finally {
@@ -493,7 +540,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
         err instanceof Error
           ? err.message
           : (err as { response?: { data?: { message?: string } } })?.response?.data
-              ?.message ?? "Error validating order calculations.";
+            ?.message ?? "Error validating order calculations.";
       setPreviewError(message);
       return null;
     } finally {
@@ -567,7 +614,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
     return () => {
       if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
     };
-  }, [cappedCoinsToRedeem, appliedCoupon, isAuthenticated]);
+  }, [previewCoinsToRedeem, appliedCoupon, isAuthenticated]);
 
   // Set default flexible amount when selecting flexible SKU
   useEffect(() => {
@@ -591,7 +638,13 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   );
 
   const buyButtonLabel = resolveBuyButtonLabel(checkoutPreview);
-  const displayCoinsSpent = checkoutPreview?.coinsSpent ?? cappedCoinsToRedeem;
+  // Chip / buy row: wallet-capped (mobile _effectiveCoinsToRedeem).
+  // Prefer live custom selection; never show more than wallet allows.
+  const displayCoinsSpent = !applyCoins
+    ? 0
+    : customCoins !== null
+      ? Math.min(customCoins, optimalCoins)
+      : Math.min(checkoutPreview?.coinsSpent ?? optimalCoins, optimalCoins);
 
   const triggerBuy = async () => {
     if (!selectedSku || buyWarning) return;
@@ -691,7 +744,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
         err instanceof Error
           ? err.message
           : (err as { response?: { data?: { message?: string } } })?.response?.data
-              ?.message ?? "Could not apply coupon."
+            ?.message ?? "Could not apply coupon."
       );
     } finally {
       setCouponValidating(false);
@@ -711,6 +764,8 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   };
 
   const handleEditCoins = () => {
+    if (coinsEditSheetMax <= 0) return;
+    if (coinToInrRate == null || coinToInrRate <= 0) return;
     setShowEditCoinsModal(true);
   };
 
@@ -733,8 +788,8 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   const displayOriginal = isFlexibleSelection
     ? customAmount * cartQuantity
     : (checkoutPreview?.originalUnitPrice ??
-        selectedSku?.originalPrice ??
-        resolveSkuRetailPrice(selectedSku)) * cartQuantity;
+      selectedSku?.originalPrice ??
+      resolveSkuRetailPrice(selectedSku)) * cartQuantity;
   const maxCoinCoveragePct = useMemo(
     () =>
       resolveMaxCoinCoveragePercent({
@@ -766,7 +821,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           />
         </div>
       )}
-          <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-12 relative z-10 pt-6">
+      <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-12 relative z-10 pt-6">
         {/* Left Column: Product Info & Presentational Blocks (lg:col-span-7) */}
         <div className="lg:col-span-7 flex flex-col gap-6 w-full max-w-[560px]">
           <BrandPremiumVoucherCard
@@ -871,10 +926,10 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
               <div className="w-full flex items-center justify-between p-5 font-bold text-sm text-white select-none">
                 <span className="flex items-center gap-2">
                   <svg width="20" height="20" viewBox="0 0 23 25" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 shrink-0 text-white/70">
-                    <path d="M11.7575 23.6229L11.7698 23.6207C11.7794 23.6222 11.7857 23.6288 11.7886 23.6407L11.8075 24.1151L11.8031 24.134L11.7898 24.1518L11.6742 24.234L11.6609 24.2385L11.6442 24.234L11.5286 24.1518L11.5175 24.1374L11.512 24.1151L11.5309 23.6396L11.5353 23.6285C11.5412 23.6211 11.5501 23.6192 11.562 23.6229L11.6409 23.6618L11.6564 23.6662L11.6786 23.6618L11.7575 23.6229Z" fill="currentColor"/>
-                    <path d="M12.0498 23.4974L12.0642 23.4951C12.0753 23.4981 12.0827 23.5062 12.0864 23.5196L12.1242 24.2018L12.1198 24.2174C12.1123 24.227 12.1016 24.23 12.0875 24.2262L11.8642 24.1229L11.8553 24.1151L11.8498 24.1018L11.8298 23.624L11.8331 23.6118L11.8442 23.6007L12.0498 23.4974Z" fill="currentColor"/>
-                    <path d="M11.2534 23.4947C11.259 23.4934 11.2649 23.4944 11.2698 23.4974L11.4742 23.5996L11.4853 23.6107L11.4886 23.624L11.4698 24.1018L11.4653 24.114L11.4542 24.1229L11.2309 24.2262L11.2142 24.2285C11.2023 24.224 11.1961 24.2151 11.1953 24.2018L11.2331 23.5196L11.2398 23.504C11.2429 23.4993 11.2478 23.4959 11.2534 23.4947Z" fill="currentColor"/>
-                    <path d="M11.1111 0C17.2478 0 22.2222 4.97444 22.2222 11.1111C22.2222 17.2478 17.2478 22.2222 11.1111 22.2222C4.97444 22.2222 0 17.2478 0 11.1111C0 4.97444 4.97444 0 11.1111 0ZM11.1111 2.22222C8.75363 2.22222 6.49271 3.15873 4.82572 4.82572C3.15873 6.49271 2.22222 8.75363 2.22222 11.1111C2.22222 13.4686 3.15873 15.7295 4.82572 17.3965C6.49271 19.0635 8.75363 20 11.1111 20C13.4686 20 15.7295 19.0635 17.3965 17.3965C19.0635 15.7295 20 13.4686 20 11.1111C20 8.75363 19.0635 6.49271 17.3965 4.82572C15.7295 3.15873 13.4686 2.22222 11.1111 2.22222ZM11.1111 15.5556C11.4058 15.5556 11.6884 15.6726 11.8968 15.881C12.1052 16.0894 12.2222 16.372 12.2222 16.6667C12.2222 16.9614 12.1052 17.244 11.8968 17.4523C11.6884 17.6607 11.4058 17.7778 11.1111 17.7778C10.8164 17.7778 10.5338 17.6607 10.3254 17.4523C10.1171 17.244 10 16.9614 10 16.6667C10 16.372 10.1171 16.0894 10.3254 15.881C10.5338 15.6726 10.8164 15.5556 11.1111 15.5556ZM11.1111 5C12.047 5.00003 12.9536 5.32595 13.6753 5.92178C14.397 6.51761 14.8887 7.34615 15.0659 8.26509C15.2431 9.18402 15.0948 10.136 14.6464 10.9575C14.1981 11.7789 13.4776 12.4186 12.6089 12.7667C12.4802 12.814 12.3642 12.8904 12.27 12.99C12.2211 13.0456 12.2133 13.1167 12.2144 13.19L12.2222 13.3333C12.2219 13.6165 12.1135 13.8889 11.9191 14.0949C11.7246 14.3008 11.4589 14.4247 11.1762 14.4413C10.8935 14.4579 10.6151 14.3659 10.398 14.1841C10.1808 14.0024 10.0412 13.7445 10.0078 13.4633L10 13.3333V13.0556C10 11.7744 11.0333 11.0056 11.7822 10.7044C12.087 10.5827 12.3529 10.3803 12.5513 10.1189C12.7497 9.85745 12.8732 9.54692 12.9084 9.22062C12.9437 8.89432 12.8894 8.56459 12.7514 8.26682C12.6133 7.96906 12.3968 7.71452 12.125 7.53053C11.8533 7.34654 11.5365 7.24006 11.2088 7.22252C10.8811 7.20498 10.5547 7.27704 10.2649 7.43097C9.97502 7.58489 9.73256 7.81487 9.56355 8.0962C9.39453 8.37753 9.30534 8.69958 9.30556 9.02778C9.30556 9.32246 9.18849 9.60508 8.98012 9.81345C8.77174 10.0218 8.48913 10.1389 8.19444 10.1389C7.89976 10.1389 7.61714 10.0218 7.40877 9.81345C7.2004 9.60508 7.08333 9.32246 7.08333 9.02778C7.08333 7.95954 7.50769 6.93506 8.26304 6.17971C9.0184 5.42435 10.0429 5 11.1111 5Z" fill="currentColor"/>
+                    <path d="M11.7575 23.6229L11.7698 23.6207C11.7794 23.6222 11.7857 23.6288 11.7886 23.6407L11.8075 24.1151L11.8031 24.134L11.7898 24.1518L11.6742 24.234L11.6609 24.2385L11.6442 24.234L11.5286 24.1518L11.5175 24.1374L11.512 24.1151L11.5309 23.6396L11.5353 23.6285C11.5412 23.6211 11.5501 23.6192 11.562 23.6229L11.6409 23.6618L11.6564 23.6662L11.6786 23.6618L11.7575 23.6229Z" fill="currentColor" />
+                    <path d="M12.0498 23.4974L12.0642 23.4951C12.0753 23.4981 12.0827 23.5062 12.0864 23.5196L12.1242 24.2018L12.1198 24.2174C12.1123 24.227 12.1016 24.23 12.0875 24.2262L11.8642 24.1229L11.8553 24.1151L11.8498 24.1018L11.8298 23.624L11.8331 23.6118L11.8442 23.6007L12.0498 23.4974Z" fill="currentColor" />
+                    <path d="M11.2534 23.4947C11.259 23.4934 11.2649 23.4944 11.2698 23.4974L11.4742 23.5996L11.4853 23.6107L11.4886 23.624L11.4698 24.1018L11.4653 24.114L11.4542 24.1229L11.2309 24.2262L11.2142 24.2285C11.2023 24.224 11.1961 24.2151 11.1953 24.2018L11.2331 23.5196L11.2398 23.504C11.2429 23.4993 11.2478 23.4959 11.2534 23.4947Z" fill="currentColor" />
+                    <path d="M11.1111 0C17.2478 0 22.2222 4.97444 22.2222 11.1111C22.2222 17.2478 17.2478 22.2222 11.1111 22.2222C4.97444 22.2222 0 17.2478 0 11.1111C0 4.97444 4.97444 0 11.1111 0ZM11.1111 2.22222C8.75363 2.22222 6.49271 3.15873 4.82572 4.82572C3.15873 6.49271 2.22222 8.75363 2.22222 11.1111C2.22222 13.4686 3.15873 15.7295 4.82572 17.3965C6.49271 19.0635 8.75363 20 11.1111 20C13.4686 20 15.7295 19.0635 17.3965 17.3965C19.0635 15.7295 20 13.4686 20 11.1111C20 8.75363 19.0635 6.49271 17.3965 4.82572C15.7295 3.15873 13.4686 2.22222 11.1111 2.22222ZM11.1111 15.5556C11.4058 15.5556 11.6884 15.6726 11.8968 15.881C12.1052 16.0894 12.2222 16.372 12.2222 16.6667C12.2222 16.9614 12.1052 17.244 11.8968 17.4523C11.6884 17.6607 11.4058 17.7778 11.1111 17.7778C10.8164 17.7778 10.5338 17.6607 10.3254 17.4523C10.1171 17.244 10 16.9614 10 16.6667C10 16.372 10.1171 16.0894 10.3254 15.881C10.5338 15.6726 10.8164 15.5556 11.1111 15.5556ZM11.1111 5C12.047 5.00003 12.9536 5.32595 13.6753 5.92178C14.397 6.51761 14.8887 7.34615 15.0659 8.26509C15.2431 9.18402 15.0948 10.136 14.6464 10.9575C14.1981 11.7789 13.4776 12.4186 12.6089 12.7667C12.4802 12.814 12.3642 12.8904 12.27 12.99C12.2211 13.0456 12.2133 13.1167 12.2144 13.19L12.2222 13.3333C12.2219 13.6165 12.1135 13.8889 11.9191 14.0949C11.7246 14.3008 11.4589 14.4247 11.1762 14.4413C10.8935 14.4579 10.6151 14.3659 10.398 14.1841C10.1808 14.0024 10.0412 13.7445 10.0078 13.4633L10 13.3333V13.0556C10 11.7744 11.0333 11.0056 11.7822 10.7044C12.087 10.5827 12.3529 10.3803 12.5513 10.1189C12.7497 9.85745 12.8732 9.54692 12.9084 9.22062C12.9437 8.89432 12.8894 8.56459 12.7514 8.26682C12.6133 7.96906 12.3968 7.71452 12.125 7.53053C11.8533 7.34654 11.5365 7.24006 11.2088 7.22252C10.8811 7.20498 10.5547 7.27704 10.2649 7.43097C9.97502 7.58489 9.73256 7.81487 9.56355 8.0962C9.39453 8.37753 9.30534 8.69958 9.30556 9.02778C9.30556 9.32246 9.18849 9.60508 8.98012 9.81345C8.77174 10.0218 8.48913 10.1389 8.19444 10.1389C7.89976 10.1389 7.61714 10.0218 7.40877 9.81345C7.2004 9.60508 7.08333 9.32246 7.08333 9.02778C7.08333 7.95954 7.50769 6.93506 8.26304 6.17971C9.0184 5.42435 10.0429 5 11.1111 5Z" fill="currentColor" />
                   </svg>
                   <span className="font-sans">How to redeem</span>
                 </span>
@@ -900,16 +955,12 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
         {/* Right Column: Unified Purchase Flow Details Card (lg:col-span-5) */}
         <div className="lg:col-span-5 flex flex-col gap-6 w-full lg:sticky lg:top-[90px]">
           <div className="w-full bg-[#1C1C1E] border border-white/5 rounded-2xl p-6 flex flex-col gap-6 select-none relative">
-            
+
             {/* Price and Savings Section */}
             <div className="flex flex-col gap-2 w-full">
-              {savingsPct > 0 && (
-                <span className="text-[13px] font-medium text-[#FE8321] font-sans px-1">
-                  You&apos;re saving {formatPercent(savingsPct)}%.
-                </span>
-              )}
+
               {/* Price display box (rectangular rounded-xl container with border & fill) */}
-              <div className="bg-white/[0.05] border border-white/10 rounded-xl p-5 flex flex-col gap-1 select-none w-full">
+              <div className="bg-white/[0.05] border border-white/10 rounded-xl p-5 flex flex-col gap-3 select-none w-full">
                 {(() => {
                   const coinsSpent = checkoutPreview?.coinsSpent ?? 0;
                   if (coinsSpent > 0) {
@@ -944,63 +995,67 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                           )}
                         </div>
                       </>
-                  );
-                }
-                return (
-                  <>
-                    <div className="flex items-start justify-between w-full">
-                      <div className="flex flex-col">
-                        <div className="flex items-baseline gap-2 font-sans">
-                          <span className="text-[32px] font-bold text-white tracking-tight leading-none tabular-nums">
-                            ₹{displayPrice.toLocaleString("en-IN")}
-                          </span>
+                    );
+                  }
+                  return (
+                    <>
+                      <div className="flex items-start justify-between w-full">
+                        <div className="flex flex-col">
+                          <div className="flex items-baseline gap-2 font-sans">
+                            <span className="text-[32px] font-bold text-white tracking-tight leading-none tabular-nums">
+                              ₹{displayPrice.toLocaleString("en-IN")}
+                            </span>
+                          </div>
+                          {displayOriginal > displayPrice && (
+                            <span className="text-sm text-white/40 line-through font-medium font-sans tabular-nums mt-0.5 ml-0.5">
+                              ₹{displayOriginal.toLocaleString("en-IN")}
+                            </span>
+                          )}
                         </div>
-                        {displayOriginal > displayPrice && (
-                          <span className="text-sm text-white/40 line-through font-medium font-sans tabular-nums mt-0.5 ml-0.5">
-                            ₹{displayOriginal.toLocaleString("en-IN")}
-                          </span>
+                        {isFlexibleSelection && (
+                          <button
+                            type="button"
+                            onClick={handleEditVoucherWorth}
+                            className="text-white/40 hover:text-white transition p-1.5 mt-0.5 -mr-1"
+                          >
+                            <SquarePen className="w-5 h-5" />
+                          </button>
                         )}
                       </div>
-                      {isFlexibleSelection && (
-                        <button
-                          type="button"
-                          onClick={handleEditVoucherWorth}
-                          className="text-white/40 hover:text-white transition p-1.5 mt-0.5 -mr-1"
-                        >
-                          <SquarePen className="w-5 h-5" />
-                        </button>
-                      )}
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
+                    </>
+                  );
+                })()}
+                {savingsPct > 0 && (
+                  <span className="text-[13px] font-medium text-[#FE8321] font-sans">
+                    You&apos;re saving {formatPercent(savingsPct)}%.
+                  </span>
+                )}
+              </div>
 
-            {/* Quick value chips for flexible selection */}
-            {isFlexibleSelection && (
-              <div className="grid grid-cols-4 gap-2 mt-2">
-                {quickSuggestions.map((val) => {
-                  const isSelected = customAmount === val;
-                  return (
-                    <button
-                      key={val}
-                      type="button"
-                      onClick={() => {
-                        setCustomAmount(val);
-                        setCustomAmountText(String(val));
-                      }}
-                      className={`h-11 rounded-[9px] flex items-center justify-center text-[15px] font-medium transition ${
-                        isSelected
+              {/* Quick value chips for flexible selection */}
+              {isFlexibleSelection && (
+                <div className="grid grid-cols-4 gap-2 mt-2">
+                  {quickSuggestions.map((val) => {
+                    const isSelected = customAmount === val;
+                    return (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => {
+                          setCustomAmount(val);
+                          setCustomAmountText(String(val));
+                        }}
+                        className={`h-11 rounded-[9px] flex items-center justify-center text-[15px] font-medium transition ${isSelected
                           ? "bg-white/[0.08] border border-white/20 text-white"
                           : "bg-transparent border border-white/10 text-white hover:bg-white/[0.04]"
-                      }`}
-                    >
-                      ₹{val}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                          }`}
+                      >
+                        ₹{val}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Inline Denomination Chips for Fixed SKUs */}
@@ -1023,11 +1078,10 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                         key={sku.id}
                         type="button"
                         onClick={() => setSelectedSku(sku)}
-                        className={`p-4 rounded-xl flex flex-col gap-2 text-left border transition ${
-                          isSelected
-                            ? "bg-white/[0.05] border-white/20 shadow-[0_0_0_1px_rgba(255,255,255,0.1)]"
-                            : "bg-transparent border-white/10 hover:bg-white/[0.02]"
-                        }`}
+                        className={`p-4 rounded-xl flex flex-col gap-2 text-left border transition ${isSelected
+                          ? "bg-white/[0.05] border-white/20 shadow-[0_0_0_1px_rgba(255,255,255,0.1)]"
+                          : "bg-transparent border-white/10 hover:bg-white/[0.02]"
+                          }`}
                       >
                         <span className="text-sm font-bold text-white font-sans">
                           {sku.label || sku.title || `${faceVal} UC`}
@@ -1036,15 +1090,6 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                           <span className="text-sm font-medium text-white/80">
                             ₹{displayInr.toLocaleString("en-IN")}
                           </span>
-                          {maxCoins > 0 && (
-                            <>
-                              <span className="text-sm font-medium text-white/80">+</span>
-                              <Image src={coinImg} alt="" width={15} height={15} className="object-contain shrink-0" />
-                              <span className="text-sm font-medium text-[#F5A623]">
-                                {maxCoins.toLocaleString()}
-                              </span>
-                            </>
-                          )}
                         </div>
                       </button>
                     );
@@ -1054,23 +1099,38 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
             )}
 
             {/* Arena Coins conversion swap & edit */}
-            {shouldShowCoinEditor({ paymentRules, sku: selectedSku }) && optimalCoins > 0 && (
-              <div className="flex items-center justify-between select-none bg-white/[0.05] border border-white/10 p-3 rounded-xl">
-                <div className="flex items-center gap-1.5 text-xs font-medium font-sans text-white">
-                  <Image src={coinImg} alt="" width={16} height={16} className="object-contain" />
-                  <span>100 Arena Coins = ₹1</span>
+            {shouldShowCoinEditor({ paymentRules, sku: selectedSku }) &&
+              (optimalCoins > 0 || (isFlexibleSelection && ruleCoinCap > 0 && coinsBalance > 0)) && (
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between select-none bg-white/[0.05] border border-white/10 p-3 rounded-xl">
+                    <div className="flex items-center gap-1.5 text-xs font-medium font-sans text-white">
+                      <Image src={coinImg} alt="" width={16} height={16} className="object-contain" />
+                      {paymentRules?.isCoinOnly ? (
+                        <span className="text-[#FE8321] font-semibold">Full payment in Arena Coins required</span>
+                      ) : coinsPerRupee != null ? (
+                        <span>{coinsPerRupee} Arena Coins = ₹1</span>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleEditCoins}
+                      className="flex items-center gap-1.5 bg-white/[0.06] px-2.5 py-1.5 rounded-[6px] text-xs font-semibold text-white hover:bg-white/[0.08] active:scale-95 transition font-sans"
+                    >
+                      <Image src={coinImg} alt="" width={13} height={13} className="object-contain" />
+                      <span className="text-[#F5A623] font-bold">{displayCoinsSpent.toLocaleString()}</span>
+                      <SquarePen className="w-3.5 h-3.5 text-white/70 ml-0.5" />
+                    </button>
+                  </div>
+                {isFlexibleSelection &&
+                  voucherFaceValue != null &&
+                  optimalCoins > 0 &&
+                  maxCoinCoveragePercent != null && (
+                    <p className="text-[11px] font-medium font-sans text-white/50 px-0.5">
+                      Use up to {optimalCoins.toLocaleString()} coins ({formatPercent(maxCoinCoveragePercent)}% of voucher value)
+                    </p>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={handleEditCoins}
-                  className="flex items-center gap-1.5 bg-white/[0.06] px-2.5 py-1.5 rounded-[6px] text-xs font-semibold text-white hover:bg-white/[0.08] active:scale-95 transition font-sans"
-                >
-                  <Image src={coinImg} alt="" width={13} height={13} className="object-contain" />
-                  <span className="text-[#F5A623] font-bold">{displayCoinsSpent.toLocaleString()}</span>
-                  <SquarePen className="w-3.5 h-3.5 text-white/70 ml-0.5" />
-                </button>
-              </div>
-            )}
+              )}
 
             {/* Coupon Code Entry & Applied Box */}
             <div ref={couponFieldRef} className="relative w-full flex flex-col gap-2.5">
@@ -1179,7 +1239,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           sku={selectedSku}
           quantity={cartQuantity}
           coinsBalance={coinsBalance}
-          initialCoinsToRedeem={checkoutPreview?.coinsSpent ?? cappedCoinsToRedeem}
+          initialCoinsToRedeem={checkoutPreview?.coinsSpent ?? previewCoinsToRedeem}
           couponCode={appliedCoupon}
           customVoucherAmount={isFlexibleSelection ? customAmount : null}
           initialPreview={checkoutPreview}
@@ -1212,8 +1272,9 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
       <EditCoinsModal
         open={showEditCoinsModal}
         onClose={() => setShowEditCoinsModal(false)}
-        maxCoins={optimalCoins}
+        maxCoins={coinsEditSheetMax}
         initialCoins={displayCoinsSpent}
+        coinToInrRate={coinToInrRate ?? 0.01}
         onConfirm={(coins) => {
           setShowEditCoinsModal(false);
           setCustomCoins(coins);
@@ -1354,61 +1415,9 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                       </span>
                     </div>
                   ))
-                ) : (
-                  // Fallback mock coupons to match mockup nicely if user has no actual coupons
-                  <>
-                    <div
-                      onClick={() => {
-                        setCouponCode("FLAT50");
-                        setCouponError(null);
-                      }}
-                      className="bg-white/[0.1] border border-white/10 rounded-xl p-3 flex justify-between items-center cursor-pointer hover:bg-white/[0.12] transition select-none font-sans"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-white">
-                          <Image src={voucherIcon} alt="" width={24} height={24} className="object-contain" />
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-sm font-bold text-white leading-tight">FLAT50</span>
-                          <span className="text-[10px] text-white/[0.74] leading-none">
-                            Min. order ₹199 - Max save ₹1
-                          </span>
-                          <span className="text-[10px] text-white/[0.74] leading-none">
-                            Valid till 06 Aug 2026
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-xs font-bold text-[#FE8321]">₹50 off</span>
-                    </div>
-
-                    <div
-                      onClick={() => {
-                        setCouponCode("FLAT50");
-                        setCouponError(null);
-                      }}
-                      className="bg-white/[0.1] border border-white/10 rounded-xl p-3 flex justify-between items-center cursor-pointer hover:bg-white/[0.12] transition select-none font-sans"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-white">
-                          <Image src={voucherIcon} alt="" width={24} height={24} className="object-contain" />
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-sm font-bold text-white leading-tight">FLAT50</span>
-                          <span className="text-[10px] text-white/[0.74] leading-none">
-                            Min. order ₹199 - Max save ₹1
-                          </span>
-                          <span className="text-[10px] text-white/[0.74] leading-none">
-                            Valid till 06 Aug 2026
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-xs font-bold text-[#FE8321]">₹50 off</span>
-                    </div>
-                  </>
-                )}
+                ) : null}
               </div>
             </div>
-
           </div>
         </div>
       )}

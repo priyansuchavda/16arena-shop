@@ -47,24 +47,56 @@ export function activePaymentRules(
   return sku?.paymentRules ?? null;
 }
 
+/** INR value of one Arena Coin — prefers SKU rate, then preview. Matches mobile. */
 export function resolveCoinToInrRate({
   preview,
   sku,
 }: {
   preview?: CheckoutPreview | null;
   sku?: ShopSku | null;
-}): number {
-  // Prefer SKU payment rules rate first
-  const skuRate = sku?.paymentRules?.coinToInrRate ?? sku?.maxCoins != null ? undefined : undefined;
+}): number | null {
+  const skuRate = sku?.paymentRules?.coinToInrRate;
   if (skuRate != null && skuRate > 0) return skuRate;
 
-  // Fall back to preview rate
   if (preview?.paymentRules?.coinToInrRate != null && preview.paymentRules.coinToInrRate > 0) {
     return preview.paymentRules.coinToInrRate;
   }
 
-  // Default: 0.01 (100 coins = ₹1)
-  return 0.01;
+  if (preview?.coinRules?.coinToInrRate != null && preview.coinRules.coinToInrRate > 0) {
+    return preview.coinRules.coinToInrRate;
+  }
+
+  return null;
+}
+
+/** Matches mobile ShopService.resolveCoinsPerRupee. */
+export function resolveCoinsPerRupee({
+  preview,
+  sku,
+}: {
+  preview?: CheckoutPreview | null;
+  sku?: ShopSku | null;
+}): number | null {
+  const rate = resolveCoinToInrRate({ preview, sku });
+  if (rate == null || rate <= 0) return null;
+  return Math.round(1 / rate);
+}
+
+/** Formula coins for a voucher face value — no wallet clamp. Matches mobile. */
+export function coinsToRedeemForVoucherAmount({
+  voucherAmount,
+  maxCoinCoveragePercent,
+  coinToInrRate,
+}: {
+  voucherAmount: number;
+  maxCoinCoveragePercent: number;
+  coinToInrRate: number;
+}): number {
+  if (voucherAmount <= 0 || maxCoinCoveragePercent <= 0 || coinToInrRate <= 0) {
+    return 0;
+  }
+  const maxInrCoverage = voucherAmount * (maxCoinCoveragePercent / 100);
+  return Math.floor(maxInrCoverage / coinToInrRate);
 }
 
 /** Matches mobile ShopService.formatPercent. */
@@ -98,6 +130,10 @@ export function resolveMaxCoinCoveragePercent({
   return undefined;
 }
 
+/**
+ * Rule-level coin cap before wallet balance is applied.
+ * Matches mobile ShopService.resolveRuleCoinCap (no wallet clamp).
+ */
 export function resolveRuleCoinCap({
   preview,
   paymentRules,
@@ -118,41 +154,54 @@ export function resolveRuleCoinCap({
     voucherFaceValue != null &&
     voucherFaceValue > 0
   ) {
-    const maxCoverage = rules?.maxCoinCoveragePercent;
-    if (maxCoverage == null || maxCoverage <= 0) return 0;
+    const maxCoverage =
+      rules?.maxCoinCoveragePercent ?? sku.maxCoinCoveragePercent;
+    const coinRate =
+      rules?.coinToInrRate ??
+      sku.paymentRules?.coinToInrRate ??
+      resolveCoinToInrRate({ preview, sku }) ??
+      0;
+    if (maxCoverage == null || maxCoverage <= 0 || coinRate <= 0) return 0;
 
-    const coinRate = rules?.coinToInrRate ?? 0.01;
-    if (coinRate <= 0) return 0;
-
-    const maxInrCoverage = voucherFaceValue * (maxCoverage / 100);
-    const maxCoins = Math.floor(maxInrCoverage / coinRate);
-    return Math.min(coinsBalance, maxCoins);
+    return coinsToRedeemForVoucherAmount({
+      voucherAmount: voucherFaceValue,
+      maxCoinCoveragePercent: maxCoverage,
+      coinToInrRate: coinRate,
+    });
   }
 
-  // Fixed SKU: use maxCoins directly (capped to user balance)
+  if (rules?.maxCoins != null && rules.maxCoins > 0) {
+    return rules.maxCoins;
+  }
+
+  if (preview?.lines?.[0]?.paymentRules?.maxCoins != null) {
+    const lineMax = preview.lines[0].paymentRules!.maxCoins!;
+    if (lineMax > 0) return lineMax;
+  }
+
+  // Fixed SKU: catalog maxCoins (no wallet clamp — callers use previewCoinCap)
   if (sku?.maxCoins != null && sku.maxCoins > 0) {
-    return Math.min(coinsBalance, sku.maxCoins);
+    return sku.maxCoins;
   }
 
-  // Check payment rules
   const ruleMaxCoins = rules?.maxCoins ?? 0;
-  if (ruleMaxCoins > 0) {
-    return Math.min(coinsBalance, ruleMaxCoins);
-  }
+  if (ruleMaxCoins > 0) return ruleMaxCoins;
 
+  // Unused but kept for API parity with mobile signature
+  void coinsBalance;
   return 0;
 }
 
 /**
  * Compute max coins allowed for a flexible/dynamic voucher amount.
  * Formula: maxCoins = floor((voucherAmount * maxCoinCoveragePercent / 100) / coinToInrRate)
- * Used for both preview calculation and coins modal max limit.
+ * Optionally clamps to wallet when coinsBalance is provided.
  */
 export function computeFlexibleCoinsCap({
   voucherAmount,
   maxCoinCoveragePercent,
   coinToInrRate,
-  coinsBalance = 0,
+  coinsBalance,
 }: {
   voucherAmount: number;
   maxCoinCoveragePercent?: number;
@@ -163,34 +212,66 @@ export function computeFlexibleCoinsCap({
   if (maxCoinCoveragePercent == null || maxCoinCoveragePercent <= 0) return 0;
   if (coinToInrRate == null || coinToInrRate <= 0) return 0;
 
-  const maxCoins = Math.floor((voucherAmount * maxCoinCoveragePercent / 100) / coinToInrRate);
+  const maxCoins = coinsToRedeemForVoucherAmount({
+    voucherAmount,
+    maxCoinCoveragePercent,
+    coinToInrRate,
+  });
+  if (coinsBalance == null) return maxCoins;
   return Math.min(coinsBalance, maxCoins);
 }
 
-/** Matches mobile _maxCoinsAllowedForSelection. */
+/**
+ * Matches mobile _maxCoinsAllowedForSelection.
+ * Dynamic with face value → formula only (no wallet clamp).
+ * Fixed → rule/catalog cap (no wallet clamp). Wallet applied via previewCoinCap.
+ */
 export function resolveMaxCoinsAllowedForSelection({
   sku,
   preview,
   coinsBalance,
   voucherFaceValue,
+  productIsDynamicDenomination,
+  skuCount,
 }: {
   sku: ShopSku;
   preview?: CheckoutPreview | null;
   coinsBalance: number;
   voucherFaceValue?: number | null;
+  /** When true and product has a single SKU, fall back to catalog maxCoins before amount is entered. */
+  productIsDynamicDenomination?: boolean;
+  skuCount?: number;
 }): number {
   const paymentRules = activePaymentRules(preview, sku);
 
-  if (sku.isDynamicDenomination && voucherFaceValue != null && voucherFaceValue > 0) {
-    const maxCoverage = paymentRules?.maxCoinCoveragePercent;
-    if (maxCoverage == null || maxCoverage <= 0) return 0;
+  if (sku.isDynamicDenomination) {
+    if (voucherFaceValue != null && voucherFaceValue > 0) {
+      const coverage =
+        paymentRules?.maxCoinCoveragePercent ?? sku.maxCoinCoveragePercent;
+      const rate =
+        paymentRules?.coinToInrRate ??
+        sku.paymentRules?.coinToInrRate ??
+        resolveCoinToInrRate({ preview, sku });
 
-    const coinRate = paymentRules?.coinToInrRate ?? 0.01;
-    if (coinRate <= 0) return 0;
+      if (coverage != null && coverage > 0 && rate != null && rate > 0) {
+        return coinsToRedeemForVoucherAmount({
+          voucherAmount: voucherFaceValue,
+          maxCoinCoveragePercent: coverage,
+          coinToInrRate: rate,
+        });
+      }
+      return 0;
+    }
 
-    const maxInrCoverage = voucherFaceValue * (maxCoverage / 100);
-    const maxCoins = Math.floor(maxInrCoverage / coinRate);
-    return Math.min(coinsBalance, maxCoins);
+    // No amount entered yet — use catalog SKU maxCoins (min denomination).
+    if (
+      productIsDynamicDenomination === true &&
+      skuCount === 1 &&
+      sku.maxCoins != null &&
+      sku.maxCoins > 0
+    ) {
+      return sku.maxCoins;
+    }
   }
 
   return resolveRuleCoinCap({

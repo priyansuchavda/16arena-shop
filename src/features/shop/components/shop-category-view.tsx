@@ -10,6 +10,7 @@ import { Ticket } from "lucide-react";
 import Link from "next/link";
 import { shopApi } from "../services/shop-api";
 import { apiToCard, categorySlugMap, gradientFor } from "@/features/shop/utils/mappers";
+import { prefetchLogoColors } from "@/features/shop/utils/logo-colors";
 
 type ShopCategoryViewProps = {
   category: ApiCategory;
@@ -50,6 +51,16 @@ export function ShopCategoryView({ category, categories, popularCards = [] }: Sh
       active = false;
     };
   }, [category.id, categories]);
+
+  // Prefetch brand gradients for visible vouchers so detail opens without a color blink.
+  useEffect(() => {
+    for (const card of products) {
+      void prefetchLogoColors(card.logoUrl);
+      if (card.imageUrl && card.imageUrl !== card.logoUrl) {
+        void prefetchLogoColors(card.imageUrl);
+      }
+    }
+  }, [products]);
 
   const loadMore = async () => {
     if (loadingMore || page >= totalPages) return;

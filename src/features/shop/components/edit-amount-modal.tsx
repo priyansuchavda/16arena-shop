@@ -6,6 +6,7 @@ import { X, Check } from "lucide-react";
 import type { ShopProductDetail, ShopSku, ShopAmountRestrictions } from "../types/shop.types";
 import { gradientFor } from "../utils/mappers";
 import { formatPercent } from "../utils/checkout.utils";
+import { getCachedLogoColors, prefetchLogoColors } from "../utils/logo-colors";
 import { SlantedButton } from "@/shared/components/ui/slanted-button";
 
 function rgba(hex: string, opacity: number) {
@@ -20,7 +21,9 @@ function useLogoColors(
   logoUrl: string | null,
   fallbackColors: { accent: string; accent2: string }
 ) {
-  const [colors, setColors] = useState(fallbackColors);
+  const [colors, setColors] = useState(
+    () => getCachedLogoColors(logoUrl) ?? fallbackColors
+  );
 
   useEffect(() => {
     if (!logoUrl) {
@@ -28,64 +31,20 @@ function useLogoColors(
       return;
     }
 
-    const img = new window.Image();
-    img.crossOrigin = "Anonymous";
-    img.onload = () => {
-      try {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          setColors(fallbackColors);
-          return;
-        }
+    const cached = getCachedLogoColors(logoUrl);
+    if (cached) {
+      setColors(cached);
+      return;
+    }
 
-        canvas.width = 30;
-        canvas.height = 30;
-        ctx.drawImage(img, 0, 0, 30, 30);
+    let cancelled = false;
+    prefetchLogoColors(logoUrl).then((extracted) => {
+      if (!cancelled) setColors(extracted ?? fallbackColors);
+    });
 
-        const imgData = ctx.getImageData(0, 0, 30, 30).data;
-        
-        let rSum = 0, gSum = 0, bSum = 0, count = 0;
-        for (let i = 0; i < imgData.length; i += 4) {
-          const r = imgData[i];
-          const g = imgData[i + 1];
-          const b = imgData[i + 2];
-          const a = imgData[i + 3];
-
-          if (a > 100) {
-            const isGrey = Math.abs(r - g) < 20 && Math.abs(g - b) < 20 && Math.abs(r - b) < 20;
-            const isWhite = r > 230 && g > 230 && b > 230;
-            const isBlack = r < 25 && g < 25 && b < 25;
-            if (!isWhite && !isBlack && (!isGrey || count === 0)) {
-              rSum += r;
-              gSum += g;
-              bSum += b;
-              count++;
-            }
-          }
-        }
-
-        if (count > 0) {
-          const rAvg = Math.round(rSum / count);
-          const gAvg = Math.round(gSum / count);
-          const bAvg = Math.round(bSum / count);
-
-          const accent = `rgb(${rAvg}, ${gAvg}, ${bAvg})`;
-          const accent2 = `rgb(${Math.max(0, Math.round(rAvg * 0.4))}, ${Math.max(0, Math.round(gAvg * 0.4))}, ${Math.max(0, Math.round(bAvg * 0.4))})`;
-
-          setColors({ accent, accent2 });
-        } else {
-          setColors(fallbackColors);
-        }
-      } catch (err) {
-        console.error("Failed to extract color from logo:", err);
-        setColors(fallbackColors);
-      }
+    return () => {
+      cancelled = true;
     };
-    img.onerror = () => {
-      setColors(fallbackColors);
-    };
-    img.src = logoUrl;
   }, [logoUrl, fallbackColors.accent, fallbackColors.accent2]);
 
   return colors;

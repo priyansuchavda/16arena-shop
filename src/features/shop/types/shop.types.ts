@@ -90,6 +90,8 @@ export type CardModel = {
   sub: string;
   accent: string;
   accent2: string;
+  /** Brand logo used for voucher gradient extraction (prefer over thumbnail). */
+  logoUrl?: string | null;
   imageUrl?: string | null;
   /** Full-bleed promo image (overrides imageUrl on featured / flash-deal cards). */
   featureImageUrl?: string | null;

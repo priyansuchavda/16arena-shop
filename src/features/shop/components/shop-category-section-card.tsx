@@ -1,6 +1,10 @@
+"use client";
+
+import { useEffect } from "react";
 import Link from "next/link";
 import { type CardModel } from "@/features/shop/types/shop.types";
 import { formatPercent } from "@/features/shop/utils/checkout.utils";
+import { prefetchLogoColors } from "@/features/shop/utils/logo-colors";
 import {
   SAVE_BADGE_GREEN,
   ShopCategorySectionCoinPriceRow,
@@ -53,6 +57,10 @@ function FallbackMiddle({ title, subtitle }: { title: string; subtitle: string }
   );
 }
 
+function logoColorSource(product: CardModel): string | null {
+  return product.logoUrl || product.imageUrl || null;
+}
+
 export function ShopCategorySectionCard({ product }: { product: CardModel }) {
   const showSku = product.showSku === true;
   const saveLabel =
@@ -68,12 +76,25 @@ export function ShopCategorySectionCard({ product }: { product: CardModel }) {
   const isCoinOnly = product.isCoinOnly ?? false;
 
   const href = product.categorySlug ? `/${product.categorySlug}/${product.slug}` : `/${product.slug}`;
+  const colorUrl = logoColorSource(product);
+
+  // Warm logo-color cache while the card is visible so the detail voucher
+  // can paint its brand gradient immediately (no fallback → extract blink).
+  useEffect(() => {
+    void prefetchLogoColors(product.logoUrl);
+    if (product.imageUrl && product.imageUrl !== product.logoUrl) {
+      void prefetchLogoColors(product.imageUrl);
+    }
+  }, [product.logoUrl, product.imageUrl]);
 
   return (
     <Link
       href={href}
       draggable={false}
       onDragStart={(e) => e.preventDefault()}
+      onPointerDown={() => {
+        void prefetchLogoColors(colorUrl);
+      }}
       className="shop-card-lift group relative flex w-full shrink-0 flex-col overflow-hidden rounded-[11px] border border-white/10 bg-white/[0.03]"
       style={{ height: CARD_HEIGHT, maxWidth: SECTION_CARD_WIDTH }}
     >

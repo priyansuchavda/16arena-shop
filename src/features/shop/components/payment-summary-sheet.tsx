@@ -217,19 +217,39 @@ export function PaymentSummarySheet({
 
   const fallbackG = useMemo(() => gradientFor(product.brandName ?? product.name), [product]);
   const g = useLogoColors(product.logoUrl ?? null, fallbackG);
-  const totalFaceValue = (isFlexible ? (customVoucherAmount ?? 0) : sku.faceValue ?? sku.unitAmount ?? 0) * quantity;
+  const faceUnit = isFlexible
+    ? (customVoucherAmount ?? 0)
+    : sku.faceValue ?? sku.unitAmount ?? 0;
+  const totalFaceValue = faceUnit * quantity;
   const subtotalVal = totalFaceValue;
-  const baseDiscountedPrice = totalPayable + (preview?.coinsDiscount ?? 0);
-  const instantDiscountVal = Math.max(0, totalFaceValue - baseDiscountedPrice);
-  const instantDiscountPercent =
+
+  // Matches mobile: Instant Discount = catalog/retail cut (worth − unitPrice×qty).
+  // Coupon is a separate row from preview.discountAmount — do not lump into Instant Discount.
+  const unitPrice = preview?.unitPrice;
+  const instantDiscountVal =
+    unitPrice != null && unitPrice > 0
+      ? Math.max(0, totalFaceValue - unitPrice * quantity)
+      : 0;
+  const couponDiscountVal = Math.max(0, preview?.discountAmount ?? 0);
+  const appliedCouponCode =
+    preview?.couponCode?.trim() || couponCode?.trim() || null;
+
+  const pctOfWorth = (amount: number) => {
+    if (totalFaceValue <= 0 || amount <= 0) return null;
+    return Math.round((amount / totalFaceValue) * 100);
+  };
+  const instantDiscountPct = pctOfWorth(instantDiscountVal);
+  const couponDiscountPct = pctOfWorth(couponDiscountVal);
+  const coinDiscountPct = pctOfWorth(preview?.coinsDiscount ?? 0);
+
+  const heroUnitPrice = unitPrice != null && unitPrice > 0 ? unitPrice : faceUnit;
+  const heroSavingsPercent =
     preview?.savingsPercent != null && preview.savingsPercent > 0
-      ? preview.savingsPercent
-      : totalFaceValue > 0
-        ? (instantDiscountVal / totalFaceValue) * 100
-        : 0;
-  const instantDiscountPercentLabel =
-    instantDiscountPercent > 0 ? formatPercent(instantDiscountPercent) : null;
-  const coinDiscountPercent = baseDiscountedPrice > 0 ? Math.round(((preview?.coinsDiscount ?? 0) / baseDiscountedPrice) * 100) : 0;
+      ? formatPercent(preview.savingsPercent)
+      : instantDiscountPct != null
+        ? formatPercent(instantDiscountPct)
+        : null;
+
   const transparentLogoUrl = useTransparentLogo(product.logoUrl ?? null);
 
   const disabledReason =
@@ -384,26 +404,27 @@ export function PaymentSummarySheet({
             </div>
           </div>
 
-          {/* Title and Green discount text */}
+          {/* Title and Green discount text — matches mobile hero offer line */}
           <div className="flex flex-col gap-1">
             <h3 className="text-lg font-extrabold text-white font-sans">
               ₹
-              {(isFlexible
-                ? (customVoucherAmount ?? 0)
-                : sku.faceValue ?? sku.unitAmount ?? 0
-              ).toLocaleString("en-IN")}{" "}
+              {faceUnit.toLocaleString("en-IN")}{" "}
               {product.brandName ?? product.name} card
             </h3>
-            {instantDiscountPercentLabel ? (
+            {heroSavingsPercent ? (
               <span className="text-xs font-medium text-[#25C26E] font-sans flex items-baseline gap-1">
                 <span>Getting for</span>
-                <span className="text-[14px] font-semibold">₹{baseDiscountedPrice.toLocaleString("en-IN")}</span>
-                <span className="line-through text-[11px] opacity-85 ml-0.5">₹{subtotalVal.toLocaleString("en-IN")}</span>
-                <span className="ml-0.5">({instantDiscountPercentLabel}%off)</span>
+                <span className="text-[14px] font-semibold">
+                  ₹{heroUnitPrice.toLocaleString("en-IN")}
+                </span>
+                <span className="line-through text-[11px] opacity-85 ml-0.5">
+                  ₹{faceUnit.toLocaleString("en-IN")}
+                </span>
+                <span className="ml-0.5">({heroSavingsPercent}%off)</span>
               </span>
             ) : (
               <span className="text-xs font-medium text-white/40 font-sans">
-                Getting for ₹{subtotalVal.toLocaleString("en-IN")}
+                Getting for ₹{faceUnit.toLocaleString("en-IN")}
               </span>
             )}
           </div>
@@ -434,7 +455,22 @@ export function PaymentSummarySheet({
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-[#25C26E] font-medium">Instant Discount</span>
                   <span className="text-white font-semibold">
-                    -₹{instantDiscountVal.toLocaleString("en-IN")} ({instantDiscountPercentLabel}%)
+                    -₹{instantDiscountVal.toLocaleString("en-IN")}
+                    {instantDiscountPct != null ? ` (${instantDiscountPct}%)` : ""}
+                  </span>
+                </div>
+              )}
+
+              {couponDiscountVal > 0 && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-[#25C26E] font-medium">
+                    {appliedCouponCode
+                      ? `Coupon discount (${appliedCouponCode})`
+                      : "Coupon discount"}
+                  </span>
+                  <span className="text-white font-semibold">
+                    -₹{couponDiscountVal.toLocaleString("en-IN")}
+                    {couponDiscountPct != null ? ` (${couponDiscountPct}%)` : ""}
                   </span>
                 </div>
               )}
@@ -453,7 +489,8 @@ export function PaymentSummarySheet({
                     <span className="text-[#F5A623] font-bold">{displayCoinsSpent.toLocaleString("en-IN")}</span>
                   </div>
                   <span className="text-white font-semibold">
-                    -₹{preview?.coinsDiscount?.toLocaleString("en-IN") ?? "0"} ({coinDiscountPercent}%)
+                    -₹{preview?.coinsDiscount?.toLocaleString("en-IN") ?? "0"}
+                    {coinDiscountPct != null ? ` (${coinDiscountPct}%)` : ""}
                   </span>
                 </div>
               )}

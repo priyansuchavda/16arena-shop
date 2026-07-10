@@ -37,7 +37,7 @@ export function ShopAccountShell({
     <ShopLayout
       categories={categories}
       hideSidebar={hideSidebar}
-      onSelectCategory={(slug) => router.push(`/shop/${slug}`)}
+      onSelectCategory={(slug) => router.push(`/${slug}`)}
       onSelectAll={() => router.push("/")}
     >
       <div className={fullWidth ? "w-full pb-12 pt-1" : "mx-auto w-full max-w-[1200px] pb-12 pt-1"}>

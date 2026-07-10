@@ -137,7 +137,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
               </a>
             ) : slide.slug ? (
               <Link
-                href={`/shop/${slide.slug}`}
+                href={`/${slide.slug}`}
                 className="shop-pill shrink-0 bg-[#FF973C] px-5 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#0c0c0c] transition hover:brightness-110 sm:px-6 sm:py-3 sm:text-xs"
               >
                 {slide.cta}

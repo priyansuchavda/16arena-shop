@@ -38,10 +38,11 @@ export function ShopForYouCard({ product }: { product: CardModel }) {
     ? normalizeColor(product.featureColor)
     : footerColor(product);
   const footerHeight = FOOTER_HEIGHT;
+  const href = product.categorySlug ? `/${product.categorySlug}/${product.slug}` : `/${product.slug}`;
 
   return (
     <Link
-      href={`/shop/${product.slug}`}
+      href={href}
       className="shop-card-lift group relative flex h-[206px] w-[341px] shrink-0 flex-col overflow-hidden rounded-[10px] border border-white/10 bg-white/[0.05]"
     >
       <div className="relative min-h-0 flex-1 overflow-hidden">

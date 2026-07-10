@@ -10,9 +10,10 @@ export function SwagCard({ product }: { product: CardModel }) {
       : product.badge?.label?.toLowerCase().includes("off")
         ? product.badge.label
         : product.badge?.label;
+  const href = product.categorySlug ? `/${product.categorySlug}/${product.slug}` : `/${product.slug}`;
 
   return (
-    <Link href={`/shop/${product.slug}`} className="shop-card-lift group block w-[132px] shrink-0 sm:w-[148px]">
+    <Link href={href} className="shop-card-lift group block w-[132px] shrink-0 sm:w-[148px]">
       <div
         className="shop-card relative flex aspect-square items-center justify-center overflow-hidden"
         style={{

@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import {
-  LiveProductDetail,
   ShopCategoryView,
   ShopLayout,
   shopApi,
@@ -34,14 +33,6 @@ export async function generateMetadata({
         description: `Get instant digital delivery on ${activeCategory.name} gift cards, codes, and vouchers. Earn Arena Coins cashback on every purchase!`,
       };
     }
-
-    const item = await shopApi.fetchProductDetail(slug);
-    if (item) {
-      return {
-        title: `Buy ${item.brandName || item.name} Gift Cards - 16arenashop`,
-        description: item.description || `Purchase ${item.brandName || item.name} digital gift vouchers and gaming top-ups. Instant code delivery with Arena Coins cashback.`,
-      };
-    }
   } catch {}
 
   return {
@@ -50,7 +41,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function ShopSlugPage({
+export default async function ShopCategorySlugPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -117,53 +108,6 @@ export default async function ShopSlugPage({
           categories={liveCats}
           popularCards={popularCards} 
         />
-      </ShopLayout>
-    );
-  }
-
-  let item: any = null;
-  let related: ReturnType<typeof apiToCard>[] = [];
-  const slugs = categorySlugMap(liveCats);
-
-  try {
-    item = await shopApi.fetchProductDetail(slug);
-    if (item) {
-      const relatedProds = await shopApi.fetchProducts(item.categoryId).catch(() => []);
-      related = relatedProds
-        .filter((p) => p.slug !== item!.slug)
-        .slice(0, 4)
-        .map((p) => apiToCard(p, slugs));
-    }
-  } catch {
-    // API unreachable
-  }
-
-  if (item) {
-    const dynamicJsonLd = {
-      "@context": "https://schema.org",
-      "@type": "Product",
-      "name": item.brandName || item.name,
-      "description": item.description || item.about || "",
-      "image": item.logoUrl || item.heroImageUrl || "",
-      "offers": {
-        "@type": "AggregateOffer",
-        "priceCurrency": "INR",
-        "lowPrice": item.skus?.[0]?.retailPrice || 0,
-        "offerCount": item.skus?.length || 1,
-      }
-    };
-
-    return (
-      <ShopLayout
-        categories={categoryItems}
-        walletBalance={0}
-        hideSidebar={true}
-      >
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(dynamicJsonLd) }}
-        />
-        <LiveProductDetail product={item} related={related} />
       </ShopLayout>
     );
   }

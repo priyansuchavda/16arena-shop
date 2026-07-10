@@ -103,7 +103,7 @@ export async function ShopHomePage() {
       featuredCards = featuredProds
         .filter((p) => p.isActive !== false)
         .map((p) => apiToCard(p, slugs));
-      slides = apiBannerSlides.length > 0 ? apiBannerSlides : heroSlidesFromProducts(allProds);
+      slides = apiBannerSlides.length > 0 ? apiBannerSlides : heroSlidesFromProducts(allProds, slugs);
       layoutSections = sections;
     }
   } catch (err) {

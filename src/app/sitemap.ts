@@ -19,16 +19,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const products = await shopApi.fetchProducts(undefined, 1, 150);
-    const productRoutes = products.map((p) => ({
-      url: `${baseUrl}/shop/${p.slug}`,
-      lastModified: new Date(),
-      changeFrequency: "weekly" as const,
-      priority: 0.7,
-    }));
-
     const categories = await shopApi.fetchCategories();
+    const catMap = new Map(categories.map((c) => [c.id, c.slug]));
+
+    const productRoutes = products.map((p) => {
+      const catSlug = catMap.get(p.categoryId) || "category";
+      return {
+        url: `${baseUrl}/${catSlug}/${p.slug}`,
+        lastModified: new Date(),
+        changeFrequency: "weekly" as const,
+        priority: 0.7,
+      };
+    });
+
     const categoryRoutes = categories.map((c) => ({
-      url: `${baseUrl}/shop/${c.slug}`,
+      url: `${baseUrl}/${c.slug}`,
       lastModified: new Date(),
       changeFrequency: "weekly" as const,
       priority: 0.6,

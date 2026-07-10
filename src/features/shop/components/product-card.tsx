@@ -7,10 +7,11 @@ import { formatPercent } from "../utils/checkout.utils";
 export function ProductCard({ product }: { product: CardModel }) {
   const tone = product.badge ? TONE_STYLES[product.badge.tone] : null;
   const lowStock = product.badge?.tone === "low";
+  const href = product.categorySlug ? `/${product.categorySlug}/${product.slug}` : `/${product.slug}`;
 
   return (
     <Link
-      href={`/shop/${product.slug}`}
+      href={href}
       className="group relative flex flex-col overflow-hidden rounded-[14px] border border-[var(--line)] bg-[var(--carbon)] transition duration-200 hover:-translate-y-1 hover:border-[var(--flame)]/45 hover:shadow-[0_18px_38px_-18px_rgba(0,0,0,0.85)]"
     >
       <span

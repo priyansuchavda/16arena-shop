@@ -4,7 +4,7 @@
 export const ROUTES = {
   shop: {
     home: "/",
-    bySlug: (slug: string) => `/shop/${slug}`,
+    bySlug: (slug: string) => `/${slug}`,
   },
   cart: "/cart",
   checkout: "/checkout",

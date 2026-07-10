@@ -171,6 +171,7 @@ export function FlashDealsCarousel({ items }: { items: CardModel[] }) {
         const labelFill = product.featureColor
           ? normalizeColor(product.featureColor)
           : "#141414";
+        const href = product.categorySlug ? `/${product.categorySlug}/${product.slug}` : `/${product.slug}`;
 
         return (
           <div
@@ -185,7 +186,7 @@ export function FlashDealsCarousel({ items }: { items: CardModel[] }) {
             }}
           >
             <Link
-              href={`/shop/${product.slug}`}
+              href={href}
               draggable={false}
               onClickCapture={(e) => {
                 if (movedRef.current) {

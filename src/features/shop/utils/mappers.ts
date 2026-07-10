@@ -168,7 +168,10 @@ export function topCategories(cats: ApiCategory[]): CategoryItem[] {
     }));
 }
 
-export function heroSlidesFromProducts(prods: ApiProduct[]): {
+export function heroSlidesFromProducts(
+  prods: ApiProduct[],
+  slugByCategoryId?: Map<string, string>
+): {
   id: string;
   slug: string;
   eyebrow: string;
@@ -184,9 +187,10 @@ export function heroSlidesFromProducts(prods: ApiProduct[]): {
   return pool.slice(0, 4).map((p) => {
     const g = gradientFor(p.brandName ?? p.name);
     const save = productSavingsPercent(p.savingsPercent) ?? 0;
+    const catSlug = slugByCategoryId?.get(p.categoryId) ?? "category";
     return {
       id: p.id,
-      slug: p.slug,
+      slug: `${catSlug}/${p.slug}`,
       eyebrow: "16ARENA TRUSTED STORE",
       title: p.brandName || p.name,
       subtitle:

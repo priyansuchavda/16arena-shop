@@ -4,8 +4,9 @@ import { CardModel } from "@/features/shop/types/shop.types";
 
 /** Large promotional "drop" panel used in the For you row. */
 export function PromoCard({ product }: { product: CardModel }) {
+  const href = product.categorySlug ? `/${product.categorySlug}/${product.slug}` : `/${product.slug}`;
   return (
-    <Link href={`/shop/${product.slug}`} className="group block">
+    <Link href={href} className="group block">
       <HudPanel
         cut={15}
         border="rgba(255,255,255,0.2)"

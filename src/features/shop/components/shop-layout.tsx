@@ -15,6 +15,7 @@ import { useUserSummary, useAuthStore } from "@/features/auth";
 import { formatPercent } from "../utils/checkout.utils";
 import { AuthModal } from "./auth-modal";
 import { RegisterModal } from "./register-modal";
+import { flattenCategories } from "../utils/mappers";
 
 interface SearchItem {
   id: string;
@@ -23,6 +24,7 @@ interface SearchItem {
   logoUrl: string | null;
   categoryName: string;
   discountText: string;
+  categoryId: string;
 }
 
 function ShopTopBar({
@@ -43,6 +45,20 @@ function ShopTopBar({
   const [localQuery, setLocalQuery] = useState(searchQuery ?? "");
   const [searchResults, setSearchResults] = useState<SearchItem[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [categoryMap, setCategoryMap] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    async function loadCats() {
+      try {
+        const cats = await shopApi.fetchCategories();
+        const flatCats = flattenCategories(cats);
+        setCategoryMap(new Map(flatCats.map((c) => [c.id, c.slug])));
+      } catch (err) {
+        console.error("Error loading categories in ShopTopBar", err);
+      }
+    }
+    loadCats();
+  }, []);
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -116,6 +132,7 @@ function ShopTopBar({
             logoUrl: p.logoUrl || p.heroImageUrl,
             categoryName: p.categoryName || "Gift Card",
             discountText,
+            categoryId: p.categoryId,
           });
         });
 
@@ -166,10 +183,11 @@ function ShopTopBar({
     inputRef.current?.focus();
   };
 
-  const handleItemClick = (slug: string) => {
+  const handleItemClick = (item: SearchItem) => {
     setIsDropdownVisible(false);
     setLocalQuery("");
-    router.push(`/shop/${slug}`);
+    const catSlug = categoryMap.get(item.categoryId) || "category";
+    router.push(`/${catSlug}/${item.slug}`);
   };
 
   const getInitialsGradient = (name: string) => {
@@ -256,7 +274,7 @@ function ShopTopBar({
                 searchResults.map((item) => (
                   <div
                     key={item.id}
-                    onClick={() => handleItemClick(item.slug)}
+                    onClick={() => handleItemClick(item)}
                     className="flex items-center justify-between p-3 hover:bg-white/5 cursor-pointer border-b border-white/5 last:border-b-0 transition-all duration-150"
                   >
                     <div className="flex items-center gap-3">
@@ -326,6 +344,15 @@ export function ShopLayout({
 }) {
   const isAuthModalOpen = useAuthStore((state) => state.isAuthModalOpen);
   const closeAuthModal = useAuthStore((state) => state.closeAuthModal);
+  const router = useRouter();
+
+  const handleSelectCategory = onSelectCategory ?? ((slug: string) => {
+    router.push(`/${slug}`);
+  });
+
+  const handleSelectAll = onSelectAll ?? (() => {
+    router.push("/");
+  });
 
   return (
     <div className="flex min-h-screen">
@@ -336,7 +363,7 @@ export function ShopLayout({
       >
         <ShopTopBar
           walletBalance={walletBalance}
-          onSelectAll={onSelectAll}
+          onSelectAll={handleSelectAll}
           searchQuery={searchQuery}
           onSearchChange={onSearchChange}
         />
@@ -353,7 +380,7 @@ export function ShopLayout({
                 .filter(Boolean)
                 .join(" ")}
             >
-              <MobileCategoryStrip items={categories} onSelectCategory={onSelectCategory} />
+              <MobileCategoryStrip items={categories} onSelectCategory={handleSelectCategory} />
             </div>
           )}
 

@@ -67,9 +67,11 @@ export function ShopCategorySectionCard({ product }: { product: CardModel }) {
   const maxCoins = product.maxCoins ?? product.coinAmount ?? 0;
   const isCoinOnly = product.isCoinOnly ?? false;
 
+  const href = product.categorySlug ? `/${product.categorySlug}/${product.slug}` : `/${product.slug}`;
+
   return (
     <Link
-      href={`/shop/${product.slug}`}
+      href={href}
       draggable={false}
       onDragStart={(e) => e.preventDefault()}
       className="shop-card-lift group relative flex w-full shrink-0 flex-col overflow-hidden rounded-[11px] border border-white/10 bg-white/[0.03]"

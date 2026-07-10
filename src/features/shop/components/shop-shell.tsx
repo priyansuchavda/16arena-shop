@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ShopLayout } from "./shop-layout";
 import { HeroCarousel, type HeroSlide } from "./hero-carousel";
 import { ScrollRow } from "./scroll-row";
@@ -53,6 +53,7 @@ export function ShopShell({
   const [searchLoading, setSearchLoading] = useState(false);
 
   const searchParams = useSearchParams();
+  const router = useRouter();
   const qParam = searchParams.get("q");
 
   useEffect(() => {
@@ -276,18 +277,10 @@ export function ShopShell({
       walletBalance={walletBalance}
       categoryMode={!isHome}
       onSelectCategory={(slug) => {
-        setActiveSlug(slug);
-        setSearchQuery("");
-        if (typeof window !== "undefined") {
-          window.history.replaceState(null, "", window.location.pathname);
-        }
+        router.push(`/${slug}`);
       }}
       onSelectAll={() => {
-        setActiveSlug(ALL_CATEGORY_SLUG);
-        setSearchQuery("");
-        if (typeof window !== "undefined") {
-          window.history.replaceState(null, "", window.location.pathname);
-        }
+        router.push("/");
       }}
       searchQuery={searchQuery}
       onSearchChange={(q) => {
@@ -341,9 +334,10 @@ export function ShopShell({
               allCategories={allChipCategories}
               selectedSlug={selectedChipSlug}
               onCategoryTap={(slug) => {
-                setActiveSlug(slug);
-                if (typeof window !== "undefined") {
-                  window.history.replaceState(null, "", window.location.pathname);
+                if (slug === ALL_CATEGORY_SLUG) {
+                  router.push("/");
+                } else {
+                  router.push(`/${slug}`);
                 }
               }}
             />

@@ -81,8 +81,8 @@ export function ShopCategoryView({ category, categories, popularCards = [] }: Sh
             <h1 className="font-heading text-[28px] font-bold leading-tight tracking-tight text-white sm:text-[34px]">
               {title}
             </h1>
-            <p className="mt-1.5 text-sm text-white/70">
-              {loading ? "Loading vouchers..." : voucherLabel(count)}
+            <p className="mt-1.5 text-base font-semibold text-white/95">
+              {loading ? "Loading Vouchers..." : voucherLabel(count)}
             </p>
           </div>
         </div>

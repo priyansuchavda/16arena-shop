@@ -16,6 +16,7 @@ import { CouponSuggestionsList } from "./coupon-suggestions-list";
 import { EditAmountModal } from "./edit-amount-modal";
 import { EditCoinsModal } from "./edit-coins-modal";
 import { SlantedButton } from "@/shared/components/ui/slanted-button";
+import { OdometerNumber, PricingSplitAmountRow } from "./pricing-amount-animation";
 import {
   ShopProductDetail,
   ShopSku,
@@ -46,6 +47,7 @@ import {
   resolveMaxCoinCoveragePercent,
   formatPercent,
   formatDeliveryVoucherAmount,
+  formatInr,
 } from "../utils/checkout.utils";
 import { resolveSkuRetailPrice } from "../utils/normalize-product";
 
@@ -784,12 +786,31 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   }, [showCouponList]);
 
   // Pricing from server preview when available (mobile _buildPricingSection).
-  const displayPrice = checkoutPreview?.totalPayable ?? subtotal;
+  // While preview is clearing/reloading after SKU/amount change, fall back to a
+  // local estimate so the split-row collapse→roll→expand animation still runs.
+  const optimisticHeaderPricing = useMemo(() => {
+    const retail = localSubtotal;
+    const rate = coinToInrRate ?? 0;
+    if (!applyCoins || previewCoinsToRedeem <= 0 || rate <= 0) {
+      return { cash: retail, coins: 0 };
+    }
+    const coins = previewCoinsToRedeem;
+    const cash = Math.max(0, retail - coins * rate);
+    return { cash, coins };
+  }, [localSubtotal, applyCoins, previewCoinsToRedeem, coinToInrRate]);
+
+  const displayPrice =
+    checkoutPreview?.totalPayable ?? optimisticHeaderPricing.cash;
+  const displayCoinsSpentHeader = !applyCoins
+    ? 0
+    : (checkoutPreview?.coinsSpent ?? optimisticHeaderPricing.coins);
+
   const displayOriginal = isFlexibleSelection
     ? customAmount * cartQuantity
     : (checkoutPreview?.originalUnitPrice ??
       selectedSku?.originalPrice ??
       resolveSkuRetailPrice(selectedSku)) * cartQuantity;
+
   const maxCoinCoveragePct = useMemo(
     () =>
       resolveMaxCoinCoveragePercent({
@@ -962,25 +983,16 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
               {/* Price display box (rectangular rounded-xl container with border & fill) */}
               <div className="bg-white/[0.05] border border-white/10 rounded-xl p-5 flex flex-col gap-3 select-none w-full">
                 {(() => {
-                  const coinsSpent = checkoutPreview?.coinsSpent ?? 0;
+                  const coinsSpent = displayCoinsSpentHeader;
                   if (coinsSpent > 0) {
                     return (
                       <>
                         <div className="flex items-start justify-between w-full">
                           <div className="flex flex-col">
-                            <div className="flex items-center gap-1.5 font-sans">
-                              <span className="text-[32px] font-bold text-white tracking-tight leading-none tabular-nums">
-                                ₹{displayPrice.toLocaleString("en-IN")}
-                              </span>
-                              <span className="text-xl font-bold text-white leading-none px-0.5">+</span>
-                              <Image src={coinImg} alt="" width={18} height={18} className="object-contain shrink-0" />
-                              <span className="text-2xl font-bold text-[#F5A623] leading-none tabular-nums">
-                                {coinsSpent.toLocaleString()}
-                              </span>
-                            </div>
+                            <PricingSplitAmountRow cash={displayPrice} coins={coinsSpent} />
                             {displayOriginal > displayPrice && (
                               <span className="text-sm text-white/40 line-through font-medium font-sans tabular-nums mt-1.5 ml-0.5">
-                                ₹{displayOriginal.toLocaleString("en-IN")}
+                                {formatInr(displayOriginal)}
                               </span>
                             )}
                           </div>
@@ -1001,14 +1013,13 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                     <>
                       <div className="flex items-start justify-between w-full">
                         <div className="flex flex-col">
-                          <div className="flex items-baseline gap-2 font-sans">
-                            <span className="text-[32px] font-bold text-white tracking-tight leading-none tabular-nums">
-                              ₹{displayPrice.toLocaleString("en-IN")}
-                            </span>
+                          <div className="flex items-center gap-1.5 font-sans">
+                            <span className="text-[32px] font-bold text-white tracking-tight leading-none">₹</span>
+                            <OdometerNumber value={displayPrice} />
                           </div>
                           {displayOriginal > displayPrice && (
                             <span className="text-sm text-white/40 line-through font-medium font-sans tabular-nums mt-0.5 ml-0.5">
-                              ₹{displayOriginal.toLocaleString("en-IN")}
+                              {formatInr(displayOriginal)}
                             </span>
                           )}
                         </div>
@@ -1065,32 +1076,25 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                 <div className="grid grid-cols-2 gap-3">
                   {fixedSkus.map((sku) => {
                     const isSelected = selectedSku?.id === sku.id;
-                    const faceVal = sku.faceValue ?? sku.unitAmount ?? 0;
-                    const retailPrice = sku.retailPrice ?? sku.price ?? faceVal;
-                    const maxCoverage = sku.paymentRules?.maxCoinCoveragePercent ?? paymentRules?.maxCoinCoveragePercent ?? 0;
-                    const coinToInrRate = sku.paymentRules?.coinToInrRate ?? paymentRules?.coinToInrRate ?? 0.01;
-                    const maxCoinInr = (retailPrice * maxCoverage) / 100;
-                    const maxCoins = Math.floor(maxCoinInr / coinToInrRate);
-                    const displayInr = retailPrice - maxCoinInr;
+                    const cardWorth = sku.faceValue ?? sku.unitAmount ?? 0;
+                    const payPrice = sku.retailPrice ?? sku.price ?? cardWorth;
 
                     return (
                       <button
                         key={sku.id}
                         type="button"
                         onClick={() => setSelectedSku(sku)}
-                        className={`p-4 rounded-xl flex flex-col gap-2 text-left border transition ${isSelected
+                        className={`p-4 rounded-xl flex flex-col gap-1 text-left border transition ${isSelected
                           ? "bg-white/[0.05] border-white/20 shadow-[0_0_0_1px_rgba(255,255,255,0.1)]"
                           : "bg-transparent border-white/10 hover:bg-white/[0.02]"
                           }`}
                       >
-                        <span className="text-sm font-bold text-white font-sans">
-                          {sku.label || sku.title || `${faceVal} UC`}
+                        <span className="text-sm font-bold text-white font-sans tabular-nums">
+                          {formatInr(cardWorth)}
                         </span>
-                        <div className="flex items-center gap-1.5 font-sans">
-                          <span className="text-sm font-medium text-white/80">
-                            ₹{displayInr.toLocaleString("en-IN")}
-                          </span>
-                        </div>
+                        <span className="text-sm font-medium text-[#22C55E] font-sans tabular-nums">
+                          {formatInr(payPrice)}
+                        </span>
                       </button>
                     );
                   })}
@@ -1286,10 +1290,10 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
       {/* Terms & Conditions Center Popup Modal */}
       {showTerms && product.giftCardInfo?.termsAndConditions && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#1C1C1E] border border-white/10 rounded-2xl w-full max-w-[500px] flex flex-col max-h-[80vh] shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-[#1C1C1E] border border-white/10 rounded-2xl w-full max-w-[500px] flex flex-col max-h-[80vh] shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 font-sans">
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-white/5">
-              <div className="flex items-center gap-2 text-sm font-extrabold text-white">
+              <div className="flex items-center gap-2 text-sm font-bold text-white font-sans">
                 <span>📋</span>
                 <span>Terms & Conditions</span>
               </div>
@@ -1301,19 +1305,19 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                 <X className="w-4 h-4" />
               </button>
             </div>
-            {/* Body */}
-            <div className="p-5 overflow-y-auto text-xs text-white/70 leading-relaxed flex flex-col gap-3">
+            {/* Body — same type style as How to redeem */}
+            <div className="p-5 overflow-y-auto text-xs text-white/70 leading-relaxed flex flex-col gap-3.5 font-sans">
               {Array.isArray(product.giftCardInfo.termsAndConditions) ? (
                 (product.giftCardInfo.termsAndConditions as any).map((term: string, idx: number) => (
                   <div key={idx} className="flex gap-3 items-start">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/60">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/60 font-sans">
                       {idx + 1}
                     </span>
-                    <p className="flex-1 mt-0.5">{term}</p>
+                    <p className="flex-1 mt-0.5 font-sans">{term}</p>
                   </div>
                 ))
               ) : (
-                <div className="whitespace-pre-wrap">{product.giftCardInfo.termsAndConditions}</div>
+                <div className="whitespace-pre-wrap font-sans">{product.giftCardInfo.termsAndConditions}</div>
               )}
             </div>
           </div>

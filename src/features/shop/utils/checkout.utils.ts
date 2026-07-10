@@ -15,8 +15,21 @@ export function formatDeliveryVoucherAmount(amount: number): string {
   return amount.toFixed(2);
 }
 
-export function formatInr(amount: number): string {
-  return `₹${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+/** Matches Flutter `ShopService.formatInr` — `#,##0.##` / `#,##0` with `en_IN`. */
+export function formatInr(amount: number, decimals = true): string {
+  return `₹${formatInrBody(amount, decimals)}`;
+}
+
+/** INR amount without the ₹ prefix (for odometer digits). */
+export function formatInrBody(amount: number, decimals = true): string {
+  if (!Number.isFinite(amount)) return "0";
+  if (!decimals) {
+    return Math.round(amount).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+  }
+  return Number(amount).toLocaleString("en-IN", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
 }
 
 export function formatCoins(value: number): string {

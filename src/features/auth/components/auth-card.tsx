@@ -306,6 +306,39 @@ export function AuthCard({
               )}
             </button>
           </div>
+
+          {/* Login footer — Terms / Privacy / Rules */}
+          <div className="mt-5 text-center font-sans text-[12px] font-medium leading-normal text-white/24">
+            <p>By continuing, you agree to our</p>
+            <p className="mt-1">
+              <a
+                href="https://www.16arena.com/#terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-inherit underline decoration-dotted underline-offset-2 hover:text-white/40"
+              >
+                Terms of Service
+              </a>
+              <span>, </span>
+              <a
+                href="https://www.16arena.com/#privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-inherit underline decoration-dotted underline-offset-2 hover:text-white/40"
+              >
+                Privacy Policy
+              </a>
+              <span> and </span>
+              <a
+                href="https://www.16arena.com/#contest-rules"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-inherit underline decoration-dotted underline-offset-2 hover:text-white/40"
+              >
+                Rules
+              </a>
+            </p>
+          </div>
         </form>
       ) : (
         <form onSubmit={handleVerifyOtp}>

@@ -46,7 +46,7 @@ function LogoutIcon({ className }: { className?: string }) {
 /** Circular avatar — simple borderless profile photo. */
 export function ProfileAvatar({ src = DEFAULT_AVATAR_URL }: { src?: string }) {
   return (
-    <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full overflow-hidden">
+    <span className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full overflow-hidden lg:h-8 lg:w-8">
       <Image src={src || DEFAULT_AVATAR_URL} alt="" fill className="object-cover" sizes="32px" priority />
     </span>
   );
@@ -91,10 +91,10 @@ export function ProfileChip() {
       <button
         type="button"
         onClick={openAuthModal}
-        className="shop-pill group inline-flex h-[42px] shrink-0 items-center border border-white/10 bg-white/[0.03] py-0 pl-1 pr-1 sm:pr-4 transition hover:brightness-110 animate-fade-in focus:outline-none"
+        className="shop-pill group inline-flex h-9 shrink-0 items-center border border-white/10 bg-white/[0.03] py-0 pl-1 pr-1 sm:pr-4 transition hover:brightness-110 animate-fade-in focus:outline-none lg:h-[42px]"
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FE8321] text-white">
-          <LoginIcon className="w-[11px] h-[16px]" />
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#FE8321] text-white lg:h-8 lg:w-8">
+          <LoginIcon className="w-[9px] h-[13px] lg:w-[11px] lg:h-[16px]" />
         </span>
         <span className="hidden sm:inline ml-2.5 max-w-[8rem] truncate text-[14px] font-semibold leading-none text-white">
           Get Started
@@ -110,7 +110,7 @@ export function ProfileChip() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="shop-pill group inline-flex h-[42px] shrink-0 items-center border border-white/10 bg-white/[0.03] py-0 pl-1 pr-1 sm:pr-3.5 transition hover:brightness-110 focus:outline-none"
+        className="shop-pill group inline-flex h-9 shrink-0 items-center border border-white/10 bg-white/[0.03] py-0 pl-1 pr-1 sm:pr-3.5 transition hover:brightness-110 focus:outline-none lg:h-[42px]"
       >
         <ProfileAvatar src={avatarUrl} />
         <span className="hidden sm:inline ml-2.5 max-w-[8rem] truncate text-[14px] font-semibold leading-none text-white">

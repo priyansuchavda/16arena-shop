@@ -346,11 +346,17 @@
   border-radius: 999px;
 }
 
-/* Fluid content width: scales with the viewport but stops growing on ultrawide screens */
+/* Fluid content width: full-bleed on mobile/tablet (padding already applied by
+   the layout wrapper), scales with the viewport on desktop but stops growing
+   on ultrawide screens. */
 .shop-content-width {
   width: 100%;
-  max-width: min(83%, 1440px);
   margin-inline: auto;
+}
+@media (width >= 1024px) {
+  .shop-content-width {
+    max-width: min(83%, 1440px);
+  }
 }
 
 .shop-card {

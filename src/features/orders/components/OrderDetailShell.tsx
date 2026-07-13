@@ -26,9 +26,9 @@ import {
 } from "@/features/shop/utils/checkout.utils";
 import {
   PAYMENT_CANCELLED_MESSAGE,
-  initiateAndOpenRazorpay,
+  initiateAndOpenEasebuzz,
   isPaymentCancelledError,
-} from "@/features/shop/utils/razorpay-checkout";
+} from "@/features/shop/utils/easebuzz-checkout";
 import { useAuthStore } from "@/features/auth";
 import { getApiErrorMessage } from "@/features/shop/services/shop-api-client";
 import coinImg from "@/assets/png/coin.png";
@@ -280,7 +280,10 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
     }
   }, [orderId]);
 
-  useEffect(() => { void loadOrder(); }, [loadOrder]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadOrder();
+  }, [loadOrder]);
 
   useEffect(() => {
     if (!order || isOrderStatusTerminal(order.status)) return;
@@ -303,6 +306,7 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
     return () => {
       if (pollRef.current) clearTimeout(pollRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order?.status, orderId]);
 
   const handleCopy = (text: string, id: string) => {
@@ -328,7 +332,7 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
     try {
       const productName =
         order.items[0]?.productName ?? order.items[0]?.brandName ?? "Order";
-      await initiateAndOpenRazorpay({
+      await initiateAndOpenEasebuzz({
         orderId: order.id,
         productName,
         contact: user?.phoneNumber ?? "",

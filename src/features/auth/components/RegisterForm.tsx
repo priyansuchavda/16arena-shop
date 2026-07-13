@@ -2,11 +2,12 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../store/auth.store";
 import { useUserSummary } from "../hooks/useAuth";
 import { userApi } from "@/features/user/services/user.service";
 import { authApi } from "../services/auth.service";
-import { CheckCircle2, AlertCircle, Loader2, Edit2, ChevronLeft } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, Edit2 } from "lucide-react";
 import { SlantedButton } from "@/shared/components/ui/slanted-button";
 
 type AvailabilityStatus = "idle" | "checking" | "available" | "taken";
@@ -31,6 +32,7 @@ export const RegisterForm = ({
 } = {}) => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const { setUser, isAuthenticated, _sessionInitialized, closeRegisterModal } = useAuthStore();
   const { data: userSummary } = useUserSummary();
   const profile = userSummary?.userProfile || userSummary || useAuthStore.getState().user;
@@ -84,6 +86,16 @@ export const RegisterForm = ({
   const [referralLoading, setReferralLoading] = useState(false);
   const [referralError, setReferralError] = useState("");
   const [referralSuccess, setReferralSuccess] = useState("");
+
+  // Avatar step (new users only — after referral)
+  const [showAvatarStep, setShowAvatarStep] = useState(false);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
+
+  const goToAvatarStep = () => {
+    setShowReferral(false);
+    setShowAvatarStep(true);
+  };
 
   // Shake states
   const [shakeDisplayNameInput, setShakeDisplayNameInput] = useState(false);
@@ -213,7 +225,7 @@ export const RegisterForm = ({
     dobMonth !== initialValuesRef.current.dobMonth ||
     dobYear !== initialValuesRef.current.dobYear ||
     gender !== initialValuesRef.current.gender ||
-    avatarUrl !== initialValuesRef.current.avatarUrl;
+    (isProfileComplete && avatarUrl !== initialValuesRef.current.avatarUrl);
 
   const isSaveDisabled = isProfileComplete && !hasChanges;
 
@@ -507,7 +519,7 @@ export const RegisterForm = ({
 
       const payload: any = {
         displayName: displayName.trim(),
-        image: avatarUrl,
+        ...(isProfileComplete && { image: avatarUrl }),
         ...(usernameEditable && { username: userName.trim(), userName: userName.trim() }),
         ...(dobEditable && dateOfBirth && { dateOfBirth }),
         ...(genderEditable && gender && { gender }),
@@ -526,13 +538,14 @@ export const RegisterForm = ({
         setUser({
           ...profileBefore,
           displayName: displayName.trim(),
-          image: avatarUrl,
-          avatarUrl: avatarUrl,
+          ...(isProfileComplete && { image: avatarUrl, avatarUrl: avatarUrl }),
           ...(usernameEditable && { username: userName.trim(), userName: userName.trim() }),
           ...(dobEditable && dateOfBirth && { dateOfBirth }),
           ...(genderEditable && gender && { gender }),
         });
       }
+
+      await queryClient.invalidateQueries({ queryKey: ["auth", "userSummary"] });
 
       if (wasCompleteBefore) {
         leaveRegisterFlow();
@@ -565,7 +578,7 @@ export const RegisterForm = ({
       setReferralSuccess("Referral code applied successfully!");
       localStorage.setItem("referralFlowCompleted", "true");
       setTimeout(() => {
-        leaveRegisterFlow();
+        goToAvatarStep();
       }, 1500);
     } catch (err: any) {
       const msg = err?.response?.data?.message || "Invalid referral code. Please check and try again.";
@@ -576,14 +589,94 @@ export const RegisterForm = ({
   };
 
   const handleSkipReferral = () => {
-      localStorage.setItem("referralFlowCompleted", "true");
+    localStorage.setItem("referralFlowCompleted", "true");
+    goToAvatarStep();
+  };
+
+  const handleSaveAvatar = async () => {
+    setAvatarError("");
+    setAvatarSaving(true);
+
+    try {
+      const updated = await userApi.updateProfile({ image: avatarUrl });
+      const data = updated?.data || updated;
+      const profileBefore = userSummary?.userProfile || userSummary || useAuthStore.getState().user;
+
+      if (data) {
+        setUser(data);
+      } else {
+        setUser({
+          ...profileBefore,
+          image: avatarUrl,
+          avatarUrl: avatarUrl,
+        });
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["auth", "userSummary"] });
       leaveRegisterFlow();
+    } catch (err: any) {
+      setAvatarError(err?.response?.data?.message || "Failed to save avatar. Please try again.");
+    } finally {
+      setAvatarSaving(false);
+    }
   };
 
   if (!_sessionInitialized || !isAuthenticated) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="w-8 h-8 text-[var(--flame)] animate-spin" />
+      </div>
+    );
+  }
+
+  if (showAvatarStep) {
+    return (
+      <div className="relative w-full max-w-[420px] overflow-hidden rounded-[16px] border border-white/10 bg-[#161616] p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-sans text-[21px] font-semibold leading-[20px] tracking-[0px] text-white">
+            Choose Avatar
+          </h2>
+        </div>
+
+        <div className="h-[1px] bg-white/10 w-full mb-5" />
+
+        <p className="text-xs text-[var(--muted)] mb-4 text-center">
+          Select a preset profile avatar
+        </p>
+
+        <div className="grid grid-cols-4 gap-3 mb-6">
+          {PRESET_AVATARS.map((url, i) => {
+            const isSelected = avatarUrl === url;
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setAvatarUrl(url)}
+                className={`relative rounded-xl overflow-hidden aspect-square border transition-all active:scale-95 ${
+                  isSelected
+                    ? "border-[var(--flame)] scale-105 ring-1 ring-[var(--flame)]/30"
+                    : "border-white/10 hover:border-white/30"
+                }`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={`Preset ${i + 1}`} className="object-cover w-full h-full" />
+              </button>
+            );
+          })}
+        </div>
+
+        {avatarError && (
+          <div className="mb-4 text-xs font-semibold text-red-500 text-center">{avatarError}</div>
+        )}
+
+        <SlantedButton
+          type="button"
+          onClick={handleSaveAvatar}
+          isLoading={avatarSaving}
+          className="w-full"
+        >
+          Continue
+        </SlantedButton>
       </div>
     );
   }
@@ -706,29 +799,31 @@ export const RegisterForm = ({
       <div className="h-[1px] bg-white/10 w-full mb-5" />
 
       <form onSubmit={handleSaveProfile} noValidate className="relative z-10 flex flex-col gap-4">
-        {/* AVATAR SELECTOR */}
-        <div className="flex flex-col items-center mb-2">
-          <div className="relative w-20 h-20">
-            <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-white/20 relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={avatarUrl} alt="Avatar" className="object-cover w-full h-full" />
+        {/* AVATAR SELECTOR — edit profile only; new users pick avatar after referral */}
+        {isProfileComplete && (
+          <div className="flex flex-col items-center mb-2">
+            <div className="relative w-20 h-20">
+              <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-white/20 relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={avatarUrl} alt="Avatar" className="object-cover w-full h-full" />
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAvatarSheetOpen(true)}
+                className="absolute bottom-0 right-0 bg-[var(--flame)] p-1.5 rounded-full cursor-pointer hover:brightness-110 transition shadow-lg flex items-center justify-center w-7 h-7 border border-[#121212]"
+              >
+                <Edit2 className="w-3.5 h-3.5 text-[#121212]" />
+              </button>
             </div>
             <button
               type="button"
               onClick={() => setIsAvatarSheetOpen(true)}
-              className="absolute bottom-0 right-0 bg-[var(--flame)] p-1.5 rounded-full cursor-pointer hover:brightness-110 transition shadow-lg flex items-center justify-center w-7 h-7 border border-[#121212]"
+              className="mt-2 text-xs font-semibold text-[var(--muted)] hover:text-white transition"
             >
-              <Edit2 className="w-3.5 h-3.5 text-[#121212]" />
+              Change Avatar
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsAvatarSheetOpen(true)}
-            className="mt-2 text-xs font-semibold text-[var(--muted)] hover:text-white transition"
-          >
-            Change Avatar
-          </button>
-        </div>
+        )}
 
         {/* DISPLAY NAME */}
         <div>
@@ -894,8 +989,8 @@ export const RegisterForm = ({
         </SlantedButton>
       </form>
 
-      {/* AVATAR SHEET DIALOG */}
-      {isAvatarSheetOpen && (
+      {/* AVATAR SHEET DIALOG — edit profile only */}
+      {isProfileComplete && isAvatarSheetOpen && (
         <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center p-4">
           <div className="w-full max-w-sm rounded-[24px] border border-[var(--line)] bg-[#0c0c0c] p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150 relative">
             <h3 className="font-heading text-lg font-bold text-white mb-1">Choose Avatar</h3>
@@ -917,11 +1012,6 @@ export const RegisterForm = ({
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={url} alt={`Preset ${i + 1}`} className="object-cover w-full h-full" />
-                    {isSelected && (
-                      <div className="absolute inset-0 bg-[var(--flame)]/20 flex items-center justify-center text-[#0c0c0c] font-extrabold text-xs">
-                        ✓
-                      </div>
-                    )}
                   </button>
                 );
               })}

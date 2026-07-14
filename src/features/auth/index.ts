@@ -17,3 +17,6 @@ export * from "./services/auth.service";
 
 // Types
 export * from "./types/auth.types";
+
+// Utils
+export * from "./utils/device";

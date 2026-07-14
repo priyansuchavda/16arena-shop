@@ -16,6 +16,21 @@ export function AuthInitializer() {
       clearLegacyAuthStorage();
 
       try {
+        const redirectResponse = await authApi.consumeGoogleRedirectResult();
+        if (cancelled) return;
+        if (redirectResponse) {
+          const session = authApi.parseSessionResponse(redirectResponse);
+          if (session) {
+            setAuth(session.user, session.accessToken);
+            setSessionInitialized(true);
+            return;
+          }
+        }
+      } catch {
+        // No pending redirect, or it failed — fall through to normal session restore.
+      }
+
+      try {
         const { accessToken } = await authApi.refreshSession();
         if (cancelled || !accessToken) return;
 

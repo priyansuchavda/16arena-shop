@@ -27,6 +27,7 @@ export const SlantedButton: React.FC<SlantedButtonProps> = ({
       type={type}
       onClick={onClick}
       disabled={isButtonDisabled}
+      style={{ touchAction: "manipulation" }}
       className={`
         relative py-3.5 px-6
         bg-gradient-to-b from-[#FF973C] to-[#FF6A00]

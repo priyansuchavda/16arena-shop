@@ -801,9 +801,9 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           />
         </div>
       )}
-      <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-12 relative z-10 pt-6">
+      <div className="grid grid-cols-1 items-start gap-6 lg:gap-10 lg:grid-cols-12 relative z-10 pt-6">
         {/* Left Column: Product Info & Presentational Blocks (lg:col-span-7) */}
-        <div className="lg:col-span-7 flex flex-col gap-6 w-full max-w-[560px]">
+        <div className="lg:col-span-7 flex flex-col gap-6 w-full max-w-none lg:max-w-[560px]">
           <BrandPremiumVoucherCard
             brandName={product.brandName || product.name}
             logoUrl={product.logoUrl}
@@ -841,24 +841,24 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
           )}
 
           {/* Info cards (Redeem, Expiry, Usage) */}
-          <div className="grid grid-cols-3 gap-3 w-full mt-2">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full mt-2">
             {/* REDEEM */}
-            <div className="flex flex-col items-center justify-center text-center p-3 rounded-[11px] border border-white/10 bg-white/[0.05]">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
+            <div className="flex flex-col items-center justify-center text-center p-2 sm:p-3 rounded-[11px] border border-white/10 bg-white/[0.05]">
+              <div className="flex h-9 w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
                   <line x1="12" y1="18" x2="12.01" y2="18"></line>
                 </svg>
               </div>
-              <span className="text-[10px] font-bold font-sans uppercase tracking-wider text-white mt-3">REDEEM</span>
+              <span className="text-[10px] font-bold font-sans uppercase tracking-wider text-white mt-2 sm:mt-3">REDEEM</span>
               <span className="text-[10px] font-medium font-sans text-white/40 mt-1">
                 {product.giftCardInfo?.redemptionType === "ONLINE" ? "Online" : "Online"}
               </span>
             </div>
 
             {/* EXPIRY */}
-            <div className="flex flex-col items-center justify-center text-center p-3 rounded-[11px] border border-white/10 bg-white/[0.05]">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
+            <div className="flex flex-col items-center justify-center text-center p-2 sm:p-3 rounded-[11px] border border-white/10 bg-white/[0.05]">
+              <div className="flex h-9 w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                   <line x1="16" y1="2" x2="16" y2="6"></line>
@@ -866,21 +866,21 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                   <line x1="3" y1="10" x2="21" y2="10"></line>
                 </svg>
               </div>
-              <span className="text-[10px] font-bold font-sans uppercase tracking-wider text-white mt-3">EXPIRY</span>
+              <span className="text-[10px] font-bold font-sans uppercase tracking-wider text-white mt-2 sm:mt-3">EXPIRY</span>
               <span className="text-[10px] font-medium font-sans text-white/40 mt-1">
                 {product.giftCardInfo?.expiryLabel || "1 Year"}
               </span>
             </div>
 
             {/* USAGE */}
-            <div className="flex flex-col items-center justify-center text-center p-3 rounded-[11px] border border-white/10 bg-white/[0.05]">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
+            <div className="flex flex-col items-center justify-center text-center p-2 sm:p-3 rounded-[11px] border border-white/10 bg-white/[0.05]">
+              <div className="flex h-9 w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-white/70">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
                   <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
                 </svg>
               </div>
-              <span className="text-[10px] font-bold font-sans uppercase tracking-wider text-white mt-3">USAGE</span>
+              <span className="text-[10px] font-bold font-sans uppercase tracking-wider text-white mt-2 sm:mt-3">USAGE</span>
               <span className="text-[10px] font-medium font-sans text-white/40 mt-1">
                 {product.giftCardInfo?.usageSummary || "—"}
               </span>
@@ -934,13 +934,13 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
         {/* Right Column: Unified Purchase Flow Details Card (lg:col-span-5) */}
         <div className="lg:col-span-5 flex flex-col gap-6 w-full lg:sticky lg:top-[90px]">
-          <div className="w-full bg-[#1C1C1E] border border-white/5 rounded-2xl p-6 flex flex-col gap-6 select-none relative">
+          <div className="w-full bg-[#1C1C1E] border border-white/5 rounded-2xl p-4 sm:p-6 flex flex-col gap-5 sm:gap-6 select-none relative">
 
             {/* Price and Savings Section */}
             <div className="flex flex-col gap-2 w-full">
 
               {/* Price display box (rectangular rounded-xl container with border & fill) */}
-              <div className="bg-white/[0.05] border border-white/10 rounded-xl p-5 flex flex-col gap-3 select-none w-full">
+              <div className="bg-white/[0.05] border border-white/10 rounded-xl p-4 sm:p-5 flex flex-col gap-3 select-none w-full">
                 {(() => {
                   const coinsSpent = displayCoinsSpentHeader;
                   if (coinsSpent > 0) {
@@ -1004,7 +1004,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
               {/* Quick value chips for flexible selection */}
               {isFlexibleSelection && (
-                <div className="grid grid-cols-4 gap-2 mt-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
                   {quickSuggestions.map((val) => {
                     const isSelected = customAmount === val;
                     return (
@@ -1065,7 +1065,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
             {shouldShowCoinEditor({ paymentRules, sku: selectedSku }) &&
               (optimalCoins > 0 || (isFlexibleSelection && ruleCoinCap > 0 && coinsBalance > 0)) && (
                 <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between select-none bg-white/[0.05] border border-white/10 p-3 rounded-xl">
+                  <div className="flex flex-wrap items-center justify-between gap-2 select-none bg-white/[0.05] border border-white/10 p-3 rounded-xl">
                     <div className="flex items-center gap-1.5 text-xs font-medium font-sans text-white">
                       <Image src={coinImg} alt="" width={16} height={16} className="object-contain" />
                       {paymentRules?.isCoinOnly ? (
@@ -1143,7 +1143,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
             </div>
 
             {/* Buy Action Button & generated value text wrapper box */}
-            <div className="w-full bg-white/[0.05] border border-white/10 rounded-xl p-4 flex flex-col gap-4">
+            <div className="w-full bg-white/[0.05] border border-white/10 rounded-xl p-3 sm:p-4 flex flex-col gap-4">
               <span className="text-center text-[13px] font-medium font-sans text-white">
                 1 card worth ₹{(isFlexibleSelection ? customAmount : selectedSku?.faceValue ?? selectedSku?.unitAmount ?? 0).toLocaleString("en-IN")} will be generated
               </span>
@@ -1248,8 +1248,8 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
       {/* Terms & Conditions Center Popup Modal */}
       {showTerms && product.giftCardInfo?.termsAndConditions && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#1C1C1E] border border-white/10 rounded-2xl w-full max-w-[500px] flex flex-col max-h-[80vh] shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 font-sans">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#1C1C1E] border border-white/10 border-b-0 sm:border-b rounded-t-2xl sm:rounded-2xl w-full max-w-full sm:max-w-[500px] flex flex-col max-h-[85vh] sm:max-h-[80vh] shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-bottom sm:zoom-in-95 duration-200 font-sans">
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-white/5">
               <div className="flex items-center gap-2 text-sm font-bold text-white font-sans">
@@ -1285,8 +1285,8 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
       {/* Coupon Center Popup Modal */}
       {showCouponModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#3A3A3A] border border-white/10 rounded-[11px] w-full max-w-[420px] p-6 flex flex-col gap-6 relative select-none animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#3A3A3A] border border-white/10 border-b-0 sm:border-b rounded-t-[11px] sm:rounded-[11px] w-full max-w-full sm:max-w-[420px] max-h-[85vh] overflow-y-auto p-5 sm:p-6 flex flex-col gap-6 relative select-none animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
             {/* Close button at top-right outside/on border */}
             <button
               type="button"

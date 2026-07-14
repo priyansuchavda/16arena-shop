@@ -1,14 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "../services/auth.service";
 import { useAuthStore } from "../store/auth.store";
-import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { signInWithPopup, signInWithRedirect, GoogleAuthProvider } from "firebase/auth";
 import { auth, googleProvider } from "@/shared/lib/firebase";
+import { isMobileAuthDevice } from "../utils/device";
 
+// Mobile browsers (iOS Safari especially, plus most in-app/Android WebViews)
+// block or silently drop signInWithPopup — Firebase's own guidance is to use
+// the redirect flow there. Desktop keeps the popup so the page never navigates.
 export const useGoogleLogin = () => {
   const setAuth = useAuthStore((state) => state.setAuth);
 
   return useMutation({
     mutationFn: async () => {
+      if (isMobileAuthDevice()) {
+        await signInWithRedirect(auth, googleProvider);
+        // Browser navigates away here; result is handled by
+        // consumeGoogleRedirectResult on the page we land back on.
+        return null;
+      }
+
       const userCredential = await signInWithPopup(auth, googleProvider);
       const credential = GoogleAuthProvider.credentialFromResult(userCredential);
       const idToken = credential?.idToken;
@@ -20,6 +31,7 @@ export const useGoogleLogin = () => {
       return authApi.googleLogin(idToken);
     },
     onSuccess: (response) => {
+      if (!response) return;
       const session = authApi.parseSessionResponse(response);
       if (session) {
         setAuth(session.user, session.accessToken);

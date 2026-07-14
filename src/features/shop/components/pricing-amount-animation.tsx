@@ -219,9 +219,15 @@ function sameCash(a: number, b: number) {
 export function PricingSplitAmountRow({
   cash,
   coins,
+  digitH = ODOMETER_DIGIT_H,
+  digitW = ODOMETER_DIGIT_W,
+  fontClassName = "text-[32px] font-bold",
 }: {
   cash: number;
   coins: number;
+  digitH?: number;
+  digitW?: number;
+  fontClassName?: string;
 }) {
   const [shownCash, setShownCash] = useState(cash);
   const [shownCoins, setShownCoins] = useState(coins);
@@ -354,8 +360,8 @@ export function PricingSplitAmountRow({
 
   return (
     <div className="flex items-center gap-1.5 font-sans">
-      <span className="text-[32px] font-bold text-white tracking-tight leading-none">₹</span>
-      <OdometerNumber value={shownCash} />
+      <span className={`${fontClassName} text-white tracking-tight leading-none`}>₹</span>
+      <OdometerNumber value={shownCash} digitH={digitH} digitW={digitW} fontClassName={fontClassName} />
 
       {/* Suffix: + · coin icon · coin amount — widthFactor collapse/expand */}
       <div

@@ -52,6 +52,26 @@ import {
 import { resolveSkuRetailPrice } from "../utils/normalize-product";
 import { getCachedLogoColors, prefetchLogoColors } from "../utils/logo-colors";
 
+// Tailwind's `sm` breakpoint (640px) — kept in sync with the sm: variants
+// used throughout this card. The odometer's digit roll needs a literal pixel
+// size (it animates via translateY math), so it can't be sized with a plain
+// Tailwind class the way the rest of the card's mobile sizing is.
+const MOBILE_BREAKPOINT_QUERY = "(max-width: 639px)";
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mql = window.matchMedia(MOBILE_BREAKPOINT_QUERY);
+    setIsMobile(mql.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+
+  return isMobile;
+}
+
 export function useLogoColors(
   logoUrl: string | null,
   fallbackColors: { accent: string; accent2: string }
@@ -175,6 +195,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   const openAuthModal = useAuthStore((state) => state.openAuthModal);
   const { data: userSummary } = useUserSummary();
   const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const fixedSkus = useMemo(() => splitFixedSkus(product), [product]);
   const flexibleSku = useMemo(() => resolveFlexibleSku(product), [product]);
@@ -940,13 +961,13 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
         {/* Right Column: Unified Purchase Flow Details Card (lg:col-span-5) */}
         <div className="lg:col-span-5 flex flex-col gap-6 w-full lg:sticky lg:top-[90px]">
-          <div className="w-full bg-[#1C1C1E] border border-white/5 rounded-2xl p-4 sm:p-6 flex flex-col gap-5 sm:gap-6 select-none relative">
+          <div className="w-full bg-[#1C1C1E] border border-white/5 rounded-2xl p-3 sm:p-6 flex flex-col gap-3 sm:gap-6 select-none relative">
 
             {/* Price and Savings Section */}
-            <div className="flex flex-col gap-2 w-full">
+            <div className="flex flex-col gap-1.5 sm:gap-2 w-full">
 
               {/* Price display box (rectangular rounded-xl container with border & fill) */}
-              <div className="bg-white/[0.05] border border-white/10 rounded-xl p-4 sm:p-5 flex flex-col gap-3 select-none w-full">
+              <div className="bg-white/[0.05] border border-white/10 rounded-xl p-3 sm:p-5 flex flex-col gap-2 sm:gap-3 select-none w-full">
                 {(() => {
                   const coinsSpent = displayCoinsSpentHeader;
                   if (coinsSpent > 0) {
@@ -954,7 +975,13 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                       <>
                         <div className="flex items-start justify-between w-full">
                           <div className="flex flex-col">
-                            <PricingSplitAmountRow cash={displayPrice} coins={coinsSpent} />
+                            <PricingSplitAmountRow
+                              cash={displayPrice}
+                              coins={coinsSpent}
+                              digitH={isMobile ? 26 : 32}
+                              digitW={isMobile ? 16 : 20}
+                              fontClassName={isMobile ? "text-[26px] font-bold" : "text-[32px] font-bold"}
+                            />
                             {displayOriginal > displayPrice && (
                               <span className="text-sm text-white/40 line-through font-medium font-sans tabular-nums mt-1.5 ml-0.5">
                                 {formatInr(displayOriginal)}
@@ -979,8 +1006,13 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                       <div className="flex items-start justify-between w-full">
                         <div className="flex flex-col">
                           <div className="flex items-center gap-1.5 font-sans">
-                            <span className="text-[32px] font-bold text-white tracking-tight leading-none">₹</span>
-                            <OdometerNumber value={displayPrice} />
+                            <span className={`${isMobile ? "text-[26px]" : "text-[32px]"} font-bold text-white tracking-tight leading-none`}>₹</span>
+                            <OdometerNumber
+                              value={displayPrice}
+                              digitH={isMobile ? 26 : 32}
+                              digitW={isMobile ? 16 : 20}
+                              fontClassName={isMobile ? "text-[26px] font-bold" : "text-[32px] font-bold"}
+                            />
                           </div>
                           {displayOriginal > displayPrice && (
                             <span className="text-sm text-white/40 line-through font-medium font-sans tabular-nums mt-0.5 ml-0.5">
@@ -1010,7 +1042,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
               {/* Quick value chips for flexible selection */}
               {isFlexibleSelection && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {quickSuggestions.map((val) => {
                     const isSelected = customAmount === val;
                     return (
@@ -1036,9 +1068,9 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
 
             {/* Inline Denomination Chips for Fixed SKUs */}
             {!isFlexibleSelection && fixedSkus.length > 0 && (
-              <div className="flex flex-col gap-4 mt-2">
-                <span className="text-lg font-bold text-white font-sans">Select amount</span>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-3 sm:gap-4">
+                <span className="text-base sm:text-lg font-bold text-white font-sans">Select amount</span>
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   {fixedSkus.map((sku) => {
                     const isSelected = selectedSku?.id === sku.id;
                     const cardWorth = sku.faceValue ?? sku.unitAmount ?? 0;
@@ -1049,15 +1081,15 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                         key={sku.id}
                         type="button"
                         onClick={() => setSelectedSku(sku)}
-                        className={`p-4 rounded-xl flex flex-col gap-1 text-left border transition ${isSelected
+                        className={`p-3 sm:p-4 rounded-xl flex flex-col gap-1 text-left border transition ${isSelected
                           ? "bg-white/[0.05] border-white/20 shadow-[0_0_0_1px_rgba(255,255,255,0.1)]"
                           : "bg-transparent border-white/10 hover:bg-white/[0.02]"
                           }`}
                       >
-                        <span className="text-sm font-bold text-white font-sans tabular-nums">
+                        <span className="text-[13px] sm:text-sm font-bold text-white font-sans tabular-nums">
                           {formatInr(cardWorth)}
                         </span>
-                        <span className="text-sm font-medium text-[#22C55E] font-sans tabular-nums">
+                        <span className="text-[13px] sm:text-sm font-medium text-[#22C55E] font-sans tabular-nums">
                           {formatInr(payPrice)}
                         </span>
                       </button>
@@ -1137,20 +1169,20 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                     setShowCouponModal(true);
                     void loadMyCoupons();
                   }}
-                  className="w-full bg-white/[0.05] border border-white/10 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/[0.08] transition select-none font-sans"
+                  className="w-full bg-white/[0.05] border border-white/10 rounded-xl p-3 sm:p-4 flex items-center justify-between cursor-pointer hover:bg-white/[0.08] transition select-none font-sans"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <Image src={voucherIcon} alt="" width={24} height={24} className="object-contain" />
-                    <span className="text-sm font-semibold text-white">Have a Gift Voucher Code?</span>
+                  <div className="flex items-center gap-2 sm:gap-2.5">
+                    <Image src={voucherIcon} alt="" width={22} height={22} className="object-contain" />
+                    <span className="text-[13px] sm:text-sm font-semibold text-white">Have a Gift Voucher Code?</span>
                   </div>
-                  <span className="text-white text-lg font-bold">+</span>
+                  <span className="text-white text-base sm:text-lg font-bold">+</span>
                 </div>
               )}
             </div>
 
             {/* Buy Action Button & generated value text wrapper box */}
-            <div className="w-full bg-white/[0.05] border border-white/10 rounded-xl p-3 sm:p-4 flex flex-col gap-4">
-              <span className="text-center text-[13px] font-medium font-sans text-white">
+            <div className="w-full bg-white/[0.05] border border-white/10 rounded-xl p-3 sm:p-4 flex flex-col gap-3 sm:gap-4">
+              <span className="text-center text-xs sm:text-[13px] font-medium font-sans text-white">
                 1 card worth ₹{(isFlexibleSelection ? customAmount : selectedSku?.faceValue ?? selectedSku?.unitAmount ?? 0).toLocaleString("en-IN")} will be generated
               </span>
               <SlantedButton
@@ -1158,7 +1190,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
                 onClick={triggerBuy}
                 disabled={!selectedSku || !!buyWarning}
                 isLoading={previewLoading}
-                className="w-full h-12 !text-white !font-bold font-sans tracking-wide"
+                className="w-full h-11 sm:h-12 !text-white !font-bold font-sans tracking-wide"
               >
                 {!isAuthenticated ? (
                   <span className="uppercase text-xs">Sign in to Buy</span>

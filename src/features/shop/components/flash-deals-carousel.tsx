@@ -17,9 +17,15 @@ const DIP = 16; // px — how far the top edge dips in the middle
 const AUTOPLAY_MS = 2800;
 const TRANSITION = "transform 520ms cubic-bezier(0.22,1,0.36,1)";
 
-// Mobile: plain native horizontal scroll, no transform carousel at all.
+// Mobile: native horizontal scroll (for reliable touch behavior), but the
+// centered card is still visually raised like the desktop carousel.
 const MOBILE_CARD = 200; // px
+// scale() grows the card from its own center without pushing neighbors away,
+// so it eats directly into the flex gap on both sides — kept modest to avoid
+// the center card visually crowding its neighbors.
+const MOBILE_CENTER_SCALE = 1.08;
 const MOBILE_GAP = 16; // px
+const MOBILE_AUTOPLAY_MS = 4000;
 
 // Cards render at CENTER size and scale DOWN, so the focus card stays crisp.
 const KN = NEIGHBOR / CENTER;
@@ -112,25 +118,42 @@ function hrefFor(product: CardModel) {
 }
 
 /** Mobile: plain, native, always-works horizontal scroll with snap. */
+// Copies of the item set rendered for the infinite illusion, and which copy
+// (0-indexed) we park the viewport in at rest. More copies means a hard,
+// fast flick has more room to travel before it could reach the real DOM
+// edge and hit a wall.
+const MOBILE_REPS = 9;
+const MOBILE_CENTER_COPY = 4;
+
 function MobileScroller({ items }: { items: CardModel[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [centerIndex, setCenterIndex] = useState(0);
+  const interactingRef = useRef(false);
 
   // We need enough copies to scroll infinitely without hitting the actual DOM edges.
-  // 5 copies gives us a huge buffer.
-  const reps = items.length ? Math.max(5, Math.ceil(MIN_RING / items.length)) : 0;
+  const reps = items.length ? Math.max(MOBILE_REPS, Math.ceil(MIN_RING / items.length)) : 0;
   const slides = reps <= 1 ? items : Array.from({ length: reps }).flatMap(() => items);
 
   const cardSpan = MOBILE_CARD + MOBILE_GAP;
   const oneSetWidth = items.length * cardSpan;
 
-  // Start scrolled into the middle "copy" (copy 2 out of 0,1,2,3,4)
+  // Which slide sits nearest the viewport center right now — drives the
+  // "raised center card" look, mirroring the desktop carousel's focus card.
+  const updateCenterIndex = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const centerX = el.scrollLeft + el.clientWidth / 2 - 16;
+    setCenterIndex(Math.round((centerX - MOBILE_CARD / 2) / cardSpan));
+  };
+
+  // Start scrolled into the middle copy.
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || reps < 5) return;
-    
+    if (!el || reps < MOBILE_REPS) return;
+
     // px-4 adds 16px to the start.
-    const centerCardX = 16 + oneSetWidth * 2 + MOBILE_CARD / 2;
-    
+    const centerCardX = 16 + oneSetWidth * MOBILE_CENTER_COPY + MOBILE_CARD / 2;
+
     // setTimeout ensures the browser has applied styles and layout before we set scrollLeft
     const id = setTimeout(() => {
       el.scrollLeft = centerCardX - el.clientWidth / 2;
@@ -138,46 +161,161 @@ function MobileScroller({ items }: { items: CardModel[] }) {
     return () => clearTimeout(id);
   }, [oneSetWidth, reps]);
 
-  const onScroll = () => {
+  // Correcting scrollLeft while the browser's own momentum/snap animation is
+  // still running fights that animation and shows up as jank — the faster the
+  // flick, the more scroll events land mid-momentum. So instead of correcting
+  // on every scroll event, wait for the scroll to actually settle (native
+  // `scrollend`, or a short idle timer as a fallback) and only then re-center
+  // if we've drifted into a buffer copy.
+  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const recenter = () => {
     const el = scrollRef.current;
-    if (!el || reps < 5) return;
-    
-    // If we scroll left into copy 1, jump forward to copy 3
-    if (el.scrollLeft < oneSetWidth * 1.5) {
-      el.scrollLeft += oneSetWidth * 2;
-    } 
-    // If we scroll right into copy 3, jump back to copy 1
-    else if (el.scrollLeft > oneSetWidth * 3.5) {
-      el.scrollLeft -= oneSetWidth * 2;
+    if (!el) return;
+    const halfReps = Math.floor(MOBILE_REPS / 2);
+    // Drifted too far left of the center copy — jump forward by one full set
+    // per step until we're back within the safe middle band.
+    if (el.scrollLeft < oneSetWidth * (MOBILE_CENTER_COPY - halfReps + 1)) {
+      el.scrollLeft += oneSetWidth * halfReps;
     }
+    // Drifted too far right — jump back by one full set.
+    else if (el.scrollLeft > oneSetWidth * (MOBILE_CENTER_COPY + halfReps - 1)) {
+      el.scrollLeft -= oneSetWidth * halfReps;
+    }
+  };
+
+  // Scroll fires far more often than a render needs — batch center-index
+  // recompute to once per frame.
+  const centerRafRef = useRef<number | null>(null);
+  const queueCenterUpdate = () => {
+    if (centerRafRef.current != null) return;
+    centerRafRef.current = requestAnimationFrame(() => {
+      centerRafRef.current = null;
+      updateCenterIndex();
+    });
+  };
+
+  const scrolledSincePointerDownRef = useRef(false);
+
+  const onScroll = () => {
+    scrolledSincePointerDownRef.current = true;
+    queueCenterUpdate();
+    if (reps < MOBILE_REPS) return;
+    // Fallback for browsers without `scrollend` (Safari < 17): treat a gap of
+    // 120ms with no further scroll events as "settled".
+    if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+    settleTimerRef.current = setTimeout(recenter, 120);
+  };
+
+  // Autoplay is a self-rescheduling timer rather than a fixed-cadence
+  // setInterval: any scroll activity — the user's own, or autoplay's last
+  // smooth-scroll settling — pushes the next tick MOBILE_AUTOPLAY_MS further
+  // out. That's what stops it from firing on top of a gesture that just
+  // finished (a fixed interval keeps counting in the background regardless
+  // of what the user does, so it can fire the instant a drag ends).
+  const autoplayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleAutoplay = () => {
+    if (autoplayTimerRef.current) clearTimeout(autoplayTimerRef.current);
+    if (reps < MOBILE_REPS) return;
+    autoplayTimerRef.current = setTimeout(() => {
+      const el = scrollRef.current;
+      if (!el || interactingRef.current) {
+        scheduleAutoplay();
+        return;
+      }
+      el.scrollBy({ left: cardSpan, behavior: "smooth" });
+    }, MOBILE_AUTOPLAY_MS);
+  };
+
+  const onScrollEnd = () => {
+    if (settleTimerRef.current) {
+      clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = null;
+    }
+    recenter();
+    updateCenterIndex();
+    // Only now — once native momentum has actually finished — is it safe to
+    // let autoplay drive the strip again, and its next tick starts fresh.
+    interactingRef.current = false;
+    scheduleAutoplay();
+  };
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    // Native `scrollend` fires once the browser's momentum/snap settles —
+    // far more reliable than guessing from scroll-event gaps alone.
+    el.addEventListener("scrollend", onScrollEnd);
+    updateCenterIndex();
+    scheduleAutoplay();
+    return () => {
+      el.removeEventListener("scrollend", onScrollEnd);
+      if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+      if (centerRafRef.current != null) cancelAnimationFrame(centerRafRef.current);
+      if (autoplayTimerRef.current) clearTimeout(autoplayTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reps, cardSpan]);
+
+  // A flick keeps scrolling under native momentum well after the finger
+  // lifts, and firing autoplay mid-momentum is what caused it to fight the
+  // user's own scroll. So pausing just marks interactingRef; if an actual
+  // scroll follows, the resume + reschedule happens in onScrollEnd once the
+  // browser confirms the strip has stopped moving. A plain tap (no scroll
+  // in between) has no scrollend to rely on, so pointerup/pointercancel
+  // reschedule immediately in that case only.
+  const pauseAutoplay = () => {
+    interactingRef.current = true;
+    scrolledSincePointerDownRef.current = false;
+    if (autoplayTimerRef.current) clearTimeout(autoplayTimerRef.current);
+  };
+
+  const releaseAutoplayIfTap = () => {
+    if (scrolledSincePointerDownRef.current) return;
+    interactingRef.current = false;
+    scheduleAutoplay();
   };
 
   return (
     <div
       ref={scrollRef}
       onScroll={onScroll}
-      className="flex w-full overflow-x-auto px-4 pb-2 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      onPointerDown={pauseAutoplay}
+      onPointerUp={releaseAutoplayIfTap}
+      onPointerCancel={releaseAutoplayIfTap}
+      className="flex w-full items-center overflow-x-auto px-4 pb-2 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       style={{
         scrollSnapType: "x mandatory",
         gap: MOBILE_GAP,
         touchAction: "pan-x pan-y",
+        // Extra vertical room so the scaled-up center card isn't clipped —
+        // overflow-x-auto forces overflow-y to compute as auto too.
+        paddingTop: Math.ceil((MOBILE_CARD * (MOBILE_CENTER_SCALE - 1)) / 2) + 4,
+        paddingBottom: Math.ceil((MOBILE_CARD * (MOBILE_CENTER_SCALE - 1)) / 2) + 8,
       }}
     >
-      {slides.map((product, i) => (
-        <Link
-          key={`${product.id}-${i}`}
-          href={hrefFor(product)}
-          className="group relative block shrink-0 overflow-hidden rounded-[18px] border border-white/12 bg-white/[0.05]"
-          style={{
-            width: MOBILE_CARD,
-            height: MOBILE_CARD,
-            scrollSnapAlign: "center",
-          }}
-        >
-          <CardMedia product={product} />
-          <CardLabel product={product} />
-        </Link>
-      ))}
+      {slides.map((product, i) => {
+        const isCenter = i === centerIndex;
+        return (
+          <Link
+            key={`${product.id}-${i}`}
+            href={hrefFor(product)}
+            className="group relative block shrink-0 overflow-hidden rounded-[18px] border border-white/12 bg-white/[0.05]"
+            style={{
+              width: MOBILE_CARD,
+              height: MOBILE_CARD,
+              scrollSnapAlign: "center",
+              transform: isCenter ? `scale(${MOBILE_CENTER_SCALE})` : undefined,
+              zIndex: isCenter ? 1 : 0,
+              transition: "transform 220ms cubic-bezier(0.22,1,0.36,1)",
+            }}
+          >
+            <CardMedia product={product} />
+            <CardLabel product={product} />
+          </Link>
+        );
+      })}
     </div>
   );
 }

@@ -343,18 +343,19 @@ export function AuthCard({
       ) : (
         <form onSubmit={handleVerifyOtp}>
           {/* OTP Input Fields */}
-          <div className="flex justify-between mb-5">
+          <div className="flex justify-between gap-2.5 mb-5 sm:gap-3">
             {otp.map((digit, idx) => (
               <input
                 key={idx}
                 ref={inputRefs[idx]}
                 type="text"
+                inputMode="numeric"
                 maxLength={1}
                 value={digit}
                 onChange={(e) => handleOtpChange(e.target.value, idx)}
                 onKeyDown={(e) => handleOtpKeyDown(e, idx)}
                 style={{ outline: "none", boxShadow: "none", borderRadius: "12px" }}
-                className="w-[78px] h-[54px] bg-[#2a2a2a] rounded-[12px] border border-white/10 text-white text-center text-[22px] font-bold focus:border-[#ff7a00] focus:bg-[#323232] transition duration-200"
+                className="h-14 w-full max-w-[78px] flex-1 bg-[#2a2a2a] rounded-[12px] border border-white/10 text-white text-center text-[22px] font-bold focus:border-[#ff7a00] focus:bg-[#323232] transition duration-200"
               />
             ))}
           </div>

@@ -33,7 +33,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/75 backdrop-blur-[4px] p-4 transition-all duration-300">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center overflow-y-auto bg-black/75 backdrop-blur-[4px] p-4 transition-all duration-300">
       {/* Click outside to close */}
       <div className="absolute inset-0" onClick={onClose} />
 

@@ -34,7 +34,7 @@ const KO = BASE / CENTER;
 const E0 = (CENTER - BASE) / 2;
 const E1 = (NEIGHBOR - BASE) / 2;
 
-/** Prefix a bare hex ("81A600") with "#"; pass rgb()/named/#-prefixed through. */
+/** Prefix a bare hex ("                                                                                                                  81A600") with "#"; pass rgb()/named/#-prefixed through. */
 function normalizeColor(color: string): string {
   const c = color.trim();
   return /^[0-9a-fA-F]{3,8}$/.test(c) ? `#${c}` : c;

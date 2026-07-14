@@ -1,6 +1,5 @@
 "use client";
 
-import { MobileCategoryStrip } from "./mobile-category-strip";
 import { ArenaLogo } from "@/shared/components/arena-logo";
 import { WalletCoinChip } from "./wallet-coin-chip";
 import { ProfileChip } from "./profile-chip";
@@ -355,10 +354,6 @@ export function ShopLayout({
   const closeAuthModal = useAuthStore((state) => state.closeAuthModal);
   const router = useRouter();
 
-  const handleSelectCategory = onSelectCategory ?? ((slug: string) => {
-    router.push(`/${slug}`);
-  });
-
   const handleSelectAll = onSelectAll ?? (() => {
     router.push("/");
   });
@@ -380,19 +375,6 @@ export function ShopLayout({
         <div
           className={["flex-1 pb-16", !categoryMode && "pt-4 lg:pt-6"].filter(Boolean).join(" ")}
         >
-          {!hideSidebar && (
-            <div
-              className={[
-                "shop-content-width px-5 py-1.5 lg:px-10",
-                categoryMode ? "lg:hidden" : "hidden",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              <MobileCategoryStrip items={categories} onSelectCategory={handleSelectCategory} />
-            </div>
-          )}
-
           {categoryMode ? (
             children
           ) : (

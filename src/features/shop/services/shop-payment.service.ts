@@ -7,26 +7,40 @@ export const shopPaymentService = {
       ApiEnvelope<{
         orderId: string;
         orderNumber?: string;
-        gatewayOrderId: string;
+        gatewayOrderId?: string;
         amount: number;
         currency?: string;
-        razorpayKeyId?: string;
-        keyId?: string;
+        accessKey?: string;
+        merchantKey?: string;
+        environment?: string;
+        isExistingGatewaySession?: boolean;
+        paymentExpiresAt?: string;
       }>
     >("/v1/shop/payment/initiate", { orderId });
 
     const payment = assertEnvelopeSuccess(data, "Payment initiation failed");
-    if (!payment.gatewayOrderId) {
-      throw new Error("Payment gateway order id missing.");
+    if (!payment.accessKey || !payment.merchantKey) {
+      throw new Error("Easebuzz access key or merchant key missing.");
     }
     return payment;
   },
 
   verifyPayment: async (payload: {
     orderId: string;
-    razorpayOrderId: string;
-    razorpayPaymentId: string;
-    razorpaySignature: string;
+    txnId: string;
+    easebuzzId?: string | null;
+    status: string;
+    amount: string;
+    hash: string;
+    productInfo?: string | null;
+    firstName?: string | null;
+    email?: string | null;
+    key?: string | null;
+    udf1?: string | null;
+    udf2?: string | null;
+    udf3?: string | null;
+    udf4?: string | null;
+    udf5?: string | null;
   }) => {
     const { data } = await apiClient.post<ApiEnvelope<unknown>>(
       "/v1/shop/payment/verify",

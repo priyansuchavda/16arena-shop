@@ -155,7 +155,7 @@ export function mapOrder(raw: unknown): ShopOrder | null {
     totalPaid: Number(data.totalPaid ?? 0),
     cashbackEarned: Number(data.cashbackEarned ?? 0),
     cashbackCoinsEarned: data.cashbackCoinsEarned as number | undefined,
-    paymentMethod: String(data.paymentMethod ?? "razorpay"),
+    paymentMethod: String(data.paymentMethod ?? "easebuzz"),
     couponCode: data.couponCode as string | undefined,
     createdAt: String(data.createdAt ?? ""),
     items,

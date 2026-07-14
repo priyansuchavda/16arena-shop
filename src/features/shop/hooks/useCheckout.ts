@@ -9,9 +9,9 @@ import { getApiErrorMessage } from "../services/shop-api-client";
 import { confirmCheckoutPreview } from "../utils/confirm-checkout";
 import {
   isPaymentCancelledError,
-  openRazorpayCheckout,
+  openEasebuzzCheckout,
   PAYMENT_CANCELLED_MESSAGE,
-} from "../utils/razorpay-checkout";
+} from "../utils/easebuzz-checkout";
 import {
   clearCheckoutIdempotencyKey,
   getOrCreateCheckoutIdempotencyKey,
@@ -24,7 +24,7 @@ export {
   PAYMENT_CANCELLED_MESSAGE,
   PaymentCancelledError,
   isPaymentCancelledError,
-} from "../utils/razorpay-checkout";
+} from "../utils/easebuzz-checkout";
 
 export type CheckoutParams = {
   skuId?: string;
@@ -70,18 +70,15 @@ export const useCheckout = () => {
     [router]
   );
 
-  const launchRazorpay = useCallback(
-    async (orderId: string, productName: string) => {
+  const launchEasebuzz = useCallback(
+    async (orderId: string) => {
       const payment = await shopApi.initiatePayment(orderId);
-      await openRazorpayCheckout({
+      await openEasebuzzCheckout({
         orderId,
         payment,
-        productName,
-        contact: user?.phoneNumber ?? "",
-        email: user?.email ?? "",
       });
     },
-    [user]
+    []
   );
 
   const resumePayment = useCallback(
@@ -92,7 +89,7 @@ export const useCheckout = () => {
       setPendingProductName(productName);
 
       try {
-        await launchRazorpay(orderId, productName);
+        await launchEasebuzz(orderId);
         navigateToOrder(orderId);
       } catch (err) {
         if (isPaymentCancelledError(err)) {
@@ -104,7 +101,7 @@ export const useCheckout = () => {
         setLoading(false);
       }
     },
-    [launchRazorpay, navigateToOrder]
+    [launchEasebuzz, navigateToOrder]
   );
 
   const cancelPendingOrder = useCallback(
@@ -214,7 +211,7 @@ export const useCheckout = () => {
         const totalPaid = createdOrder.totalPaid ?? finalPreview.totalPayable ?? 0;
 
         if (totalPaid > 0) {
-          await launchRazorpay(orderId, params.productName);
+          await launchEasebuzz(orderId);
         }
 
         navigateToOrder(orderId);
@@ -240,7 +237,7 @@ export const useCheckout = () => {
       }
     },
     [
-      launchRazorpay,
+      launchEasebuzz,
       navigateToOrder,
       needsResync,
       pendingOrderId,

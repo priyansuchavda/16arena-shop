@@ -13,10 +13,10 @@ import {
   ORDER_POLL_INTERVAL_MS,
 } from "@/features/shop/utils/checkout.utils";
 import {
-  initiateAndOpenRazorpay,
+  initiateAndOpenEasebuzz,
   isPaymentCancelledError,
   PAYMENT_CANCELLED_MESSAGE,
-} from "@/features/shop/utils/razorpay-checkout";
+} from "@/features/shop/utils/easebuzz-checkout";
 import { useAuthStore } from "@/features/auth";
 import { getApiErrorMessage } from "@/features/shop/services/shop-api-client";
 import coinImg from "@/assets/png/coin.png";
@@ -86,7 +86,7 @@ export function OrdersShell() {
     setActionType("pay");
     setActionMessage(null);
     try {
-      await initiateAndOpenRazorpay({
+      await initiateAndOpenEasebuzz({
         orderId,
         productName,
         contact: user?.phoneNumber ?? "",

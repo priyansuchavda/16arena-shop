@@ -31,14 +31,19 @@ export function ShopCategoryCards({
   } | null>(null);
 
   const parentRef = useRef<HTMLDivElement>(null);
+  // The mobile strip and desktop row are both mounted (CSS-gated with lg:),
+  // so each needs its own View All anchor; the popover uses the visible one.
   const viewAllRef = useRef<HTMLDivElement>(null);
+  const viewAllRefMobile = useRef<HTMLDivElement>(null);
   const [visibleCount, setVisibleCount] = useState(5);
-  const [isMobile, setIsMobile] = useState(false);
 
   const POPOVER_WIDTH = 380;
 
   const positionPopover = useCallback(() => {
-    const anchor = viewAllRef.current;
+    // Anchor to whichever View All button is actually visible at this breakpoint.
+    const anchor = [viewAllRef.current, viewAllRefMobile.current].find(
+      (el) => el && el.getBoundingClientRect().width > 0,
+    );
     if (!anchor) return null;
 
     const rect = anchor.getBoundingClientRect();
@@ -92,11 +97,8 @@ export function ShopCategoryCards({
     if (!parentRef.current) return;
 
     const observer = new ResizeObserver((entries) => {
-      for (let entry of entries) {
+      for (const entry of entries) {
         const width = entry.contentRect.width;
-        // Check if viewport is mobile size (1024px is standard lg breakpoint)
-        const mobile = typeof window !== "undefined" && window.innerWidth < 1024;
-        setIsMobile(mobile);
 
         // Parent total width is `width`.
         // View All button takes 81px + 2.56px border = 83.56px.
@@ -114,16 +116,22 @@ export function ShopCategoryCards({
     return () => observer.disconnect();
   }, [categories.length]);
 
-  const renderCategoryButton = (category: ShopCategoryChip) => {
+  // `compact` renders the phone-sized chip (64×63, 32px icon); the desktop
+  // row keeps the original 81×80 cards with 42px icons.
+  const renderCategoryButton = (category: ShopCategoryChip, compact = false) => {
     const isSelected = category.slug === selectedSlug;
+    const iconSize = compact ? 32 : 42;
 
     const icon = (
-      <span className="flex h-[42px] w-[42px] items-center justify-center">
+      <span
+        className="flex items-center justify-center"
+        style={{ width: iconSize, height: iconSize }}
+      >
         <CategoryNavIcon
           slug={category.slug}
           label={category.label}
           active={isSelected}
-          size={42}
+          size={iconSize}
           iconUrl={category.iconUrl}
         />
       </span>
@@ -135,14 +143,16 @@ export function ShopCategoryCards({
         label={category.label}
         icon={icon}
         selected={isSelected}
+        width={compact ? 64 : 81}
+        height={compact ? 63 : 80}
         onClick={() => onCategoryTap(category.slug)}
       />
     );
   };
 
-  const renderViewAllButton = () => {
+  const renderViewAllButton = (compact = false) => {
     return (
-      <div ref={viewAllRef} className="relative shrink-0">
+      <div ref={compact ? viewAllRefMobile : viewAllRef} className="relative shrink-0">
         <ShopCategoryCard
           label="View All"
           variant="viewAll"
@@ -151,6 +161,8 @@ export function ShopCategoryCards({
           onClick={handleOpen}
           aria-expanded={isOpen}
           aria-label="View all categories"
+          width={compact ? 64 : 81}
+          height={compact ? 63 : 80}
           icon={
             <span className="flex h-[23px] w-[26.5px] items-center justify-center text-[#D9D9D9]">
               <svg
@@ -181,22 +193,30 @@ export function ShopCategoryCards({
 
   return (
     <>
-      {isMobile ? (
-        <div className="shop-scroll flex min-w-0 w-full gap-3 overflow-x-auto py-1 select-none flex-nowrap">
-          {categories.map((category) => renderCategoryButton(category))}
-          {renderViewAllButton()}
-        </div>
-      ) : (
-        <div ref={parentRef} className="flex min-w-0 w-full gap-3 justify-start items-center select-none py-1">
-          {/* Categories container which hides overflow */}
-          <div className={`flex overflow-hidden ${categories.length > visibleCount ? "flex-1 justify-between" : "gap-3"}`}>
-            {categories.slice(0, visibleCount).map((category) => renderCategoryButton(category))}
-          </div>
+      {/* Mobile: CSS-gated (lg:hidden) native scroll strip. Because it's pure
+          CSS + native overflow scrolling, swiping never depends on JS having
+          hydrated — same mechanism as the product rails. */}
+      <div
+        className="shop-scroll flex min-w-0 w-full gap-2.5 overflow-x-auto py-1 select-none flex-nowrap lg:hidden"
+        style={{ touchAction: "pan-x" }}
+      >
+        {categories.map((category) => renderCategoryButton(category, true))}
+        {renderViewAllButton(true)}
+      </div>
 
-          {/* View All Button */}
-          {renderViewAllButton()}
+      {/* Desktop: fixed row fitting `visibleCount` cards plus View All. */}
+      <div
+        ref={parentRef}
+        className="hidden min-w-0 w-full gap-3 justify-start items-center select-none py-1 lg:flex"
+      >
+        {/* Categories container which hides overflow */}
+        <div className={`flex overflow-hidden ${categories.length > visibleCount ? "flex-1 justify-between" : "gap-3"}`}>
+          {categories.slice(0, visibleCount).map((category) => renderCategoryButton(category))}
         </div>
-      )}
+
+        {/* View All Button */}
+        {renderViewAllButton()}
+      </div>
 
       {/* Category popover — opens at View All button position */}
       {isOpen && popoverPos && (

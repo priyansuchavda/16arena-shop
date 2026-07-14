@@ -214,9 +214,14 @@ function ShopTopBar({
           "linear-gradient(to bottom, var(--void) 0%, var(--void) 34%, color-mix(in srgb, var(--void) 92%, transparent) 55%, color-mix(in srgb, var(--void) 62%, transparent) 73%, color-mix(in srgb, var(--void) 26%, transparent) 89%, transparent 100%)",
       }}
     >
+      {/* The blur layer is the single most expensive thing in this sticky
+          header: on mobile it forces the browser to re-blur everything that
+          scrolls underneath on every frame, which is what makes touch-scroll
+          feel laggy. The gradient background above already fades the header
+          out, so only add the blur on larger/pointer-fine (desktop) screens. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 backdrop-blur-md"
+        className="pointer-events-none absolute inset-0 hidden backdrop-blur-md lg:block"
         style={{
           WebkitMaskImage:
             "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.98) 30%, rgba(0,0,0,0.84) 52%, rgba(0,0,0,0.52) 70%, rgba(0,0,0,0.22) 86%, rgba(0,0,0,0) 100%)",

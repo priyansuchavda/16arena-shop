@@ -17,6 +17,10 @@ const DIP = 16; // px — how far the top edge dips in the middle
 const AUTOPLAY_MS = 2800;
 const TRANSITION = "transform 520ms cubic-bezier(0.22,1,0.36,1)";
 
+// Mobile: plain native horizontal scroll, no transform carousel at all.
+const MOBILE_CARD = 200; // px
+const MOBILE_GAP = 16; // px
+
 // Cards render at CENTER size and scale DOWN, so the focus card stays crisp.
 const KN = NEIGHBOR / CENTER;
 const KO = BASE / CENTER;
@@ -55,7 +59,145 @@ function xFor(rel: number): number {
   return rel * SPACING + Math.sign(rel) * pushFor(Math.abs(rel));
 }
 
+function CardLabel({
+  product,
+}: {
+  product: CardModel;
+}) {
+  const label = productDealCaption(product);
+  const labelFill = product.featureColor
+    ? normalizeColor(product.featureColor)
+    : "#141414";
+
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-0" style={{ height: LABEL_H }}>
+      <svg
+        viewBox={`0 0 100 ${LABEL_H}`}
+        preserveAspectRatio="none"
+        className="absolute inset-0 h-full w-full"
+      >
+        <path d={`M0 0 Q50 ${DIP * 2} 100 0 L100 ${LABEL_H} L0 ${LABEL_H} Z`} fill={labelFill} />
+      </svg>
+      <p className="font-sans absolute inset-x-0 bottom-0 line-clamp-1 px-3 pb-3 text-center text-[13px] font-medium text-white">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function CardMedia({ product }: { product: CardModel }) {
+  const imageSrc = product.featureImageUrl || product.imageUrl;
+  return imageSrc ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={imageSrc}
+      alt={product.brand}
+      draggable={false}
+      className="absolute inset-0 h-full w-full object-cover"
+    />
+  ) : (
+    <div
+      className="absolute inset-0 flex items-center justify-center"
+      style={{
+        background: `linear-gradient(155deg, ${product.accent} 0%, ${product.accent2} 100%)`,
+      }}
+    >
+      <span className="px-4 text-center text-lg font-extrabold text-white">{product.brand}</span>
+    </div>
+  );
+}
+
+function hrefFor(product: CardModel) {
+  return product.categorySlug ? `/${product.categorySlug}/${product.slug}` : `/${product.slug}`;
+}
+
+/** Mobile: plain, native, always-works horizontal scroll with snap. */
+function MobileScroller({ items }: { items: CardModel[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // We need enough copies to scroll infinitely without hitting the actual DOM edges.
+  // 5 copies gives us a huge buffer.
+  const reps = items.length ? Math.max(5, Math.ceil(MIN_RING / items.length)) : 0;
+  const slides = reps <= 1 ? items : Array.from({ length: reps }).flatMap(() => items);
+
+  const cardSpan = MOBILE_CARD + MOBILE_GAP;
+  const oneSetWidth = items.length * cardSpan;
+
+  // Start scrolled into the middle "copy" (copy 2 out of 0,1,2,3,4)
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || reps < 5) return;
+    
+    // px-4 adds 16px to the start.
+    const centerCardX = 16 + oneSetWidth * 2 + MOBILE_CARD / 2;
+    
+    // setTimeout ensures the browser has applied styles and layout before we set scrollLeft
+    const id = setTimeout(() => {
+      el.scrollLeft = centerCardX - el.clientWidth / 2;
+    }, 0);
+    return () => clearTimeout(id);
+  }, [oneSetWidth, reps]);
+
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el || reps < 5) return;
+    
+    // If we scroll left into copy 1, jump forward to copy 3
+    if (el.scrollLeft < oneSetWidth * 1.5) {
+      el.scrollLeft += oneSetWidth * 2;
+    } 
+    // If we scroll right into copy 3, jump back to copy 1
+    else if (el.scrollLeft > oneSetWidth * 3.5) {
+      el.scrollLeft -= oneSetWidth * 2;
+    }
+  };
+
+  return (
+    <div
+      ref={scrollRef}
+      onScroll={onScroll}
+      className="flex w-full overflow-x-auto px-4 pb-2 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      style={{
+        scrollSnapType: "x mandatory",
+        gap: MOBILE_GAP,
+        touchAction: "pan-x pan-y",
+      }}
+    >
+      {slides.map((product, i) => (
+        <Link
+          key={`${product.id}-${i}`}
+          href={hrefFor(product)}
+          className="group relative block shrink-0 overflow-hidden rounded-[18px] border border-white/12 bg-white/[0.05]"
+          style={{
+            width: MOBILE_CARD,
+            height: MOBILE_CARD,
+            scrollSnapAlign: "center",
+          }}
+        >
+          <CardMedia product={product} />
+          <CardLabel product={product} />
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 export function FlashDealsCarousel({ items }: { items: CardModel[] }) {
+  if (!items.length) return null;
+
+  return (
+    <>
+      <div className="hidden md:block">
+        <DesktopCarousel items={items} />
+      </div>
+      <div className="block md:hidden">
+        <MobileScroller items={items} />
+      </div>
+    </>
+  );
+}
+
+function DesktopCarousel({ items }: { items: CardModel[] }) {
   // Repeat items so the ring is long enough to fill a wide banner seamlessly.
   const reps = items.length ? Math.max(1, Math.ceil(MIN_RING / items.length)) : 0;
   const slides =
@@ -96,8 +238,6 @@ export function FlashDealsCarousel({ items }: { items: CardModel[] }) {
     return () => clearInterval(id);
   }, [n]);
 
-  if (!n) return null;
-
   const pos = active - dragPx / SPACING;
   const rawHalf = viewport ? Math.ceil(viewport / 2 / SPACING) + 1 : 4;
   const half = Math.min(rawHalf, Math.floor((n - 1) / 2));
@@ -120,8 +260,11 @@ export function FlashDealsCarousel({ items }: { items: CardModel[] }) {
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
       } catch {}
+      // Stop browser from starting a native link/image drag ghost or native scroll.
+      e.preventDefault();
     }
     if (capturedRef.current) {
+      e.preventDefault();
       dragPxRef.current = dx;
       setDragPx(dx);
     }
@@ -154,6 +297,7 @@ export function FlashDealsCarousel({ items }: { items: CardModel[] }) {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onDragStartCapture={(e) => e.preventDefault()}
       onMouseEnter={() => (hoverRef.current = true)}
       onMouseLeave={() => (hoverRef.current = false)}
     >
@@ -165,13 +309,6 @@ export function FlashDealsCarousel({ items }: { items: CardModel[] }) {
         const x = xFor(rel);
         const z = 100 - Math.round(Math.abs(rel) * 10);
         const isCenter = Math.round(rel) === 0;
-
-        const imageSrc = product.featureImageUrl || product.imageUrl;
-        const label = productDealCaption(product);
-        const labelFill = product.featureColor
-          ? normalizeColor(product.featureColor)
-          : "#141414";
-        const href = product.categorySlug ? `/${product.categorySlug}/${product.slug}` : `/${product.slug}`;
 
         return (
           <div
@@ -186,7 +323,7 @@ export function FlashDealsCarousel({ items }: { items: CardModel[] }) {
             }}
           >
             <Link
-              href={href}
+              href={hrefFor(product)}
               draggable={false}
               onClickCapture={(e) => {
                 if (movedRef.current) {
@@ -201,48 +338,11 @@ export function FlashDealsCarousel({ items }: { items: CardModel[] }) {
                   setActive((cur) => cur + Math.round(rel));
                 }
               }}
+              onDragStart={(e) => e.preventDefault()}
               className="group relative block h-full w-full overflow-hidden rounded-[18px] border border-white/12 bg-white/[0.05]"
             >
-              {imageSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={imageSrc}
-                  alt={product.brand}
-                  draggable={false}
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              ) : (
-                <div
-                  className="absolute inset-0 flex items-center justify-center"
-                  style={{
-                    background: `linear-gradient(155deg, ${product.accent} 0%, ${product.accent2} 100%)`,
-                  }}
-                >
-                  <span className="px-4 text-center text-lg font-extrabold text-white">
-                    {product.brand}
-                  </span>
-                </div>
-              )}
-
-              {/* Solid label with a smooth concave top edge (SVG = crisp at any scale) */}
-              <div
-                className="pointer-events-none absolute inset-x-0 bottom-0"
-                style={{ height: LABEL_H }}
-              >
-                <svg
-                  viewBox={`0 0 100 ${LABEL_H}`}
-                  preserveAspectRatio="none"
-                  className="absolute inset-0 h-full w-full"
-                >
-                  <path
-                    d={`M0 0 Q50 ${DIP * 2} 100 0 L100 ${LABEL_H} L0 ${LABEL_H} Z`}
-                    fill={labelFill}
-                  />
-                </svg>
-                <p className="font-sans absolute inset-x-0 bottom-0 line-clamp-1 px-3 pb-3 text-center text-[13px] font-medium text-white">
-                  {label}
-                </p>
-              </div>
+              <CardMedia product={product} />
+              <CardLabel product={product} />
             </Link>
           </div>
         );

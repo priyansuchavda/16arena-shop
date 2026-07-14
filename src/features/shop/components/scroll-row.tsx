@@ -199,8 +199,12 @@ export function ScrollRow({
         } ${dragging ? "cursor-grabbing scroll-auto" : "cursor-grab scroll-smooth"}`}
         style={{
           ...(alignedRow ? { gap: alignedRow.cardGap } : {}),
-          // Own horizontal gestures; page can still scroll vertically outside.
-          touchAction: "pan-x",
+          // Allow both native pan axes: horizontal scrolls the row, vertical
+          // bubbles up to scroll the page. `pan-x` alone would block vertical
+          // scroll entirely for touches starting on blank space in the row
+          // (e.g. past the last card), since touch-action disables the axis
+          // it doesn't list for the whole element, not just its content.
+          touchAction: "pan-x pan-y",
         }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

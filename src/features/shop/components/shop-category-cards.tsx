@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { CategoryNavIcon } from "./category-nav-icon";
 import { ShopCategoryCard } from "./shop-category-card";
+import { ChevronLeftIcon, ChevronRightIcon } from "@/shared/components/icons";
 import type { CategoryChip } from "@/features/shop/utils/shop-catalog";
 
 export type ShopCategoryChip = CategoryChip;
@@ -14,6 +15,8 @@ type ShopCategoryCardsProps = {
   selectedSlug: string;
   onCategoryTap: (slug: string) => void;
 };
+
+const DESKTOP_STEP = 96; // 81 card + ~15 gap
 
 export function ShopCategoryCards({
   categories,
@@ -30,14 +33,102 @@ export function ShopCategoryCards({
     maxHeight: number;
   } | null>(null);
 
-  const parentRef = useRef<HTMLDivElement>(null);
   // The mobile strip and desktop row are both mounted (CSS-gated with lg:),
   // so each needs its own View All anchor; the popover uses the visible one.
   const viewAllRef = useRef<HTMLDivElement>(null);
   const viewAllRefMobile = useRef<HTMLDivElement>(null);
-  const [visibleCount, setVisibleCount] = useState(5);
+  const desktopScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [dragging, setDragging] = useState(false);
+
+  const downRef = useRef(false);
+  const capturedRef = useRef(false);
+  const movedRef = useRef(false);
+  const startXRef = useRef(0);
+  const startScrollRef = useRef(0);
 
   const POPOVER_WIDTH = 380;
+
+  const updateArrowState = useCallback(() => {
+    const el = desktopScrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(maxScroll > 4 && el.scrollLeft < maxScroll - 4);
+  }, []);
+
+  const scrollDesktop = (dir: -1 | 1) => {
+    const el = desktopScrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * DESKTOP_STEP * 3, behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    const el = desktopScrollRef.current;
+    if (!el) return;
+    updateArrowState();
+    el.addEventListener("scroll", updateArrowState, { passive: true });
+    const observer = new ResizeObserver(updateArrowState);
+    observer.observe(el);
+    return () => {
+      el.removeEventListener("scroll", updateArrowState);
+      observer.disconnect();
+    };
+  }, [categories.length, updateArrowState]);
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const el = desktopScrollRef.current;
+    if (!el) return;
+    downRef.current = true;
+    capturedRef.current = false;
+    movedRef.current = false;
+    startXRef.current = e.clientX;
+    startScrollRef.current = el.scrollLeft;
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!downRef.current) return;
+    const el = desktopScrollRef.current;
+    if (!el) return;
+    const dx = e.clientX - startXRef.current;
+    if (!capturedRef.current && Math.abs(dx) > 6) {
+      capturedRef.current = true;
+      movedRef.current = true;
+      setDragging(true);
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      e.preventDefault();
+    }
+    if (capturedRef.current) {
+      e.preventDefault();
+      el.scrollLeft = startScrollRef.current - dx;
+    }
+  };
+
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!downRef.current) return;
+    downRef.current = false;
+    if (!capturedRef.current) return;
+    capturedRef.current = false;
+    setDragging(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const onClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!movedRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    movedRef.current = false;
+  };
 
   const positionPopover = useCallback(() => {
     // Anchor to whichever View All button is actually visible at this breakpoint.
@@ -92,29 +183,6 @@ export function ShopCategoryCards({
       window.removeEventListener("scroll", onLayout, true);
     };
   }, [isOpen, positionPopover]);
-
-  useEffect(() => {
-    if (!parentRef.current) return;
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const width = entry.contentRect.width;
-
-        // Parent total width is `width`.
-        // View All button takes 81px + 2.56px border = 83.56px.
-        // Gap between categories container and View All is 12px.
-        // Available space for categories is width - 83.56 - 12 = width - 95.56.
-        // Within this space, we fit n categories: 95.56n - 12 <= width - 95.56
-        // 95.56n <= width - 83.56.
-        // Let's use 96 to be safe: fitCount = Math.floor((width - 84) / 96);
-        const fitCount = Math.floor((width - 84) / 96);
-        setVisibleCount(Math.max(1, fitCount));
-      }
-    });
-
-    observer.observe(parentRef.current);
-    return () => observer.disconnect();
-  }, [categories.length]);
 
   // `compact` renders the phone-sized chip (64×63, 32px icon); the desktop
   // row keeps the original 81×80 cards with 42px icons.
@@ -191,6 +259,11 @@ export function ShopCategoryCards({
     );
   };
 
+  const navBtn =
+    "flex h-8 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface)] transition-colors duration-200";
+  const navBtnState = (active: boolean) =>
+    active ? "text-white hover:bg-white/14" : "pointer-events-none text-[var(--muted)] opacity-40";
+
   return (
     <>
       {/* Mobile: CSS-gated (lg:hidden) native scroll strip. Because it's pure
@@ -198,24 +271,47 @@ export function ShopCategoryCards({
           hydrated — same mechanism as the product rails. */}
       <div
         className="shop-scroll flex min-w-0 w-full gap-2.5 overflow-x-auto py-1 select-none flex-nowrap lg:hidden"
-        style={{ touchAction: "pan-x" }}
+        style={{ touchAction: "pan-x pan-y" }}
       >
         {categories.map((category) => renderCategoryButton(category, true))}
         {renderViewAllButton(true)}
       </div>
 
-      {/* Desktop: fixed row fitting `visibleCount` cards plus View All. */}
-      <div
-        ref={parentRef}
-        className="hidden min-w-0 w-full gap-3 justify-start items-center select-none py-1 lg:flex"
-      >
-        {/* Categories container which hides overflow */}
-        <div className={`flex overflow-hidden ${categories.length > visibleCount ? "flex-1 justify-between" : "gap-3"}`}>
-          {categories.slice(0, visibleCount).map((category) => renderCategoryButton(category))}
+      {/* Desktop: horizontal scroll with drag + arrow controls (scrollbars are hidden). */}
+      <div className="hidden min-w-0 w-full items-center gap-3 py-1 lg:flex">
+        <button
+          type="button"
+          aria-label="Scroll categories left"
+          onClick={() => scrollDesktop(-1)}
+          className={`${navBtn} ${navBtnState(canScrollLeft)}`}
+        >
+          <ChevronLeftIcon size={15} />
+        </button>
+
+        <div
+          ref={desktopScrollRef}
+          className={`shop-scroll flex min-w-0 flex-1 gap-3 overflow-x-auto select-none flex-nowrap [-webkit-user-drag:none] ${
+            dragging ? "cursor-grabbing scroll-auto" : "cursor-grab scroll-smooth"
+          }`}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          onDragStartCapture={(e) => e.preventDefault()}
+          onClickCapture={onClickCapture}
+        >
+          {categories.map((category) => renderCategoryButton(category))}
+          {renderViewAllButton()}
         </div>
 
-        {/* View All Button */}
-        {renderViewAllButton()}
+        <button
+          type="button"
+          aria-label="Scroll categories right"
+          onClick={() => scrollDesktop(1)}
+          className={`${navBtn} ${navBtnState(canScrollRight)}`}
+        >
+          <ChevronRightIcon size={15} />
+        </button>
       </div>
 
       {/* Category popover — opens at View All button position */}

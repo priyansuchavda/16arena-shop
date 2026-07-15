@@ -17,6 +17,8 @@ export type ApiProduct = {
   id: string;
   categoryId: string;
   categoryName: string;
+  /** Banner URL for this product's primary category — used as the hero backdrop on the category page. */
+  categoryBannerUrl?: string | null;
   name: string;
   slug: string;
   brandName: string | null;

@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { CategoryNavIcon } from "./category-nav-icon";
 import { ShopCategoryCard } from "./shop-category-card";
-import { ChevronLeftIcon, ChevronRightIcon } from "@/shared/components/icons";
 import type { CategoryChip } from "@/features/shop/utils/shop-catalog";
 
 export type ShopCategoryChip = CategoryChip;
@@ -15,8 +14,6 @@ type ShopCategoryCardsProps = {
   selectedSlug: string;
   onCategoryTap: (slug: string) => void;
 };
-
-const DESKTOP_STEP = 96; // 81 card + ~15 gap
 
 export function ShopCategoryCards({
   categories,
@@ -33,108 +30,15 @@ export function ShopCategoryCards({
     maxHeight: number;
   } | null>(null);
 
-  // The mobile strip and desktop row are both mounted (CSS-gated with lg:),
-  // so each needs its own View All anchor; the popover uses the visible one.
+  const parentRef = useRef<HTMLDivElement>(null);
   const viewAllRef = useRef<HTMLDivElement>(null);
-  const viewAllRefMobile = useRef<HTMLDivElement>(null);
-  const desktopScrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-  const [dragging, setDragging] = useState(false);
-
-  const downRef = useRef(false);
-  const capturedRef = useRef(false);
-  const movedRef = useRef(false);
-  const startXRef = useRef(0);
-  const startScrollRef = useRef(0);
+  const [visibleCount, setVisibleCount] = useState(5);
+  const [isMobile, setIsMobile] = useState(false);
 
   const POPOVER_WIDTH = 380;
 
-  const updateArrowState = useCallback(() => {
-    const el = desktopScrollRef.current;
-    if (!el) return;
-    const maxScroll = el.scrollWidth - el.clientWidth;
-    setCanScrollLeft(el.scrollLeft > 4);
-    setCanScrollRight(maxScroll > 4 && el.scrollLeft < maxScroll - 4);
-  }, []);
-
-  const scrollDesktop = (dir: -1 | 1) => {
-    const el = desktopScrollRef.current;
-    if (!el) return;
-    el.scrollBy({ left: dir * DESKTOP_STEP * 3, behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    const el = desktopScrollRef.current;
-    if (!el) return;
-    updateArrowState();
-    el.addEventListener("scroll", updateArrowState, { passive: true });
-    const observer = new ResizeObserver(updateArrowState);
-    observer.observe(el);
-    return () => {
-      el.removeEventListener("scroll", updateArrowState);
-      observer.disconnect();
-    };
-  }, [categories.length, updateArrowState]);
-
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-    const el = desktopScrollRef.current;
-    if (!el) return;
-    downRef.current = true;
-    capturedRef.current = false;
-    movedRef.current = false;
-    startXRef.current = e.clientX;
-    startScrollRef.current = el.scrollLeft;
-  };
-
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!downRef.current) return;
-    const el = desktopScrollRef.current;
-    if (!el) return;
-    const dx = e.clientX - startXRef.current;
-    if (!capturedRef.current && Math.abs(dx) > 6) {
-      capturedRef.current = true;
-      movedRef.current = true;
-      setDragging(true);
-      try {
-        e.currentTarget.setPointerCapture(e.pointerId);
-      } catch {
-        /* ignore */
-      }
-      e.preventDefault();
-    }
-    if (capturedRef.current) {
-      e.preventDefault();
-      el.scrollLeft = startScrollRef.current - dx;
-    }
-  };
-
-  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!downRef.current) return;
-    downRef.current = false;
-    if (!capturedRef.current) return;
-    capturedRef.current = false;
-    setDragging(false);
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const onClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!movedRef.current) return;
-    e.preventDefault();
-    e.stopPropagation();
-    movedRef.current = false;
-  };
-
   const positionPopover = useCallback(() => {
-    // Anchor to whichever View All button is actually visible at this breakpoint.
-    const anchor = [viewAllRef.current, viewAllRefMobile.current].find(
-      (el) => el && el.getBoundingClientRect().width > 0,
-    );
+    const anchor = viewAllRef.current;
     if (!anchor) return null;
 
     const rect = anchor.getBoundingClientRect();
@@ -184,22 +88,42 @@ export function ShopCategoryCards({
     };
   }, [isOpen, positionPopover]);
 
-  // `compact` renders the phone-sized chip (64×63, 32px icon); the desktop
-  // row keeps the original 81×80 cards with 42px icons.
-  const renderCategoryButton = (category: ShopCategoryChip, compact = false) => {
+  useEffect(() => {
+    if (!parentRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const width = entry.contentRect.width;
+        // Check if viewport is mobile size (1024px is standard lg breakpoint)
+        const mobile = typeof window !== "undefined" && window.innerWidth < 1024;
+        setIsMobile(mobile);
+
+        // Parent total width is `width`.
+        // View All button takes 81px + 2.56px border = 83.56px.
+        // Gap between categories container and View All is 12px.
+        // Available space for categories is width - 83.56 - 12 = width - 95.56.
+        // Within this space, we fit n categories: 95.56n - 12 <= width - 95.56
+        // 95.56n <= width - 83.56.
+        // Let's use 96 to be safe: fitCount = Math.floor((width - 84) / 96);
+        const fitCount = Math.floor((width - 84) / 96);
+        setVisibleCount(Math.max(1, fitCount));
+      }
+    });
+
+    observer.observe(parentRef.current);
+    return () => observer.disconnect();
+  }, [categories.length]);
+
+  const renderCategoryButton = (category: ShopCategoryChip) => {
     const isSelected = category.slug === selectedSlug;
-    const iconSize = compact ? 32 : 42;
 
     const icon = (
-      <span
-        className="flex items-center justify-center"
-        style={{ width: iconSize, height: iconSize }}
-      >
+      <span className="flex h-[42px] w-[42px] items-center justify-center">
         <CategoryNavIcon
           slug={category.slug}
           label={category.label}
           active={isSelected}
-          size={iconSize}
+          size={42}
           iconUrl={category.iconUrl}
         />
       </span>
@@ -211,16 +135,14 @@ export function ShopCategoryCards({
         label={category.label}
         icon={icon}
         selected={isSelected}
-        width={compact ? 64 : 81}
-        height={compact ? 63 : 80}
         onClick={() => onCategoryTap(category.slug)}
       />
     );
   };
 
-  const renderViewAllButton = (compact = false) => {
+  const renderViewAllButton = () => {
     return (
-      <div ref={compact ? viewAllRefMobile : viewAllRef} className="relative shrink-0">
+      <div ref={viewAllRef} className="relative shrink-0">
         <ShopCategoryCard
           label="View All"
           variant="viewAll"
@@ -229,8 +151,6 @@ export function ShopCategoryCards({
           onClick={handleOpen}
           aria-expanded={isOpen}
           aria-label="View all categories"
-          width={compact ? 64 : 81}
-          height={compact ? 63 : 80}
           icon={
             <span className="flex h-[23px] w-[26.5px] items-center justify-center text-[#D9D9D9]">
               <svg
@@ -259,42 +179,24 @@ export function ShopCategoryCards({
     );
   };
 
-  const navBtn =
-    "flex h-8 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--surface)] transition-colors duration-200";
-  const navBtnState = (active: boolean) =>
-    active ? "text-white hover:bg-white/14" : "pointer-events-none text-[var(--muted)] opacity-40";
-
   return (
     <>
-      {/* Mobile: CSS-gated (lg:hidden) native scroll strip. Because it's pure
-          CSS + native overflow scrolling, swiping never depends on JS having
-          hydrated — same mechanism as the product rails. */}
-      <div
-        className="shop-scroll flex min-w-0 w-full gap-2.5 overflow-x-auto py-1 select-none flex-nowrap lg:hidden"
-        style={{ touchAction: "pan-x pan-y" }}
-      >
-        {categories.slice(0, 15).map((category) => renderCategoryButton(category, true))}
-        {renderViewAllButton(true)}
-      </div>
-
-      {/* Desktop: horizontal scroll with drag (scrollbars are hidden). */}
-      <div className="hidden min-w-0 w-full items-center gap-3 py-1 lg:flex">
-        <div
-          ref={desktopScrollRef}
-          className={`shop-scroll flex min-w-0 flex-1 gap-3 overflow-x-auto select-none flex-nowrap [-webkit-user-drag:none] ${
-            dragging ? "cursor-grabbing scroll-auto" : "cursor-grab scroll-smooth"
-          }`}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          onDragStartCapture={(e) => e.preventDefault()}
-          onClickCapture={onClickCapture}
-        >
-          {categories.slice(0, 15).map((category) => renderCategoryButton(category))}
+      {isMobile ? (
+        <div className="shop-scroll flex min-w-0 w-full gap-3 overflow-x-auto py-1 select-none flex-nowrap">
+          {categories.map((category) => renderCategoryButton(category))}
           {renderViewAllButton()}
         </div>
-      </div>
+      ) : (
+        <div ref={parentRef} className="flex min-w-0 w-full gap-3 justify-start items-center select-none py-1">
+          {/* Categories container which hides overflow */}
+          <div className={`flex overflow-hidden ${categories.length > visibleCount ? "flex-1 justify-between" : "gap-3"}`}>
+            {categories.slice(0, visibleCount).map((category) => renderCategoryButton(category))}
+          </div>
+
+          {/* View All Button */}
+          {renderViewAllButton()}
+        </div>
+      )}
 
       {/* Category popover — opens at View All button position */}
       {isOpen && popoverPos && (

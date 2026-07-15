@@ -32,22 +32,38 @@ export const shopCatalogService = {
     featured?: boolean,
     page = 1,
     pageSize = 20
-  ): Promise<{ items: ApiProduct[]; totalPages: number; page: number; totalCount: number }> => {
+  ): Promise<{
+    items: ApiProduct[];
+    totalPages: number;
+    page: number;
+    totalCount: number;
+    categoryBannerUrl?: string | null;
+  }> => {
     let path = `/v1/shop/products?page=${page}&pageSize=${pageSize}`;
     if (categoryId) path += `&categoryId=${categoryId}`;
     if (featured !== undefined) path += `&featured=${featured}`;
     const { data } = await apiClient.get<{
-      data: { items: ApiProduct[]; totalPages?: number; page?: number; totalCount?: number };
+      data: {
+        items: ApiProduct[];
+        totalPages?: number;
+        page?: number;
+        totalCount?: number;
+      };
     }>(path);
     const items = data.data?.items ?? (data.data as unknown as ApiProduct[]);
     const totalPages = data.data?.totalPages ?? 1;
     const currentPage = data.data?.page ?? page;
     const totalCount = data.data?.totalCount ?? (Array.isArray(items) ? items.length : 0);
+    // categoryBannerUrl is per-item in the API response — grab it from the first item
+    const categoryBannerUrl = Array.isArray(items) && items.length > 0
+      ? (items[0].categoryBannerUrl ?? null)
+      : null;
     return {
       items: Array.isArray(items) ? items : [],
       totalPages,
       page: currentPage,
       totalCount,
+      categoryBannerUrl,
     };
   },
 

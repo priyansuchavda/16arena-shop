@@ -28,52 +28,13 @@ export const CATEGORY_HERO_RIGHT_FADE =
 export const CATEGORY_HERO_IMAGE_MASK =
   "linear-gradient(180deg, #000 0%, #000 68%, rgba(0,0,0,0.96) 78%, rgba(0,0,0,0.72) 86%, rgba(0,0,0,0.38) 93%, transparent 100%)";
 
-/** Per-category hero banners — SWAG-style atmospheric backdrops. */
-const HEROES: Record<string, CategoryHero> = {
-  gaming: {
-    imageUrl:
-      "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1800&q=80",
-  },
-  food: {
-    imageUrl:
-      "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1800&q=80",
-  },
-  travel: {
-    imageUrl:
-      "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=1800&q=80",
-  },
-  shopping: {
-    imageUrl:
-      "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1800&q=80",
-  },
-  music: {
-    imageUrl:
-      "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1800&q=80",
-  },
-  movies: {
-    imageUrl:
-      "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1800&q=80",
-  },
-  entertainment: {
-    imageUrl:
-      "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1800&q=80",
-  },
-  "hot-deals": {
-    imageUrl:
-      "https://images.unsplash.com/photo-1607083206968-1364e05aac28?auto=format&fit=crop&w=1800&q=80",
-  },
-  wellness: {
-    imageUrl:
-      "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=1800&q=80",
-  },
-  sports: {
-    imageUrl:
-      "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1800&q=80",
-  },
-};
-
-export function heroForCategory(slug: string, _accent: string): CategoryHero {
-  return HEROES[slug] ?? {};
+/**
+ * Banner image is now sourced dynamically from the API (`categoryBannerUrl`
+ * on each product item). No static images are needed here — the backdrop
+ * falls back to the accent-color gradient when the API returns no banner.
+ */
+export function heroForCategory(_slug: string, _accent: string): CategoryHero {
+  return {};
 }
 
 export function categoryPageTitle(label: string, slug: string): string {

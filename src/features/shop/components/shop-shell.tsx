@@ -331,7 +331,7 @@ export function ShopShell({
         </div>
       ) : isHome ? (
         <div className="flex flex-col gap-4">
-          <div className="mb-6">
+          <div className="mb-4">
             <ShopCategoryCards
               categories={heroChipCategories}
               allCategories={allChipCategories}

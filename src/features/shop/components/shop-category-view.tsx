@@ -28,8 +28,10 @@ export function ShopCategoryView({ category, categories, popularCards = [] }: Sh
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    setBannerUrl(null);
     let active = true;
     async function load() {
       setLoading(true);
@@ -40,6 +42,9 @@ export function ShopCategoryView({ category, categories, popularCards = [] }: Sh
         setProducts(res.items.map((p) => apiToCard(p, slugs)));
         setPage(1);
         setTotalPages(res.totalPages);
+        if (res.categoryBannerUrl) {
+          setBannerUrl(res.categoryBannerUrl);
+        }
       } catch (err) {
         console.error("Failed to load products for category:", err);
       } finally {
@@ -72,6 +77,9 @@ export function ShopCategoryView({ category, categories, popularCards = [] }: Sh
       setProducts((prev) => [...prev, ...res.items.map((p) => apiToCard(p, slugs))]);
       setPage(nextPage);
       setTotalPages(res.totalPages);
+      if (res.categoryBannerUrl) {
+        setBannerUrl(res.categoryBannerUrl);
+      }
     } catch (err) {
       console.error("Failed to load more products for category:", err);
     } finally {
@@ -80,12 +88,16 @@ export function ShopCategoryView({ category, categories, popularCards = [] }: Sh
   };
 
   const count = products.length;
+  const displayHero = {
+    ...hero,
+    imageUrl: bannerUrl || hero.imageUrl,
+  };
 
   return (
     <section className="relative w-full bg-[var(--void)]">
       {/* Hero zone — full main-column width, image rises behind the top bar */}
       <div className="relative">
-        <CategoryHeroBackdrop hero={hero} accent={accentColor} />
+        <CategoryHeroBackdrop hero={displayHero} accent={accentColor} />
 
         <div className="px-5 lg:px-10">
           <div className="shop-content-width relative z-10 pt-8 sm:pt-10 lg:pt-14">

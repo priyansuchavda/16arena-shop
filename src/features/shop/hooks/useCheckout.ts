@@ -92,6 +92,11 @@ export const useCheckout = () => {
         await launchEasebuzz(orderId);
         navigateToOrder(orderId);
       } catch (err) {
+        const errorMsg = getApiErrorMessage(err, "");
+        if (errorMsg.includes("Name, email, and phone are required on your profile before paying online.")) {
+          useAuthStore.getState().openRegisterModal(window.location.pathname + window.location.search, errorMsg);
+          return;
+        }
         if (isPaymentCancelledError(err)) {
           setError(PAYMENT_CANCELLED_MESSAGE);
         } else {
@@ -216,6 +221,11 @@ export const useCheckout = () => {
 
         navigateToOrder(orderId);
       } catch (err) {
+        const errorMsg = getApiErrorMessage(err, "");
+        if (errorMsg.includes("Name, email, and phone are required on your profile before paying online.")) {
+          useAuthStore.getState().openRegisterModal(window.location.pathname + window.location.search, errorMsg);
+          return;
+        }
         if (orderId) {
           setPendingOrderId(orderId);
           setPendingProductName(params.productName);

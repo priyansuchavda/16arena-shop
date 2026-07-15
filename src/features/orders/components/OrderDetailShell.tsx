@@ -340,6 +340,11 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
       });
       router.push(`/orders/${order.id}`);
     } catch (err) {
+      const errorMsg = getApiErrorMessage(err, "");
+      if (errorMsg.includes("Name, email, and phone are required on your profile before paying online.")) {
+        useAuthStore.getState().openRegisterModal(window.location.pathname + window.location.search, errorMsg);
+        return;
+      }
       if (isPaymentCancelledError(err)) {
         setActionInfo(PAYMENT_CANCELLED_MESSAGE);
       } else {

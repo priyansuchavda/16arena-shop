@@ -26,9 +26,11 @@ const PRESET_AVATARS = [
 export const RegisterForm = ({
   returnUrl: returnUrlProp,
   onClose,
+  initialError = "",
 }: {
   returnUrl?: string;
   onClose?: () => void;
+  initialError?: string;
 } = {}) => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -95,7 +97,13 @@ export const RegisterForm = ({
   const [isAvatarSheetOpen, setIsAvatarSheetOpen] = useState(false);
 
   // Status & error states
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialError);
+
+  useEffect(() => {
+    if (initialError) {
+      setError(initialError);
+    }
+  }, [initialError]);
   const [saving, setSaving] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState<AvailabilityStatus>("idle");
   const [availabilityMessage, setAvailabilityMessage] = useState("");

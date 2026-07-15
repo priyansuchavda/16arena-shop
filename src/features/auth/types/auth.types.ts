@@ -26,7 +26,8 @@ export interface AuthState {
   closeAuthModal: () => void;
   isRegisterModalOpen: boolean;
   registerReturnUrl: string;
-  openRegisterModal: (returnUrl?: string) => void;
+  registerMessage?: string;
+  openRegisterModal: (returnUrl?: string, message?: string) => void;
   closeRegisterModal: () => void;
   setAuth: (user: UserProfile, accessToken: string) => void;
   setAccessToken: (accessToken: string) => void;

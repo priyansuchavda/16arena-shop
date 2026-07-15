@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Loader2, Calendar, Coins, AlertCircle } from "lucide-react";
+import { Loader2, Coins, AlertCircle } from "lucide-react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { shopApi } from "@/features/shop";
 import { ShopAccountShell } from "@/features/shop/components/shop-account-shell";
@@ -44,6 +44,32 @@ function ExpandableDescription({ text }: { text: string }) {
 
 export function TransactionsShell() {
   const [activeTab, setActiveTab] = useState<TabType>("all");
+  const allRef = React.useRef<HTMLButtonElement>(null);
+  const earnedRef = React.useRef<HTMLButtonElement>(null);
+  const spentRef = React.useRef<HTMLButtonElement>(null);
+  const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number } | null>(null);
+
+  useEffect(() => {
+    const updatePosition = () => {
+      const activeEl =
+        activeTab === "all"
+          ? allRef.current
+          : activeTab === "earned"
+          ? earnedRef.current
+          : spentRef.current;
+
+      if (activeEl) {
+        setIndicatorStyle({
+          left: activeEl.offsetLeft,
+          width: activeEl.offsetWidth,
+        });
+      }
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    return () => window.removeEventListener("resize", updatePosition);
+  }, [activeTab]);
 
   const {
     data,
@@ -120,33 +146,45 @@ export function TransactionsShell() {
 
         {/* Custom Tab Bar with dividers */}
         <div className="flex items-center border-b border-white/10 pb-3 mt-4">
-          <div className="flex items-center gap-3 text-sm md:text-base">
+          <div className="flex items-center gap-3 text-sm md:text-base relative">
             <button
+              ref={allRef}
               onClick={() => setActiveTab("all")}
-              className={`px-3 py-1 font-semibold transition-all relative ${
-                activeTab === "all" ? "text-[#FE8321]" : "text-white/60 hover:text-white"
+              className={`px-3 py-1 transition-all relative ${
+                activeTab === "all" ? "text-white font-semibold" : "text-white/60 font-normal"
               }`}
             >
-              All
+              All Transactions
             </button>
             <span className="text-white/10 font-light">|</span>
             <button
+              ref={earnedRef}
               onClick={() => setActiveTab("earned")}
-              className={`px-3 py-1 font-semibold transition-all relative ${
-                activeTab === "earned" ? "text-[#FE8321]" : "text-white/60 hover:text-white"
+              className={`px-3 py-1 transition-all relative ${
+                activeTab === "earned" ? "text-white font-semibold" : "text-white/60 font-normal"
               }`}
             >
               Earned
             </button>
             <span className="text-white/10 font-light">|</span>
             <button
+              ref={spentRef}
               onClick={() => setActiveTab("spent")}
-              className={`px-3 py-1 font-semibold transition-all relative ${
-                activeTab === "spent" ? "text-[#FE8321]" : "text-white/60 hover:text-white"
+              className={`px-3 py-1 transition-all relative ${
+                activeTab === "spent" ? "text-white font-semibold" : "text-white/60 font-normal"
               }`}
             >
               Spent
             </button>
+            {indicatorStyle && (
+              <span
+                className="absolute bottom-[-12px] h-[2px] bg-[#008AFF] transition-all duration-300 ease-in-out"
+                style={{
+                  left: indicatorStyle.left,
+                  width: indicatorStyle.width,
+                }}
+              />
+            )}
           </div>
         </div>
 
@@ -179,19 +217,17 @@ export function TransactionsShell() {
                 return (
                   <div
                     key={tx.id}
-                    className="flex items-start justify-between gap-4 py-4 px-2 md:px-4 hover:bg-white/[0.01] rounded-xl transition-all duration-150"
+                    className="flex items-start justify-between gap-4 py-4 px-2 md:px-4"
                   >
-                    {/* Left: Coin Icon */}
-                    <div className="flex items-start gap-4">
-                      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03]">
-                        <Image
-                          src={coinImg}
-                          alt="coin"
-                          width={24}
-                          height={24}
-                          className="object-contain"
-                        />
-                      </div>
+                    {/* Left: Coin Icon & Text Details */}
+                    <div className="flex items-center gap-3">
+                      <Image
+                        src={coinImg}
+                        alt="coin"
+                        width={36}
+                        height={36}
+                        className="object-contain shrink-0"
+                      />
 
                       {/* Middle: Category, Description, Updated Balance */}
                       <div className="flex flex-col">
@@ -199,26 +235,25 @@ export function TransactionsShell() {
                           {tx.categoryName}
                         </span>
                         <ExpandableDescription text={tx.description} />
-                        <span className="text-[11px] text-white/30 font-medium mt-1">
+                        <span className="text-[11px] text-white/30 font-medium mt-0">
                           Updated balance: {tx.balanceAfter.toLocaleString("en-IN")}
                         </span>
                       </div>
                     </div>
 
                     {/* Right: Value, Date */}
-                    <div className="flex flex-col items-end shrink-0 text-right">
+                    <div className="flex flex-col items-end shrink-0 text-right justify-center">
                       <span
-                        className={`font-data text-sm md:text-base font-bold leading-none tabular-nums ${
-                          isEarned ? "text-[#4CAF50]" : "text-[#FE8321]"
+                        className={`text-sm md:text-base font-semibold leading-none ${
+                          isEarned ? "text-[#4CAF50]" : "text-[#EF4444]"
                         }`}
                       >
                         {isEarned ? "+" : "-"}
                         {tx.amount.toLocaleString("en-IN")}
                       </span>
-                      <div className="flex items-center gap-1.5 text-[11px] text-white/30 font-medium mt-2">
-                        <Calendar size={10} />
-                        <span>{formatDate(tx.createdAt)}</span>
-                      </div>
+                      <span className="text-[11px] text-white/30 font-normal mt-2">
+                        {formatDate(tx.createdAt)}
+                      </span>
                     </div>
                   </div>
                 );

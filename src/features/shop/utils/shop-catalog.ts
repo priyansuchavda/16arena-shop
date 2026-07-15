@@ -11,11 +11,18 @@ export type CategoryChip = {
 
 /** Top-level active categories for the chip strip — API order via sortOrder. */
 export function categoryChipsFromApi(
-  categories: import("../types/shop.types").ApiCategory[]
+  categories: import("../types/shop.types").ApiCategory[],
+  prioritizeHero = false
 ): CategoryChip[] {
   return categories
     .filter((c) => c.parentId === null && c.isActive)
-    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+    .sort((a, b) => {
+      if (prioritizeHero) {
+        if (a.isHero && !b.isHero) return -1;
+        if (!a.isHero && b.isHero) return 1;
+      }
+      return a.sortOrder - b.sortOrder || a.name.localeCompare(b.name);
+    })
     .map((c) => ({
       label: c.name,
       slug: c.slug,

@@ -55,6 +55,26 @@ export const RegisterForm = ({
   const [gender, setGender] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState(PRESET_AVATARS[0]);
 
+  // Email & Phone verification states
+  const [emailInput, setEmailInput] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailOtpToken, setEmailOtpToken] = useState<string | null>(null);
+  const [emailOtpInput, setEmailOtpInput] = useState("");
+  const [emailOtp, setEmailOtp] = useState(["", "", "", ""]);
+  const emailOtpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [isRequestingEmailOtp, setIsRequestingEmailOtp] = useState(false);
+  const [isVerifyingEmailOtp, setIsVerifyingEmailOtp] = useState(false);
+
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [countryCode, setCountryCode] = useState("+91");
+  const [phoneOtpToken, setPhoneOtpToken] = useState<string | null>(null);
+  const [phoneOtpInput, setPhoneOtpInput] = useState("");
+  const [phoneOtp, setPhoneOtp] = useState(["", "", "", ""]);
+  const phoneOtpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [isRequestingPhoneOtp, setIsRequestingPhoneOtp] = useState(false);
+  const [isVerifyingPhoneOtp, setIsVerifyingPhoneOtp] = useState(false);
+
   const hasInitializedRef = useRef(false);
   const initialValuesRef = useRef({
     displayName: "",
@@ -203,7 +223,17 @@ export const RegisterForm = ({
         setDobEditable(true);
       }
 
+      // Email
+      setEmailVerified(profile.emailVerified ?? false);
+
+      // Phone
+      setPhoneVerified(profile.phoneVerified ?? false);
+
       if (!hasInitializedRef.current) {
+        setEmailInput(profile.email || "");
+        setPhoneInput(profile.phoneNumber || "");
+        setCountryCode(profile.countryCode || "+91");
+
         initialValuesRef.current = {
           displayName: initDisplayName,
           userName: initUserName,
@@ -234,6 +264,151 @@ export const RegisterForm = ({
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
   }, []);
+
+  const handleRequestEmailOtp = async () => {
+    if (!emailInput.trim()) return;
+    setIsRequestingEmailOtp(true);
+    setError("");
+    try {
+      const response = await userApi.requestEmailOtp(emailInput.trim());
+      const token = response?.otpToken || response?.data?.otpToken || response;
+      if (typeof token === "string") {
+        setEmailOtpToken(token);
+      } else {
+        setEmailOtpToken(token?.otpToken || null);
+      }
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to send email verification OTP.");
+    } finally {
+      setIsRequestingEmailOtp(false);
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    if (!emailOtpToken || !emailOtpInput.trim()) return;
+    setIsVerifyingEmailOtp(true);
+    setError("");
+    try {
+      await userApi.verifyEmailOtp({
+        otpToken: emailOtpToken,
+        otp: emailOtpInput.trim(),
+      });
+      setEmailVerified(true);
+      setEmailOtpToken(null);
+      setEmailOtpInput("");
+      setEmailOtp(["", "", "", ""]);
+      await queryClient.invalidateQueries({ queryKey: ["auth", "userSummary"] });
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Invalid or expired email OTP.");
+    } finally {
+      setIsVerifyingEmailOtp(false);
+    }
+  };
+
+  const handleEmailOtpChange = (index: number, value: string) => {
+    const digit = value.replace(/\D/g, "").slice(-1);
+    const next = [...emailOtp];
+    next[index] = digit;
+    setEmailOtp(next);
+    if (digit && index < 3) {
+      emailOtpRefs.current[index + 1]?.focus();
+    }
+    const otpString = next.join("");
+    setEmailOtpInput(otpString);
+  };
+
+  const handleEmailOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !emailOtp[index] && index > 0) {
+      emailOtpRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleEmailOtpPaste = (e: React.ClipboardEvent) => {
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 4);
+    if (!pasted.length) return;
+    e.preventDefault();
+    const next = ["", "", "", ""];
+    pasted.split("").forEach((ch, i) => {
+      next[i] = ch;
+    });
+    setEmailOtp(next);
+    setEmailOtpInput(next.join(""));
+    emailOtpRefs.current[Math.min(pasted.length, 3)]?.focus();
+  };
+
+  const handleRequestPhoneOtp = async () => {
+    if (!phoneInput.trim()) return;
+    setIsRequestingPhoneOtp(true);
+    setError("");
+    try {
+      const response = await userApi.requestPhoneOtp({
+        phoneNumber: phoneInput.trim(),
+        countryCode: countryCode,
+      });
+      const token = response?.otpToken || response?.data?.otpToken || response;
+      if (typeof token === "string") {
+        setPhoneOtpToken(token);
+      } else {
+        setPhoneOtpToken(token?.otpToken || null);
+      }
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to send phone verification OTP.");
+    } finally {
+      setIsRequestingPhoneOtp(false);
+    }
+  };
+
+  const handleVerifyPhoneOtp = async () => {
+    if (!phoneOtpToken || !phoneOtpInput.trim()) return;
+    setIsVerifyingPhoneOtp(true);
+    setError("");
+    try {
+      await userApi.verifyPhoneOtp({
+        otpToken: phoneOtpToken,
+        otp: phoneOtpInput.trim(),
+      });
+      setPhoneVerified(true);
+      setPhoneOtpToken(null);
+      setPhoneOtpInput("");
+      setPhoneOtp(["", "", "", ""]);
+      await queryClient.invalidateQueries({ queryKey: ["auth", "userSummary"] });
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Invalid or expired mobile OTP.");
+    } finally {
+      setIsVerifyingPhoneOtp(false);
+    }
+  };
+
+  const handlePhoneOtpChange = (index: number, value: string) => {
+    const digit = value.replace(/\D/g, "").slice(-1);
+    const next = [...phoneOtp];
+    next[index] = digit;
+    setPhoneOtp(next);
+    if (digit && index < 3) {
+      phoneOtpRefs.current[index + 1]?.focus();
+    }
+    const otpString = next.join("");
+    setPhoneOtpInput(otpString);
+  };
+
+  const handlePhoneOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !phoneOtp[index] && index > 0) {
+      phoneOtpRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handlePhoneOtpPaste = (e: React.ClipboardEvent) => {
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 4);
+    if (!pasted.length) return;
+    e.preventDefault();
+    const next = ["", "", "", ""];
+    pasted.split("").forEach((ch, i) => {
+      next[i] = ch;
+    });
+    setPhoneOtp(next);
+    setPhoneOtpInput(next.join(""));
+    phoneOtpRefs.current[Math.min(pasted.length, 3)]?.focus();
+  };
 
   const validateDisplayName = (val: string): string | null => {
     const text = val.trim();
@@ -975,6 +1150,193 @@ export const RegisterForm = ({
             })}
           </div>
         </div>
+
+        {isProfileComplete && (
+          <>
+            {/* EMAIL ADDRESS */}
+            <div>
+              <label className="block text-xs font-bold text-white/60 mb-2">
+                Email Address
+              </label>
+              {emailVerified ? (
+                <div className="flex items-center justify-between w-full px-4 py-3 bg-white/5 border border-white/5 rounded-[10px] text-white/50 text-sm cursor-not-allowed select-none">
+                  <span>{emailInput}</span>
+                  <span className="flex items-center gap-1 text-[var(--win)] text-xs font-bold">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Verified
+                  </span>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      placeholder="Enter your email"
+                      disabled={!!emailOtpToken || isRequestingEmailOtp}
+                      style={{ outline: 'none', boxShadow: 'none', borderRadius: '10px' }}
+                      className="flex-1 px-4 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm outline-none placeholder:text-[var(--faint)] focus:border-[#ff7a00] transition duration-200"
+                    />
+                    {!emailOtpToken ? (
+                      <button
+                        type="button"
+                        onClick={handleRequestEmailOtp}
+                        disabled={!emailInput || isRequestingEmailOtp}
+                        className="px-4 py-3 rounded-[10px] bg-gradient-to-r from-[#ff973c] to-[#ff6a00] text-[#0c0c0c] text-xs font-bold active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition duration-200 shrink-0"
+                      >
+                        {isRequestingEmailOtp ? "Sending..." : "Get Verify"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmailOtpToken(null);
+                          setEmailOtpInput("");
+                          setEmailOtp(["", "", "", "", "", ""]);
+                        }}
+                        className="px-4 py-3 rounded-[10px] bg-white/10 hover:bg-white/20 text-white text-xs font-bold active:scale-95 transition duration-200 shrink-0"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                  {emailOtpToken && (
+                    <div className="mt-4 flex flex-col items-center gap-3 animate-in slide-in-from-top-1 duration-150">
+                      <span className="text-xs font-bold text-white/50 uppercase tracking-wider">
+                        Verification Code
+                      </span>
+                      <div className="flex justify-center gap-3.5" onPaste={handleEmailOtpPaste}>
+                        {emailOtp.map((digit, i) => (
+                          <input
+                            key={i}
+                            ref={(el) => {
+                              emailOtpRefs.current[i] = el;
+                            }}
+                            type="text"
+                            inputMode="numeric"
+                            value={digit}
+                            onChange={(e) => handleEmailOtpChange(i, e.target.value)}
+                            onKeyDown={(e) => handleEmailOtpKeyDown(i, e)}
+                            maxLength={1}
+                            autoFocus={i === 0}
+                            className={`w-12 h-12 text-center text-xl font-bold text-white rounded-xl outline-none focus:outline-none focus:ring-0 transition border transform -skew-x-[8.6deg] italic ${
+                              digit
+                                ? "bg-[rgba(254,131,33,0.1)] border-[rgba(254,131,33,0.5)] shadow-[0_0_12px_rgba(254,131,33,0.2)]"
+                                : "bg-[var(--surface)] border-[var(--line)] focus:border-[#fe8321]"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <SlantedButton
+                        type="button"
+                        onClick={handleVerifyEmailOtp}
+                        disabled={emailOtpInput.length < 4 || isVerifyingEmailOtp}
+                        isLoading={isVerifyingEmailOtp}
+                        className="w-full mt-1"
+                      >
+                        Confirm OTP
+                      </SlantedButton>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* MOBILE NUMBER */}
+            <div>
+              <label className="block text-xs font-bold text-white/60 mb-2">
+                Mobile Number
+              </label>
+              {phoneVerified ? (
+                <div className="flex items-center justify-between w-full px-4 py-3 bg-white/5 border border-white/5 rounded-[10px] text-white/50 text-sm cursor-not-allowed select-none">
+                  <span>{countryCode} {phoneInput}</span>
+                  <span className="flex items-center gap-1 text-[var(--win)] text-xs font-bold">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Verified
+                  </span>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex gap-2">
+                    <div className="w-16 px-2 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm text-center select-none font-mono">
+                      {countryCode}
+                    </div>
+                    <input
+                      type="tel"
+                      value={phoneInput}
+                      onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, "").slice(0, 15))}
+                      placeholder="Enter mobile number"
+                      disabled={!!phoneOtpToken || isRequestingPhoneOtp}
+                      style={{ outline: 'none', boxShadow: 'none', borderRadius: '10px' }}
+                      className="flex-1 px-4 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm outline-none focus:outline-none placeholder:text-[var(--faint)] focus:border-[#fe8321] transition duration-200"
+                    />
+                    {!phoneOtpToken ? (
+                      <button
+                        type="button"
+                        onClick={handleRequestPhoneOtp}
+                        disabled={!phoneInput || isRequestingPhoneOtp}
+                        className="px-4 py-3 rounded-[10px] bg-gradient-to-r from-[#ff973c] to-[#ff6a00] text-[#0c0c0c] text-xs font-bold active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition duration-200 shrink-0"
+                      >
+                        {isRequestingPhoneOtp ? "Sending..." : "Get Verify"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPhoneOtpToken(null);
+                          setPhoneOtpInput("");
+                          setPhoneOtp(["", "", "", "", "", ""]);
+                        }}
+                        className="px-4 py-3 rounded-[10px] bg-white/10 hover:bg-white/20 text-white text-xs font-bold active:scale-95 transition duration-200 shrink-0"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                  {phoneOtpToken && (
+                    <div className="mt-4 flex flex-col items-center gap-3 animate-in slide-in-from-top-1 duration-150">
+                      <span className="text-xs font-bold text-white/50 uppercase tracking-wider">
+                        Verification Code
+                      </span>
+                      <div className="flex justify-center gap-3.5" onPaste={handlePhoneOtpPaste}>
+                        {phoneOtp.map((digit, i) => (
+                          <input
+                            key={i}
+                            ref={(el) => {
+                              phoneOtpRefs.current[i] = el;
+                            }}
+                            type="text"
+                            inputMode="numeric"
+                            value={digit}
+                            onChange={(e) => handlePhoneOtpChange(i, e.target.value)}
+                            onKeyDown={(e) => handlePhoneOtpKeyDown(i, e)}
+                            maxLength={1}
+                            autoFocus={i === 0}
+                            className={`w-12 h-12 text-center text-xl font-bold text-white rounded-xl outline-none focus:outline-none focus:ring-0 transition border transform -skew-x-[8.6deg] italic ${
+                              digit
+                                ? "bg-[rgba(254,131,33,0.1)] border-[rgba(254,131,33,0.5)] shadow-[0_0_12px_rgba(254,131,33,0.2)]"
+                                : "bg-[var(--surface)] border-[var(--line)] focus:border-[#fe8321]"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <SlantedButton
+                        type="button"
+                        onClick={handleVerifyPhoneOtp}
+                        disabled={phoneOtpInput.length < 4 || isVerifyingPhoneOtp}
+                        isLoading={isVerifyingPhoneOtp}
+                        className="w-full mt-1"
+                      >
+                        Confirm OTP
+                      </SlantedButton>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
         {/* ERROR BANNER */}
         {error && <div className="text-xs font-semibold text-red-500 text-center my-1">{error}</div>}

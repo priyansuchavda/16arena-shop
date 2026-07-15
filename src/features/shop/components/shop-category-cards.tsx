@@ -273,21 +273,12 @@ export function ShopCategoryCards({
         className="shop-scroll flex min-w-0 w-full gap-2.5 overflow-x-auto py-1 select-none flex-nowrap lg:hidden"
         style={{ touchAction: "pan-x pan-y" }}
       >
-        {categories.map((category) => renderCategoryButton(category, true))}
+        {categories.slice(0, 15).map((category) => renderCategoryButton(category, true))}
         {renderViewAllButton(true)}
       </div>
 
-      {/* Desktop: horizontal scroll with drag + arrow controls (scrollbars are hidden). */}
+      {/* Desktop: horizontal scroll with drag (scrollbars are hidden). */}
       <div className="hidden min-w-0 w-full items-center gap-3 py-1 lg:flex">
-        <button
-          type="button"
-          aria-label="Scroll categories left"
-          onClick={() => scrollDesktop(-1)}
-          className={`${navBtn} ${navBtnState(canScrollLeft)}`}
-        >
-          <ChevronLeftIcon size={15} />
-        </button>
-
         <div
           ref={desktopScrollRef}
           className={`shop-scroll flex min-w-0 flex-1 gap-3 overflow-x-auto select-none flex-nowrap [-webkit-user-drag:none] ${
@@ -300,18 +291,9 @@ export function ShopCategoryCards({
           onDragStartCapture={(e) => e.preventDefault()}
           onClickCapture={onClickCapture}
         >
-          {categories.map((category) => renderCategoryButton(category))}
+          {categories.slice(0, 15).map((category) => renderCategoryButton(category))}
           {renderViewAllButton()}
         </div>
-
-        <button
-          type="button"
-          aria-label="Scroll categories right"
-          onClick={() => scrollDesktop(1)}
-          className={`${navBtn} ${navBtnState(canScrollRight)}`}
-        >
-          <ChevronRightIcon size={15} />
-        </button>
       </div>
 
       {/* Category popover — opens at View All button position */}

@@ -87,11 +87,14 @@ export function ShopShell({
   const isHome = activeSlug === ALL_CATEGORY_SLUG;
 
   const heroChipCategories = useMemo(
-    () => categoryChipsFromApi(categories),
+    () => categoryChipsFromApi(categories, true),
     [categories],
   );
 
-  const allChipCategories = heroChipCategories;
+  const allChipCategories = useMemo(
+    () => categoryChipsFromApi(categories, false),
+    [categories],
+  );
 
   const selectedChipSlug = activeSlug;
 

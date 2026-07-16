@@ -814,7 +814,7 @@ export const RegisterForm = ({
 
   if (showAvatarStep) {
     return (
-      <div className="relative w-full max-w-[420px] overflow-hidden rounded-[16px] border border-white/10 bg-[#161616] p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-[420px] shop-popover-scroll max-h-[90vh] rounded-[16px] border border-white/10 bg-[#161616] p-4 sm:p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-sans text-[21px] font-semibold leading-[20px] tracking-[0px] text-white">
             Choose Avatar
@@ -866,7 +866,7 @@ export const RegisterForm = ({
 
   if (showReferral) {
     return (
-      <div className="relative w-full max-w-[420px] overflow-hidden rounded-[16px] border border-white/10 bg-[#161616] p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-[420px] shop-popover-scroll max-h-[90vh] rounded-[16px] border border-white/10 bg-[#161616] p-4 sm:p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-sans text-[21px] font-semibold leading-[20px] tracking-[0px] text-white">
@@ -951,11 +951,11 @@ export const RegisterForm = ({
   }
 
   return (
-    <div className="relative w-full max-w-[420px] overflow-hidden rounded-[16px] border border-white/10 bg-[#161616] p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+    <div className="relative w-full max-w-[420px] shop-popover-scroll max-h-[90vh] rounded-[16px] border border-white/10 bg-[#161616] p-4 sm:p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="font-sans text-[21px] font-semibold leading-[20px] tracking-[0px] text-white">
+          <h2 className="font-sans text-[18px] sm:text-[21px] font-semibold leading-[20px] tracking-[0px] text-white">
             {isProfileComplete ? "Update profile details" : "Set up your profile"}
           </h2>
         </div>
@@ -1084,7 +1084,7 @@ export const RegisterForm = ({
           </label>
 
           {dobEditable ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <input
                 ref={dayInputRef}
                 type="text"
@@ -1094,9 +1094,9 @@ export const RegisterForm = ({
                 onChange={handleDayChange}
                 onBlur={handleDayBlur}
                 style={{ outline: 'none', boxShadow: 'none', borderRadius: '10px' }}
-                className={`w-16 px-2 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm text-center outline-none placeholder:text-[var(--faint)] focus:border-[#ff7a00] transition duration-200 ${shakeDayInput ? "animate-shake border-red-500" : ""}`}
+                className={`w-0 flex-1 min-w-0 px-2 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm text-center outline-none placeholder:text-[var(--faint)] focus:border-[#ff7a00] transition duration-200 ${shakeDayInput ? "animate-shake border-red-500" : ""}`}
               />
-              <span className="text-[var(--faint)]">/</span>
+              <span className="text-[var(--faint)] shrink-0">/</span>
               <input
                 ref={monthInputRef}
                 type="text"
@@ -1107,9 +1107,9 @@ export const RegisterForm = ({
                 onKeyDown={handleMonthKeyDown}
                 onBlur={handleMonthBlur}
                 style={{ outline: 'none', boxShadow: 'none', borderRadius: '10px' }}
-                className={`w-16 px-2 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm text-center outline-none placeholder:text-[var(--faint)] focus:border-[#ff7a00] transition duration-200 ${shakeMonthInput ? "animate-shake border-red-500" : ""}`}
+                className={`w-0 flex-1 min-w-0 px-2 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm text-center outline-none placeholder:text-[var(--faint)] focus:border-[#ff7a00] transition duration-200 ${shakeMonthInput ? "animate-shake border-red-500" : ""}`}
               />
-              <span className="text-[var(--faint)]">/</span>
+              <span className="text-[var(--faint)] shrink-0">/</span>
               <input
                 ref={yearInputRef}
                 type="text"
@@ -1119,7 +1119,7 @@ export const RegisterForm = ({
                 onChange={(e) => setDobYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
                 onKeyDown={handleYearKeyDown}
                 style={{ outline: 'none', boxShadow: 'none', borderRadius: '10px' }}
-                className="w-24 px-2 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm text-center outline-none placeholder:text-[var(--faint)] focus:border-[#ff7a00] transition duration-200"
+                className="w-0 flex-[1.4] min-w-0 px-2 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm text-center outline-none placeholder:text-[var(--faint)] focus:border-[#ff7a00] transition duration-200"
               />
             </div>
           ) : (
@@ -1184,7 +1184,7 @@ export const RegisterForm = ({
                       placeholder="Enter your email"
                       disabled={!!emailOtpToken || isRequestingEmailOtp}
                       style={{ outline: 'none', boxShadow: 'none', borderRadius: '10px' }}
-                      className="flex-1 px-4 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm outline-none placeholder:text-[var(--faint)] focus:border-[#ff7a00] transition duration-200"
+                      className="flex-1 min-w-0 px-4 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm outline-none placeholder:text-[var(--faint)] focus:border-[#ff7a00] transition duration-200"
                     />
                     {!emailOtpToken ? (
                       <button
@@ -1228,7 +1228,7 @@ export const RegisterForm = ({
                             onKeyDown={(e) => handleEmailOtpKeyDown(i, e)}
                             maxLength={1}
                             autoFocus={i === 0}
-                            className={`w-12 h-12 text-center text-xl font-bold text-white rounded-xl outline-none focus:outline-none focus:ring-0 transition border transform -skew-x-[8.6deg] italic ${
+                            className={`w-11 h-11 sm:w-12 sm:h-12 text-center text-xl font-bold text-white rounded-xl outline-none focus:outline-none focus:ring-0 transition border transform -skew-x-[8.6deg] italic ${
                               digit
                                 ? "bg-[rgba(254,131,33,0.1)] border-[rgba(254,131,33,0.5)] shadow-[0_0_12px_rgba(254,131,33,0.2)]"
                                 : "bg-[var(--surface)] border-[var(--line)] focus:border-[#fe8321]"
@@ -1277,7 +1277,7 @@ export const RegisterForm = ({
                       placeholder="Enter mobile number"
                       disabled={!!phoneOtpToken || isRequestingPhoneOtp}
                       style={{ outline: 'none', boxShadow: 'none', borderRadius: '10px' }}
-                      className="flex-1 px-4 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm outline-none focus:outline-none placeholder:text-[var(--faint)] focus:border-[#fe8321] transition duration-200"
+                      className="flex-1 min-w-0 px-4 py-3 bg-[var(--surface)] border border-[var(--line)] rounded-[10px] text-white text-sm outline-none focus:outline-none placeholder:text-[var(--faint)] focus:border-[#fe8321] transition duration-200"
                     />
                     {!phoneOtpToken ? (
                       <button
@@ -1321,7 +1321,7 @@ export const RegisterForm = ({
                             onKeyDown={(e) => handlePhoneOtpKeyDown(i, e)}
                             maxLength={1}
                             autoFocus={i === 0}
-                            className={`w-12 h-12 text-center text-xl font-bold text-white rounded-xl outline-none focus:outline-none focus:ring-0 transition border transform -skew-x-[8.6deg] italic ${
+                            className={`w-11 h-11 sm:w-12 sm:h-12 text-center text-xl font-bold text-white rounded-xl outline-none focus:outline-none focus:ring-0 transition border transform -skew-x-[8.6deg] italic ${
                               digit
                                 ? "bg-[rgba(254,131,33,0.1)] border-[rgba(254,131,33,0.5)] shadow-[0_0_12px_rgba(254,131,33,0.2)]"
                                 : "bg-[var(--surface)] border-[var(--line)] focus:border-[#fe8321]"

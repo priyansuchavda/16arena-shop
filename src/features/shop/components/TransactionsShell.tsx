@@ -16,7 +16,7 @@ function ExpandableDescription({ text }: { text: string }) {
   const isLong = text.length > 80;
 
   return (
-    <div className="text-[13px] text-white/50 font-normal leading-relaxed mt-1">
+    <div className="text-[11px] md:text-[13px] text-white/50 font-normal leading-relaxed mt-0.5 md:mt-1">
       {isExpanded || !isLong ? (
         <span>{text}</span>
       ) : (
@@ -131,26 +131,26 @@ export function TransactionsShell() {
 
   return (
     <ShopAccountShell hideSidebar>
-      <div className="flex flex-col gap-6 max-w-4xl mx-auto px-4 md:px-0">
+      <div className="flex flex-col gap-4 md:gap-6 max-w-4xl mx-auto px-3 md:px-0">
         {/* Header Nav */}
         <div className="flex items-center gap-3">
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight md:text-2xl">
+            <h1 className="text-base font-bold text-white tracking-tight md:text-2xl">
               Transactions History
             </h1>
-            <p className="text-xs md:text-sm text-white/50">
+            <p className="text-[11px] md:text-sm text-white/50">
               View details of your coins earned and spent.
             </p>
           </div>
         </div>
 
         {/* Custom Tab Bar with dividers */}
-        <div className="flex items-center border-b border-white/10 pb-3 mt-4">
-          <div className="flex items-center gap-3 text-sm md:text-base relative">
+        <div className="flex items-center border-b border-white/10 pb-2 md:pb-3 mt-2 md:mt-4">
+          <div className="flex items-center gap-2 md:gap-3 text-xs md:text-base relative">
             <button
               ref={allRef}
               onClick={() => setActiveTab("all")}
-              className={`px-3 py-1 transition-all relative ${
+              className={`px-2 md:px-3 py-1 transition-all relative ${
                 activeTab === "all" ? "text-white font-semibold" : "text-white/60 font-normal"
               }`}
             >
@@ -160,7 +160,7 @@ export function TransactionsShell() {
             <button
               ref={earnedRef}
               onClick={() => setActiveTab("earned")}
-              className={`px-3 py-1 transition-all relative ${
+              className={`px-2 md:px-3 py-1 transition-all relative ${
                 activeTab === "earned" ? "text-white font-semibold" : "text-white/60 font-normal"
               }`}
             >
@@ -170,7 +170,7 @@ export function TransactionsShell() {
             <button
               ref={spentRef}
               onClick={() => setActiveTab("spent")}
-              className={`px-3 py-1 transition-all relative ${
+              className={`px-2 md:px-3 py-1 transition-all relative ${
                 activeTab === "spent" ? "text-white font-semibold" : "text-white/60 font-normal"
               }`}
             >
@@ -178,7 +178,7 @@ export function TransactionsShell() {
             </button>
             {indicatorStyle && (
               <span
-                className="absolute bottom-[-12px] h-[2px] bg-[#008AFF] transition-all duration-300 ease-in-out"
+                className="absolute bottom-[-9px] md:bottom-[-12px] h-[2px] bg-[#008AFF] transition-all duration-300 ease-in-out"
                 style={{
                   left: indicatorStyle.left,
                   width: indicatorStyle.width,
@@ -211,31 +211,31 @@ export function TransactionsShell() {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            <div className="border border-white/10 rounded-2xl bg-white/[0.02] p-2 md:p-4 flex flex-col divide-y divide-white/5 shadow-xl">
+            <div className="border border-white/10 rounded-xl md:rounded-2xl bg-white/[0.02] p-1.5 md:p-4 flex flex-col divide-y divide-white/5 shadow-xl">
               {filteredTransactions.map((tx) => {
                 const isEarned = tx.transactionType.toLowerCase() === "earned";
                 return (
                   <div
                     key={tx.id}
-                    className="flex items-start justify-between gap-4 py-4 px-2 md:px-4"
+                    className="flex items-start justify-between gap-2 md:gap-4 py-2.5 md:py-4 px-1.5 md:px-4"
                   >
                     {/* Left: Coin Icon & Text Details */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 md:gap-3">
                       <Image
                         src={coinImg}
                         alt="coin"
                         width={36}
                         height={36}
-                        className="object-contain shrink-0"
+                        className="object-contain shrink-0 w-6 h-6 md:w-9 md:h-9"
                       />
 
                       {/* Middle: Category, Description, Updated Balance */}
                       <div className="flex flex-col">
-                        <span className="font-semibold text-sm md:text-base text-white">
+                        <span className="font-semibold text-xs md:text-base text-white">
                           {tx.categoryName}
                         </span>
                         <ExpandableDescription text={tx.description} />
-                        <span className="text-[11px] text-white/30 font-medium mt-0">
+                        <span className="text-[10px] md:text-[11px] text-white/30 font-medium mt-0">
                           Updated balance: {tx.balanceAfter.toLocaleString("en-IN")}
                         </span>
                       </div>
@@ -244,14 +244,14 @@ export function TransactionsShell() {
                     {/* Right: Value, Date */}
                     <div className="flex flex-col items-end shrink-0 text-right justify-center">
                       <span
-                        className={`text-sm md:text-base font-semibold leading-none ${
+                        className={`text-xs md:text-base font-semibold leading-none ${
                           isEarned ? "text-[#4CAF50]" : "text-[#EF4444]"
                         }`}
                       >
                         {isEarned ? "+" : "-"}
                         {tx.amount.toLocaleString("en-IN")}
                       </span>
-                      <span className="text-[11px] text-white/30 font-normal mt-2">
+                      <span className="text-[10px] md:text-[11px] text-white/30 font-normal mt-1 md:mt-2">
                         {formatDate(tx.createdAt)}
                       </span>
                     </div>

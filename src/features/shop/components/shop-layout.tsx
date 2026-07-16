@@ -31,11 +31,13 @@ function ShopTopBar({
   onSelectAll,
   searchQuery,
   onSearchChange,
+  hideSearch,
 }: {
   walletBalance: number;
   onSelectAll?: () => void;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
+  hideSearch?: boolean;
 }) {
   const { data: userSummary } = useUserSummary();
   const coins = userSummary?.arenaCoins ?? walletBalance;
@@ -245,6 +247,7 @@ function ShopTopBar({
         </div>
 
         {/* Middle Section: Centered Search Bar */}
+        {!hideSearch && (
         <div ref={dropdownRef} className="relative w-full lg:max-w-[600px] lg:mx-0">
           <form onSubmit={handleSearchSubmit}>
             <label className="flex h-[46px] w-full items-center gap-3 rounded-[10px] border border-[var(--line)] bg-[var(--surface)] px-4 transition-colors hover:border-white focus-within:border-white focus-within:ring-1 focus-within:ring-white/15 cursor-text lg:h-[52px]">
@@ -318,6 +321,7 @@ function ShopTopBar({
             </div>
           )}
         </div>
+        )}
 
         {/* Desktop Right Section: Coins, Profile */}
         <div className="hidden lg:flex lg:flex-1 justify-end items-center gap-2.5 shrink-0">
@@ -339,6 +343,7 @@ export function ShopLayout({
   onSelectAll,
   searchQuery,
   onSearchChange,
+  hideSearch = false,
 }: {
   categories: CategoryItem[];
   children: React.ReactNode;
@@ -349,6 +354,7 @@ export function ShopLayout({
   onSelectAll?: () => void;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
+  hideSearch?: boolean;
 }) {
   const isAuthModalOpen = useAuthStore((state) => state.isAuthModalOpen);
   const closeAuthModal = useAuthStore((state) => state.closeAuthModal);
@@ -370,6 +376,7 @@ export function ShopLayout({
           onSelectAll={handleSelectAll}
           searchQuery={searchQuery}
           onSearchChange={onSearchChange}
+          hideSearch={hideSearch}
         />
 
         <div

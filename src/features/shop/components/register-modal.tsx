@@ -24,9 +24,9 @@ export function RegisterModal() {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/75 backdrop-blur-[4px] p-4 transition-all duration-300">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center overflow-y-auto bg-black/75 backdrop-blur-[4px] p-3 sm:p-4 transition-all duration-300">
       <div className="absolute inset-0" aria-hidden />
-      <div className="relative w-full max-w-[420px]">
+      <div className="relative w-full max-w-[420px] my-auto">
         <RegisterForm returnUrl={returnUrl} onClose={closeRegisterModal} initialError={registerMessage} />
       </div>
     </div>

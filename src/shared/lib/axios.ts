@@ -50,18 +50,13 @@ apiClient.interceptors.response.use(
       originalRequest.headers.Authorization = `Bearer ${accessToken}`;
       return apiClient(originalRequest);
     } catch (refreshError) {
-      const err = refreshError as { response?: { status?: number } };
-      const isAuthError = err.response?.status === 401 || err.response?.status === 403;
+      useAuthStore.getState().logout();
 
-      if (isAuthError) {
-        useAuthStore.getState().logout();
-
-        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-          const returnUrl = encodeURIComponent(
-            `${window.location.pathname}${window.location.search}`
-          );
-          window.location.href = `/login?returnUrl=${returnUrl}`;
-        }
+      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+        const returnUrl = encodeURIComponent(
+          `${window.location.pathname}${window.location.search}`
+        );
+        window.location.href = `/login?returnUrl=${returnUrl}`;
       }
 
       return Promise.reject(refreshError);

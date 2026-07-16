@@ -156,7 +156,7 @@ export function GiftCardsShell() {
 
   if (isLoading) {
     return (
-      <ShopAccountShell hideSidebar>
+      <ShopAccountShell hideSidebar hideSearch>
         <div className="mx-auto flex w-full max-w-[1000px] flex-col items-center justify-center py-24">
           <Loader2 className="mb-4 h-8 w-8 animate-spin text-[var(--flame)]" />
           <p className="text-sm text-[var(--muted)]">Loading your gift cards…</p>
@@ -166,7 +166,7 @@ export function GiftCardsShell() {
   }
 
   return (
-    <ShopAccountShell hideSidebar>
+    <ShopAccountShell hideSidebar hideSearch>
       <div className="mx-auto w-full max-w-[1000px]">
         <h1 className="font-heading mb-6 text-2xl font-black text-white">My Gift Cards</h1>
 

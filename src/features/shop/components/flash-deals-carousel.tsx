@@ -3,7 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CardModel } from "@/features/shop/types/shop.types";
+import { prefetchLogoColors } from "@/features/shop/utils/logo-colors";
 import { productDealCaption } from "@/features/shop/utils/mappers";
+
+function logoColorSource(product: CardModel): string | null {
+  return product.logoUrl || product.imageUrl || null;
+}
+
+/** Warm logo-color cache so detail voucher paints brand gradient without blink. */
+function prefetchProductLogoColors(product: CardModel) {
+  void prefetchLogoColors(product.logoUrl);
+  if (product.imageUrl && product.imageUrl !== product.logoUrl) {
+    void prefetchLogoColors(product.imageUrl);
+  }
+}
 
 // Three tiers: center biggest, ±1 a little smaller, everything else equal.
 const CENTER = 220; // px — center (focused) square
@@ -301,6 +314,9 @@ function MobileScroller({ items }: { items: CardModel[] }) {
           <Link
             key={`${product.id}-${i}`}
             href={hrefFor(product)}
+            onPointerDown={() => {
+              void prefetchLogoColors(logoColorSource(product));
+            }}
             className="group relative block shrink-0 overflow-hidden rounded-[18px] border border-white/12 bg-white/[0.05]"
             style={{
               width: MOBILE_CARD,
@@ -321,6 +337,13 @@ function MobileScroller({ items }: { items: CardModel[] }) {
 }
 
 export function FlashDealsCarousel({ items }: { items: CardModel[] }) {
+  // Prefetch once per unique card (not per carousel slide copy).
+  useEffect(() => {
+    for (const product of items) {
+      prefetchProductLogoColors(product);
+    }
+  }, [items]);
+
   if (!items.length) return null;
 
   return (
@@ -463,6 +486,9 @@ function DesktopCarousel({ items }: { items: CardModel[] }) {
             <Link
               href={hrefFor(product)}
               draggable={false}
+              onPointerDown={() => {
+                void prefetchLogoColors(logoColorSource(product));
+              }}
               onClickCapture={(e) => {
                 if (movedRef.current) {
                   e.preventDefault();

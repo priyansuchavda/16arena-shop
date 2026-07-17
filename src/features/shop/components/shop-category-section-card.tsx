@@ -5,6 +5,7 @@ import Link from "next/link";
 import { type CardModel } from "@/features/shop/types/shop.types";
 import { formatPercent } from "@/features/shop/utils/checkout.utils";
 import { prefetchLogoColors } from "@/features/shop/utils/logo-colors";
+import { prefetchTransparentLogo } from "@/features/shop/hooks/useTransparentLogo";
 import {
   SAVE_BADGE_GREEN,
   ShopCategorySectionCoinPriceRow,
@@ -94,6 +95,7 @@ export function ShopCategorySectionCard({ product }: { product: CardModel }) {
       onDragStart={(e) => e.preventDefault()}
       onPointerDown={() => {
         void prefetchLogoColors(colorUrl);
+        void prefetchTransparentLogo(product.logoUrl);
       }}
       className="shop-card-lift group relative flex w-full shrink-0 flex-col overflow-hidden rounded-[11px] border border-white/10 bg-white/[0.03]"
       style={{ height: CARD_HEIGHT, maxWidth: SECTION_CARD_WIDTH }}

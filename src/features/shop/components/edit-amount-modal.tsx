@@ -7,6 +7,7 @@ import type { ShopProductDetail, ShopSku, ShopAmountRestrictions } from "../type
 import { gradientFor } from "../utils/mappers";
 import { formatPercent } from "../utils/checkout.utils";
 import { getCachedLogoColors, prefetchLogoColors } from "../utils/logo-colors";
+import { useTransparentLogo } from "../hooks/useTransparentLogo";
 import { SlantedButton } from "@/shared/components/ui/slanted-button";
 
 function rgba(hex: string, opacity: number) {
@@ -49,78 +50,6 @@ function useLogoColors(
 
   return colors;
 }
-
-function useTransparentLogo(logoUrl: string | null) {
-  const [processedUrl, setProcessedUrl] = useState<string | null>(logoUrl);
-
-  useEffect(() => {
-    if (!logoUrl) {
-      setProcessedUrl(null);
-      return;
-    }
-
-    const img = new window.Image();
-    img.crossOrigin = "Anonymous";
-    img.onload = () => {
-      try {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          setProcessedUrl(logoUrl);
-          return;
-        }
-
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imgData.data;
-
-        // Get background color from top-left pixel
-        const bgR = data[0];
-        const bgG = data[1];
-        const bgB = data[2];
-        const bgA = data[3];
-
-        if (bgA > 50) {
-          const threshold = 40; // color distance threshold
-          for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-            const a = data[i + 3];
-
-            // Calculate Euclidean distance in RGB space
-            const dist = Math.sqrt(
-              Math.pow(r - bgR, 2) +
-              Math.pow(g - bgG, 2) +
-              Math.pow(b - bgB, 2)
-            );
-
-            if (dist < threshold) {
-              data[i + 3] = 0; // Make transparent
-            }
-          }
-          ctx.putImageData(imgData, 0, 0);
-          setProcessedUrl(canvas.toDataURL());
-        } else {
-          setProcessedUrl(logoUrl);
-        }
-      } catch (err) {
-        console.error("Failed to make logo transparent:", err);
-        setProcessedUrl(logoUrl);
-      }
-    };
-    img.onerror = () => {
-      setProcessedUrl(logoUrl);
-    };
-    img.src = logoUrl;
-  }, [logoUrl]);
-
-  return processedUrl;
-}
-
 
 type EditAmountModalProps = {
   open: boolean;

@@ -4,10 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CardModel } from "@/features/shop/types/shop.types";
 import { prefetchLogoColors } from "@/features/shop/utils/logo-colors";
+import { prefetchTransparentLogo } from "@/features/shop/hooks/useTransparentLogo";
 import { productDealCaption } from "@/features/shop/utils/mappers";
 
 function logoColorSource(product: CardModel): string | null {
   return product.logoUrl || product.imageUrl || null;
+}
+
+/** Warm both caches on tap so the detail voucher card paints instantly. */
+function prefetchForNavigation(product: CardModel) {
+  void prefetchLogoColors(logoColorSource(product));
+  void prefetchTransparentLogo(product.logoUrl);
 }
 
 /** Warm logo-color cache so detail voucher paints brand gradient without blink. */
@@ -315,7 +322,7 @@ function MobileScroller({ items }: { items: CardModel[] }) {
             key={`${product.id}-${i}`}
             href={hrefFor(product)}
             onPointerDown={() => {
-              void prefetchLogoColors(logoColorSource(product));
+              prefetchForNavigation(product);
             }}
             className="group relative block shrink-0 overflow-hidden rounded-[18px] border border-white/12 bg-white/[0.05]"
             style={{
@@ -487,7 +494,7 @@ function DesktopCarousel({ items }: { items: CardModel[] }) {
               href={hrefFor(product)}
               draggable={false}
               onPointerDown={() => {
-                void prefetchLogoColors(logoColorSource(product));
+                prefetchForNavigation(product);
               }}
               onClickCapture={(e) => {
                 if (movedRef.current) {

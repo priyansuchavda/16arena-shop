@@ -6,6 +6,23 @@ import { useLogoColors, useTransparentLogo } from "./live-product-detail";
 import { gradientFor } from "@/features/shop/utils/mappers";
 import { formatPercent } from "@/features/shop/utils/checkout.utils";
 
+/** Logo that fades in once decoded — keyed by src so state resets per logo. */
+function FadeInLogo({ src }: { src: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <Image
+      src={src}
+      alt=""
+      width={276}
+      height={92}
+      onLoad={() => setLoaded(true)}
+      className={`h-[92px] w-auto translate-y-5 object-contain transition-opacity duration-300 ${
+        loaded ? "opacity-100" : "opacity-0"
+      }`}
+    />
+  );
+}
+
 export type BrandPremiumVoucherCardProps = {
   brandName: string;
   logoUrl?: string | null;
@@ -125,13 +142,11 @@ export function BrandPremiumVoucherCard({
 
         <div className="relative z-10 flex items-center gap-3">
           {transparentLogoUrl ? (
-            <Image
-              src={transparentLogoUrl}
-              alt=""
-              width={276}
-              height={92}
-              className="h-[92px] w-auto translate-y-5 object-contain"
-            />
+            <FadeInLogo key={transparentLogoUrl} src={transparentLogoUrl} />
+          ) : logoUrl ? (
+            // Logo exists but transparent version is still processing —
+            // keep the space reserved without flashing the boxed original.
+            <div className="h-[92px] translate-y-5" aria-hidden />
           ) : (
             <span className="text-xs font-bold uppercase tracking-[0.05em] text-white/90">
               {brandName}

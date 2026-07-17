@@ -220,7 +220,7 @@ export function GiftCardsShell() {
                 setFilters((prev) => ({ ...prev, searchQuery: e.target.value }))
               }
               placeholder="Search in gift cards....."
-              className="min-w-0 flex-1 border-none bg-transparent text-sm text-white placeholder:text-white/30"
+              className="min-w-0 flex-1 border-none bg-transparent text-sm text-white placeholder:text-white/30 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
               style={{ outline: "none", boxShadow: "none" }}
             />
             {filters.searchQuery && (

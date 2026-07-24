@@ -9,13 +9,16 @@ export function getApiServerUrl(): string {
   return raw.replace(/\/+$/, "").replace(/\/api$/, "");
 }
 
+const PRODUCTION_API_ORIGIN = "https://api.16arena.com";
+
 /**
  * REST client base URL resolver.
  *
- * Browser: `/api` on localhost:3000 — Next.js rewrites to NEXT_PUBLIC_SHOP_API_BASE
+ * Browser: `/api` on localhost:3000 — Next.js rewrites to NEXT_PUBLIC_API_BASE_URL
  * (see next.config.ts). Required so HttpOnly refresh-token cookies work.
  *
- * Server: direct backend URL from env.
+ * Server: direct backend URL from env. Relative `/api` is invalid for Node/axios
+ * during SSR and static generation, so we fall back to the production origin.
  */
 export function getApiBaseUrl(): string {
   if (typeof window !== "undefined") {
@@ -23,5 +26,9 @@ export function getApiBaseUrl(): string {
   }
 
   const serverUrl = getApiServerUrl();
-  return serverUrl ? `${serverUrl}/api` : "/api";
+  if (serverUrl) {
+    return `${serverUrl}/api`;
+  }
+
+  return `${PRODUCTION_API_ORIGIN}/api`;
 }

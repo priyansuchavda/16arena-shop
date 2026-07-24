@@ -2,7 +2,7 @@ import { getRedirectResult, GoogleAuthProvider } from "firebase/auth";
 import { apiClient } from "@/shared/lib/axios";
 import { refreshAccessToken } from "@/shared/lib/auth-session";
 import { applyAccessToken } from "@/shared/lib/auth-token";
-import { auth } from "@/shared/lib/firebase";
+import { getFirebaseAuth } from "@/shared/lib/firebase";
 import type { UserProfile } from "../types/auth.types";
 
 function unwrapData<T>(payload: unknown): T {
@@ -111,7 +111,7 @@ export const authApi = {
   // Completes the signInWithRedirect flow (mobile Google sign-in) after the
   // browser navigates back. Returns null if there was no pending redirect.
   consumeGoogleRedirectResult: async () => {
-    const userCredential = await getRedirectResult(auth);
+    const userCredential = await getRedirectResult(getFirebaseAuth());
     if (!userCredential) return null;
 
     const credential = GoogleAuthProvider.credentialFromResult(userCredential);

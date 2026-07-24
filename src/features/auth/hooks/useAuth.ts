@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "../services/auth.service";
 import { useAuthStore } from "../store/auth.store";
 import { signInWithPopup, signInWithRedirect, GoogleAuthProvider } from "firebase/auth";
-import { auth, googleProvider } from "@/shared/lib/firebase";
+import { getFirebaseAuth, getGoogleProvider } from "@/shared/lib/firebase";
 import { isMobileAuthDevice } from "../utils/device";
 
 // Mobile browsers (iOS Safari especially, plus most in-app/Android WebViews)
@@ -14,13 +14,13 @@ export const useGoogleLogin = () => {
   return useMutation({
     mutationFn: async () => {
       if (isMobileAuthDevice()) {
-        await signInWithRedirect(auth, googleProvider);
+        await signInWithRedirect(getFirebaseAuth(), getGoogleProvider());
         // Browser navigates away here; result is handled by
         // consumeGoogleRedirectResult on the page we land back on.
         return null;
       }
 
-      const userCredential = await signInWithPopup(auth, googleProvider);
+      const userCredential = await signInWithPopup(getFirebaseAuth(), getGoogleProvider());
       const credential = GoogleAuthProvider.credentialFromResult(userCredential);
       const idToken = credential?.idToken;
 

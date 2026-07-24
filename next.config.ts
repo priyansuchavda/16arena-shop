@@ -1,4 +1,8 @@
 import type { NextConfig } from "next";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 function getRewriteDestination(): string | null {
   const raw = (
@@ -12,6 +16,7 @@ function getRewriteDestination(): string | null {
 }
 
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: projectRoot,
   // Allow the dev server to be accessed over the LAN IP (e.g. testing on a
   // phone / another device) without HMR cross-origin warnings.
   allowedDevOrigins: ["192.168.29.221", "192.168.29.77"],

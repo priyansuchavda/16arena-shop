@@ -11,6 +11,7 @@ import { CoinIcon, ZapIcon } from "@/shared/components/icons";
 import { useAuthStore, useUserSummary } from "@/features/auth";
 import { shopApi, buildCheckoutRequest } from "../api";
 import { PaymentSummarySheet } from "./payment-summary-sheet";
+import { PaymentComingSoonSheet } from "./payment-coming-soon-sheet";
 import { BrandPremiumVoucherCard } from "./brand-premium-voucher-card";
 import { CouponSuggestionsList } from "./coupon-suggestions-list";
 import { EditAmountModal } from "./edit-amount-modal";
@@ -127,6 +128,7 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
   const openAuthModal = useAuthStore((state) => state.openAuthModal);
   const { data: userSummary } = useUserSummary();
   const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
+  const [paymentComingSoonOpen, setPaymentComingSoonOpen] = useState(false);
   const isMobile = useIsMobile();
 
   const fixedSkus = useMemo(() => splitFixedSkus(product), [product]);
@@ -569,10 +571,13 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
       return;
     }
 
-    const preview = checkoutPreview ?? (await loadPreview({ syncCart: true }));
-    if (preview) {
-      setPaymentSheetOpen(true);
-    }
+    setPaymentComingSoonOpen(true);
+    return;
+
+    // const preview = checkoutPreview ?? (await loadPreview({ syncCart: true }));
+    // if (preview) {
+    //   setPaymentSheetOpen(true);
+    // }
   };
 
   const handleApplyCoupon = async () => {
@@ -1157,6 +1162,13 @@ export function LiveProductDetail({ product, related = [] }: LiveProductDetailPr
         <div className="mt-4 relative z-10">
           <ScrollRow title="You may also like" items={related} card="section" />
         </div>
+      )}
+
+      {selectedSku && (
+        <PaymentComingSoonSheet
+          open={paymentComingSoonOpen}
+          onClose={() => setPaymentComingSoonOpen(false)}
+        />
       )}
 
       {selectedSku && (

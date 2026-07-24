@@ -16,6 +16,7 @@ import {
 import { buttonVariants } from "@/shared/components/ui/button";
 import { shopApi, buildCheckoutRequest } from "@/features/shop/api";
 import { useCheckout } from "@/features/shop/hooks/useCheckout";
+import { PaymentComingSoonSheet } from "@/features/shop/components/payment-coming-soon-sheet";
 import { useAuthStore, useUserSummary } from "@/features/auth";
 import { shouldShowCoinEditor } from "@/features/shop/services/product.service";
 import type { CartData, CartItem, CheckoutPreview } from "@/features/shop/types/shop.types";
@@ -42,6 +43,8 @@ export function CartShell() {
     loading: checkoutLoading,
     error: checkoutError,
     pendingOrderId,
+    paymentComingSoonOpen,
+    closePaymentComingSoon,
   } = useCheckout();
   const [cancellingOrder, setCancellingOrder] = useState(false);
 
@@ -281,6 +284,11 @@ export function CartShell() {
     : true;
 
   return (
+    <>
+    <PaymentComingSoonSheet
+      open={paymentComingSoonOpen}
+      onClose={closePaymentComingSoon}
+    />
     <div className="min-h-screen bg-[var(--void)] px-4 py-8 text-white md:px-8">
       <div className="mx-auto max-w-3xl">
         <div className="mb-6 flex items-center justify-between">
@@ -477,6 +485,7 @@ export function CartShell() {
         </div>
       </div>
     </div>
+    </>
   );
 }
 

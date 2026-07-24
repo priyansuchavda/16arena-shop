@@ -3,22 +3,9 @@
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { buildCheckoutRequest, shopApi } from "../api";
 import { useAuthStore } from "@/features/auth";
-import { getApiErrorMessage } from "../services/shop-api-client";
-import { confirmCheckoutPreview } from "../utils/confirm-checkout";
-import {
-  isPaymentCancelledError,
-  openEasebuzzCheckout,
-  PAYMENT_CANCELLED_MESSAGE,
-} from "../utils/easebuzz-checkout";
-import {
-  clearCheckoutIdempotencyKey,
-  getOrCreateCheckoutIdempotencyKey,
-  isRetryableCheckoutError,
-  resolveCheckoutUserId,
-} from "../utils/shopCheckoutIdempotency";
-import type { CheckoutRequest } from "../types/shop.types";
+import { shopApi } from "../api";
+import { resolveCheckoutUserId, clearCheckoutIdempotencyKey } from "../utils/shopCheckoutIdempotency";
 
 export {
   PAYMENT_CANCELLED_MESSAGE,
@@ -59,6 +46,7 @@ export const useCheckout = () => {
   const [needsResync, setNeedsResync] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [pendingProductName, setPendingProductName] = useState<string | null>(null);
+  const [paymentComingSoonOpen, setPaymentComingSoonOpen] = useState(false);
   const checkoutInFlightRef = useRef(false);
 
   const navigateToOrder = useCallback(
@@ -70,43 +58,47 @@ export const useCheckout = () => {
     [router]
   );
 
-  const launchEasebuzz = useCallback(
-    async (orderId: string) => {
-      const payment = await shopApi.initiatePayment(orderId);
-      await openEasebuzzCheckout({
-        orderId,
-        payment,
-      });
-    },
-    []
-  );
+  // Payment via Easebuzz checkout — disabled until launch
+  // const launchEasebuzz = useCallback(
+  //   async (orderId: string) => {
+  //     const payment = await shopApi.initiatePayment(orderId);
+  //     await openEasebuzzCheckout({
+  //       orderId,
+  //       payment,
+  //     });
+  //   },
+  //   []
+  // );
 
   const resumePayment = useCallback(
-    async (orderId: string, productName: string) => {
-      setLoading(true);
-      setError(null);
-      setPendingOrderId(orderId);
-      setPendingProductName(productName);
+    async (_orderId: string, _productName: string) => {
+      setPaymentComingSoonOpen(true);
+      return;
 
-      try {
-        await launchEasebuzz(orderId);
-        navigateToOrder(orderId);
-      } catch (err) {
-        const errorMsg = getApiErrorMessage(err, "");
-        if (errorMsg.includes("Name, email, and phone are required on your profile before paying online.")) {
-          useAuthStore.getState().openRegisterModal(window.location.pathname + window.location.search, errorMsg);
-          return;
-        }
-        if (isPaymentCancelledError(err)) {
-          setError(PAYMENT_CANCELLED_MESSAGE);
-        } else {
-          setError(getApiErrorMessage(err, "Payment could not be completed. Please try again."));
-        }
-      } finally {
-        setLoading(false);
-      }
+      // setLoading(true);
+      // setError(null);
+      // setPendingOrderId(orderId);
+      // setPendingProductName(productName);
+      //
+      // try {
+      //   await launchEasebuzz(orderId);
+      //   navigateToOrder(orderId);
+      // } catch (err) {
+      //   const errorMsg = getApiErrorMessage(err, "");
+      //   if (errorMsg.includes("Name, email, and phone are required on your profile before paying online.")) {
+      //     useAuthStore.getState().openRegisterModal(window.location.pathname + window.location.search, errorMsg);
+      //     return;
+      //   }
+      //   if (isPaymentCancelledError(err)) {
+      //     setError(PAYMENT_CANCELLED_MESSAGE);
+      //   } else {
+      //     setError(getApiErrorMessage(err, "Payment could not be completed. Please try again."));
+      //   }
+      // } finally {
+      //   setLoading(false);
+      // }
     },
-    [launchEasebuzz, navigateToOrder]
+    []
   );
 
   const cancelPendingOrder = useCallback(
@@ -137,124 +129,119 @@ export const useCheckout = () => {
   );
 
   const handleCheckout = useCallback(
-    async (params: CheckoutParams) => {
+    async (_params: CheckoutParams) => {
+      setPaymentComingSoonOpen(true);
+      return;
+
       // Resume existing payment-initiated order instead of placing again.
-      if (pendingOrderId) {
-        await resumePayment(pendingOrderId, pendingProductName ?? params.productName);
-        return;
-      }
-
-      if (checkoutInFlightRef.current) return;
-
-      const userId = resolveCheckoutUserId(user);
-      if (!userId) {
-        setError("You must be signed in to checkout.");
-        return;
-      }
-
-      checkoutInFlightRef.current = true;
-      setLoading(true);
-      setError(null);
-      let orderId: string | null = null;
-      const idempotencyKey = getOrCreateCheckoutIdempotencyKey(userId);
-
-      try {
-        const cartAlreadySynced =
-          !needsResync &&
-          !params.isCartCheckout &&
-          Array.isArray(params.cartItemIds) &&
-          params.cartItemIds.length > 0;
-
-        let currentCartItemIds = params.cartItemIds;
-
-        if (!params.isCartCheckout && !cartAlreadySynced) {
-          if (!params.skuId) {
-            throw new Error("SKU is required for checkout.");
-          }
-          const cart = await shopApi.addToCart(
-            params.skuId,
-            params.quantity,
-            params.customVoucherAmount,
-            params.deliveryInfo
-          );
-          if (cart && Array.isArray(cart.items)) {
-            currentCartItemIds = cart.items.map((item) => item.id).filter(Boolean);
-          }
-        }
-
-        const previewRequest = buildCheckoutRequest({
-          cartItemIds: params.isCartCheckout ? null : currentCartItemIds ?? null,
-          coinsToRedeem: params.coinsToRedeem,
-          useWalletCredits: params.useWalletCredits,
-          walletCreditsToUse: params.walletCreditsToUse,
-          couponCode: params.couponCode,
-          allowHybridInrPayment: params.allowHybridInrPayment,
-          quantity: params.quantity,
-          idempotencyKey,
-        });
-
-        const { request: confirmedRequest, preview: finalPreview } =
-          await confirmCheckoutPreview(previewRequest, params.previewHint);
-
-        const checkoutRequest: CheckoutRequest = {
-          ...confirmedRequest,
-          idempotencyKey,
-        };
-
-        const createdOrder = await shopApi.placeOrder(checkoutRequest);
-
-        orderId = createdOrder.id;
-        if (!orderId) {
-          throw new Error("Failed to create order. Please try again.");
-        }
-
-        clearCheckoutIdempotencyKey(userId);
-
-        setPendingOrderId(orderId);
-        setPendingProductName(params.productName);
-
-        const totalPaid = createdOrder.totalPaid ?? finalPreview.totalPayable ?? 0;
-
-        if (totalPaid > 0) {
-          await launchEasebuzz(orderId);
-        }
-
-        navigateToOrder(orderId);
-      } catch (err) {
-        const errorMsg = getApiErrorMessage(err, "");
-        if (errorMsg.includes("Name, email, and phone are required on your profile before paying online.")) {
-          useAuthStore.getState().openRegisterModal(window.location.pathname + window.location.search, errorMsg);
-          return;
-        }
-        if (orderId) {
-          setPendingOrderId(orderId);
-          setPendingProductName(params.productName);
-          setNeedsResync(true);
-          if (isPaymentCancelledError(err)) {
-            setError(PAYMENT_CANCELLED_MESSAGE);
-          } else {
-            setError(getApiErrorMessage(err, "Checkout failed. Please try again."));
-          }
-          return;
-        }
-        if (!isRetryableCheckoutError(err)) {
-          clearCheckoutIdempotencyKey(userId);
-        }
-        setError(getApiErrorMessage(err, "Checkout failed. Please try again."));
-      } finally {
-        checkoutInFlightRef.current = false;
-        setLoading(false);
-      }
+      // if (pendingOrderId) {
+      //   await resumePayment(pendingOrderId, pendingProductName ?? params.productName);
+      //   return;
+      // }
+      //
+      // if (checkoutInFlightRef.current) return;
+      //
+      // const userId = resolveCheckoutUserId(user);
+      // if (!userId) {
+      //   setError("You must be signed in to checkout.");
+      //   return;
+      // }
+      //
+      // checkoutInFlightRef.current = true;
+      // setLoading(true);
+      // setError(null);
+      // let orderId: string | null = null;
+      // const idempotencyKey = getOrCreateCheckoutIdempotencyKey(userId);
+      //
+      // try {
+      //   const cartAlreadySynced =
+      //     !needsResync &&
+      //     !params.isCartCheckout &&
+      //     Array.isArray(params.cartItemIds) &&
+      //     params.cartItemIds.length > 0;
+      //
+      //   let currentCartItemIds = params.cartItemIds;
+      //
+      //   if (!params.isCartCheckout && !cartAlreadySynced) {
+      //     if (!params.skuId) {
+      //       throw new Error("SKU is required for checkout.");
+      //     }
+      //     const cart = await shopApi.addToCart(
+      //       params.skuId,
+      //       params.quantity,
+      //       params.customVoucherAmount,
+      //       params.deliveryInfo
+      //     );
+      //     if (cart && Array.isArray(cart.items)) {
+      //       currentCartItemIds = cart.items.map((item) => item.id).filter(Boolean);
+      //     }
+      //   }
+      //
+      //   const previewRequest = buildCheckoutRequest({
+      //     cartItemIds: params.isCartCheckout ? null : currentCartItemIds ?? null,
+      //     coinsToRedeem: params.coinsToRedeem,
+      //     useWalletCredits: params.useWalletCredits,
+      //     walletCreditsToUse: params.walletCreditsToUse,
+      //     couponCode: params.couponCode,
+      //     allowHybridInrPayment: params.allowHybridInrPayment,
+      //     quantity: params.quantity,
+      //     idempotencyKey,
+      //   });
+      //
+      //   const { request: confirmedRequest, preview: finalPreview } =
+      //     await confirmCheckoutPreview(previewRequest, params.previewHint);
+      //
+      //   const checkoutRequest: CheckoutRequest = {
+      //     ...confirmedRequest,
+      //     idempotencyKey,
+      //   };
+      //
+      //   const createdOrder = await shopApi.placeOrder(checkoutRequest);
+      //
+      //   orderId = createdOrder.id;
+      //   if (!orderId) {
+      //     throw new Error("Failed to create order. Please try again.");
+      //   }
+      //
+      //   clearCheckoutIdempotencyKey(userId);
+      //
+      //   setPendingOrderId(orderId);
+      //   setPendingProductName(params.productName);
+      //
+      //   const totalPaid = createdOrder.totalPaid ?? finalPreview.totalPayable ?? 0;
+      //
+      //   if (totalPaid > 0) {
+      //     await launchEasebuzz(orderId);
+      //   }
+      //
+      //   navigateToOrder(orderId);
+      // } catch (err) {
+      //   const errorMsg = getApiErrorMessage(err, "");
+      //   if (errorMsg.includes("Name, email, and phone are required on your profile before paying online.")) {
+      //     useAuthStore.getState().openRegisterModal(window.location.pathname + window.location.search, errorMsg);
+      //     return;
+      //   }
+      //   if (orderId) {
+      //     setPendingOrderId(orderId);
+      //     setPendingProductName(params.productName);
+      //     setNeedsResync(true);
+      //     if (isPaymentCancelledError(err)) {
+      //       setError(PAYMENT_CANCELLED_MESSAGE);
+      //     } else {
+      //       setError(getApiErrorMessage(err, "Checkout failed. Please try again."));
+      //     }
+      //     return;
+      //   }
+      //   if (!isRetryableCheckoutError(err)) {
+      //     clearCheckoutIdempotencyKey(userId);
+      //   }
+      //   setError(getApiErrorMessage(err, "Checkout failed. Please try again."));
+      // } finally {
+      //   checkoutInFlightRef.current = false;
+      //   setLoading(false);
+      // }
     },
-    [
-      launchEasebuzz,
-      navigateToOrder,
-      needsResync,
-      pendingOrderId,
-      pendingProductName,
-      resumePayment,
-      user,
-    ]
+    []
   );
 
   return {
@@ -266,5 +253,8 @@ export const useCheckout = () => {
     setError,
     pendingOrderId,
     pendingProductName,
+    paymentComingSoonOpen,
+    closePaymentComingSoon: () => setPaymentComingSoonOpen(false),
+    navigateToOrder,
   };
 };

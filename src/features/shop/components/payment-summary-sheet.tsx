@@ -7,6 +7,7 @@ import coinImg from "@/assets/png/coin.png";
 import { SlantedButton } from "@/shared/components/ui/slanted-button";
 import { shopApi, buildCheckoutRequest } from "../api";
 import { useCheckout } from "../hooks/useCheckout";
+import { PaymentComingSoonSheet } from "./payment-coming-soon-sheet";
 import type { CheckoutPreview, ShopProductDetail, ShopSku } from "../types/shop.types";
 import {
   activePaymentRules,
@@ -61,6 +62,8 @@ export function PaymentSummarySheet({
     loading,
     error,
     pendingOrderId,
+    paymentComingSoonOpen,
+    closePaymentComingSoon,
   } = useCheckout();
   const [preview, setPreview] = useState<CheckoutPreview | null>(initialPreview ?? null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -311,6 +314,11 @@ export function PaymentSummarySheet({
   if (!open) return null;
 
   return (
+    <>
+    <PaymentComingSoonSheet
+      open={paymentComingSoonOpen}
+      onClose={closePaymentComingSoon}
+    />
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4">
       <button
         type="button"
@@ -551,5 +559,6 @@ export function PaymentSummarySheet({
         </div>
       </div>
     </div>
+    </>
   );
 }

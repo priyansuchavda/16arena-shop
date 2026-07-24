@@ -26,9 +26,10 @@ import {
 } from "@/features/shop/utils/checkout.utils";
 import {
   PAYMENT_CANCELLED_MESSAGE,
-  initiateAndOpenEasebuzz,
+  // initiateAndOpenEasebuzz,
   isPaymentCancelledError,
 } from "@/features/shop/utils/easebuzz-checkout";
+import { PaymentComingSoonSheet } from "@/features/shop/components/payment-coming-soon-sheet";
 import { useAuthStore } from "@/features/auth";
 import { getApiErrorMessage } from "@/features/shop/services/shop-api-client";
 import coinImg from "@/assets/png/coin.png";
@@ -267,6 +268,7 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
   const [actionLoading, setActionLoading] = useState<"pay" | "cancel" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionInfo, setActionInfo] = useState<string | null>(null);
+  const [paymentComingSoonOpen, setPaymentComingSoonOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadOrder = useCallback(async (showSpinner = true) => {
@@ -326,36 +328,39 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
 
   const handleCompletePayment = async () => {
     if (!order || actionLoading) return;
-    setActionLoading("pay");
-    setActionError(null);
-    setActionInfo(null);
-    try {
-      const productName =
-        order.items[0]?.productName ?? order.items[0]?.brandName ?? "Order";
-      await initiateAndOpenEasebuzz({
-        orderId: order.id,
-        productName,
-        contact: user?.phoneNumber ?? "",
-        email: user?.email ?? "",
-      });
-      router.push(`/orders/${order.id}`);
-    } catch (err) {
-      const errorMsg = getApiErrorMessage(err, "");
-      if (errorMsg.includes("Name, email, and phone are required on your profile before paying online.")) {
-        useAuthStore.getState().openRegisterModal(window.location.pathname + window.location.search, errorMsg);
-        return;
-      }
-      if (isPaymentCancelledError(err)) {
-        setActionInfo(PAYMENT_CANCELLED_MESSAGE);
-      } else {
-        setActionError(
-          getApiErrorMessage(err, "Payment could not be completed. Please try again.")
-        );
-      }
-      await loadOrder(false);
-    } finally {
-      setActionLoading(null);
-    }
+    setPaymentComingSoonOpen(true);
+    return;
+
+    // setActionLoading("pay");
+    // setActionError(null);
+    // setActionInfo(null);
+    // try {
+    //   const productName =
+    //     order.items[0]?.productName ?? order.items[0]?.brandName ?? "Order";
+    //   await initiateAndOpenEasebuzz({
+    //     orderId: order.id,
+    //     productName,
+    //     contact: user?.phoneNumber ?? "",
+    //     email: user?.email ?? "",
+    //   });
+    //   router.push(`/orders/${order.id}`);
+    // } catch (err) {
+    //   const errorMsg = getApiErrorMessage(err, "");
+    //   if (errorMsg.includes("Name, email, and phone are required on your profile before paying online.")) {
+    //     useAuthStore.getState().openRegisterModal(window.location.pathname + window.location.search, errorMsg);
+    //     return;
+    //   }
+    //   if (isPaymentCancelledError(err)) {
+    //     setActionInfo(PAYMENT_CANCELLED_MESSAGE);
+    //   } else {
+    //     setActionError(
+    //       getApiErrorMessage(err, "Payment could not be completed. Please try again.")
+    //     );
+    //   }
+    //   await loadOrder(false);
+    // } finally {
+    //   setActionLoading(null);
+    // }
   };
 
   const handleCancelOrder = async () => {
@@ -450,6 +455,11 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
       : null;
 
   return (
+    <>
+    <PaymentComingSoonSheet
+      open={paymentComingSoonOpen}
+      onClose={() => setPaymentComingSoonOpen(false)}
+    />
     <ShopAccountShell hideSidebar>
       <div className="mx-auto w-full max-w-[1100px]">
         <h1 className="font-heading mb-6 text-2xl font-black text-white">Order Details</h1>
@@ -653,5 +663,6 @@ export function OrderDetailShell({ orderId }: { orderId: string }) {
         </div>
       </div>
     </ShopAccountShell>
+    </>
   );
 }

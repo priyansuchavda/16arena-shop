@@ -13,10 +13,11 @@ import {
   ORDER_POLL_INTERVAL_MS,
 } from "@/features/shop/utils/checkout.utils";
 import {
-  initiateAndOpenEasebuzz,
+  // initiateAndOpenEasebuzz,
   isPaymentCancelledError,
   PAYMENT_CANCELLED_MESSAGE,
 } from "@/features/shop/utils/easebuzz-checkout";
+import { PaymentComingSoonSheet } from "@/features/shop/components/payment-coming-soon-sheet";
 import { useAuthStore } from "@/features/auth";
 import { getApiErrorMessage } from "@/features/shop/services/shop-api-client";
 import coinImg from "@/assets/png/coin.png";
@@ -29,6 +30,7 @@ export function OrdersShell() {
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const [actionType, setActionType] = useState<"pay" | "cancel" | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [paymentComingSoonOpen, setPaymentComingSoonOpen] = useState(false);
 
   const {
     data,
@@ -76,41 +78,44 @@ export function OrdersShell() {
 
   const handleCompletePayment = async (
     e: React.MouseEvent,
-    orderId: string,
-    productName: string
+    _orderId: string,
+    _productName: string
   ) => {
     e.preventDefault();
     e.stopPropagation();
     if (actionOrderId) return;
-    setActionOrderId(orderId);
-    setActionType("pay");
-    setActionMessage(null);
-    try {
-      await initiateAndOpenEasebuzz({
-        orderId,
-        productName,
-        contact: user?.phoneNumber ?? "",
-        email: user?.email ?? "",
-      });
-      router.push(`/orders/${orderId}`);
-    } catch (err) {
-      const errorMsg = getApiErrorMessage(err, "");
-      if (errorMsg.includes("Name, email, and phone are required on your profile before paying online.")) {
-        useAuthStore.getState().openRegisterModal(window.location.pathname + window.location.search, errorMsg);
-        return;
-      }
-      if (isPaymentCancelledError(err)) {
-        setActionMessage(PAYMENT_CANCELLED_MESSAGE);
-      } else {
-        setActionMessage(
-          getApiErrorMessage(err, "Payment could not be completed. Please try again.")
-        );
-      }
-      await refetch();
-    } finally {
-      setActionOrderId(null);
-      setActionType(null);
-    }
+    setPaymentComingSoonOpen(true);
+    return;
+
+    // setActionOrderId(orderId);
+    // setActionType("pay");
+    // setActionMessage(null);
+    // try {
+    //   await initiateAndOpenEasebuzz({
+    //     orderId,
+    //     productName,
+    //     contact: user?.phoneNumber ?? "",
+    //     email: user?.email ?? "",
+    //   });
+    //   router.push(`/orders/${orderId}`);
+    // } catch (err) {
+    //   const errorMsg = getApiErrorMessage(err, "");
+    //   if (errorMsg.includes("Name, email, and phone are required on your profile before paying online.")) {
+    //     useAuthStore.getState().openRegisterModal(window.location.pathname + window.location.search, errorMsg);
+    //     return;
+    //   }
+    //   if (isPaymentCancelledError(err)) {
+    //     setActionMessage(PAYMENT_CANCELLED_MESSAGE);
+    //   } else {
+    //     setActionMessage(
+    //       getApiErrorMessage(err, "Payment could not be completed. Please try again.")
+    //     );
+    //   }
+    //   await refetch();
+    // } finally {
+    //   setActionOrderId(null);
+    //   setActionType(null);
+    // }
   };
 
   const handleCancelOrder = async (e: React.MouseEvent, orderId: string) => {
@@ -185,6 +190,11 @@ export function OrdersShell() {
   }
 
   return (
+    <>
+    <PaymentComingSoonSheet
+      open={paymentComingSoonOpen}
+      onClose={() => setPaymentComingSoonOpen(false)}
+    />
     <ShopAccountShell>
       <div className="mb-8 flex items-center gap-4">
         <Link
@@ -397,5 +407,6 @@ export function OrdersShell() {
         </div>
       )}
     </ShopAccountShell>
+    </>
   );
 }
